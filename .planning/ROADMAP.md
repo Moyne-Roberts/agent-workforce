@@ -107,12 +107,14 @@ Plans:
 
 ### Phase 04.2: Tool Selection and MCP Servers (INSERTED)
 
-**Goal:** [Urgent work - to be planned]
+**Goal:** Build a tool resolver pipeline stage and unified tool catalog so generated Orq.ai agent specs include accurate, verified tool recommendations with copy-paste-ready configuration
 **Depends on:** Phase 4
-**Plans:** 0 plans
+**Requirements:** TOOL-01, TOOL-02, TOOL-03, TOOL-04
+**Plans:** 2 plans
 
 Plans:
-- [ ] TBD (run /gsd:plan-phase 04.2 to break down)
+- [ ] 04.2-01-PLAN.md — Unified tool catalog reference, TOOLS.md template, and tool resolver subagent prompt
+- [ ] 04.2-02-PLAN.md — Wire tool resolver into orchestrator pipeline, update downstream subagents and SKILL.md
 
 ### Phase 04.1: Introducing a Discussion phase on start if needed (INSERTED)
 
