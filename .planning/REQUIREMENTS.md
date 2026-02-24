@@ -76,8 +76,8 @@ Each agent `.md` must include ALL Orq.ai Agent fields:
 
 - [x] **DIST-01**: Installable as Claude Code slash command `/orq-agent` via GitHub repo
 - [x] **DIST-02**: Simple install process achievable by non-technical employees
-- [ ] **DIST-03**: `/orq-agent:update` command pulls latest version from GitHub
-- [ ] **DIST-04**: Integrates with GSD workflow — callable standalone or from within a GSD phase
+- [x] **DIST-03**: `/orq-agent:update` command pulls latest version from GitHub
+- [x] **DIST-04**: Integrates with GSD workflow — callable standalone or from within a GSD phase
 
 ## v2 Requirements
 
@@ -151,8 +151,8 @@ Deferred to future release. Tracked but not in current roadmap.
 | OUT-04 | Phase 1 | Complete |
 | DIST-01 | Phase 4 | Complete |
 | DIST-02 | Phase 4 | Complete |
-| DIST-03 | Phase 4 | Pending |
-| DIST-04 | Phase 4 | Pending |
+| DIST-03 | Phase 4 | Complete |
+| DIST-04 | Phase 4 | Complete |
 
 **Coverage:**
 - v1 requirements: 40 total
