@@ -8,7 +8,12 @@ Generate complete, copy-paste-ready Orq.ai Agent specifications with orchestrati
 orq-agent/
   SKILL.md                       # This file -- skill index
   agents/
-    architect.md                 # Architect subagent: analyzes use cases, produces blueprints
+    architect.md                 # Phase 1: Architect subagent
+    researcher.md                # Phase 2: Domain researcher subagent
+    spec-generator.md            # Phase 2: Spec generator subagent (includes tool schemas)
+    orchestration-generator.md   # Phase 2: Orchestration generator subagent
+    dataset-generator.md         # Phase 2: Dataset generator subagent
+    readme-generator.md          # Phase 2: README generator subagent
   templates/
     agent-spec.md                # Template: individual agent specification
     orchestration.md             # Template: swarm orchestration document
@@ -47,15 +52,15 @@ Agents/[swarm-name]/
 |-------|------|---------|
 | Architect | `agents/architect.md` | Analyzes use cases, applies complexity gate, produces swarm blueprints |
 
-### Phase 2 (Core Generation) -- Planned
+### Phase 2 (Core Generation)
 
-| Agent | Purpose |
-|-------|---------|
-| Researcher | Gathers domain context for the use case |
-| Spec Generator | Fills agent-spec template from architect blueprint |
-| Orchestration Generator | Creates ORCHESTRATION.md for multi-agent swarms |
-| Tool Schema Generator | Produces JSON Schema for function/HTTP tools |
-| Dataset Generator | Creates test datasets with adversarial cases |
+| Agent | File | Purpose |
+|-------|------|---------|
+| Researcher | `agents/researcher.md` | Investigates domain best practices, produces research briefs with model/prompt/tool/guardrail recommendations |
+| Spec Generator | `agents/spec-generator.md` | Fills agent-spec template with all Orq.ai fields including full system prompts and tool schemas |
+| Orchestration Generator | `agents/orchestration-generator.md` | Creates ORCHESTRATION.md with agent-as-tool assignments, data flow, Mermaid diagrams, error handling |
+| Dataset Generator | `agents/dataset-generator.md` | Produces dual datasets (clean + edge case) with eval pairs and multi-model comparison matrices |
+| README Generator | `agents/readme-generator.md` | Generates per-swarm README with setup instructions for non-technical users |
 
 ## References
 
