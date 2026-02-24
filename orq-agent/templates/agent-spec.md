@@ -14,6 +14,12 @@ Output template for individual Orq.ai agent specifications. The spec generator f
 | `{{MODEL}}` | `model` | references/orqai-model-catalog.md |
 | `{{FALLBACK_MODELS}}` | `fallback_models` | references/orqai-model-catalog.md |
 | `{{INSTRUCTIONS}}` | `instructions` | references/orqai-agent-fields.md |
+| `{{AGENT_ROLE_AND_PURPOSE}}` | Role definition within instructions | Derived from architect blueprint |
+| `{{HEURISTIC_TASK_APPROACH}}` | Heuristic approach to core task (how a skilled human would approach it) | Derived from research brief |
+| `{{BOUNDARIES_WITH_REASONS}}` | Constraints with WHY explanations (security, scope, data only) | Derived from research brief |
+| `{{EXPECTED_RESPONSE_STRUCTURE}}` | Output format the agent should follow | Derived from architect blueprint |
+| `{{CONTEXT_BUDGET_DIRECTIVES}}` | Context management directives (always present) | Standard pattern |
+| `{{CANONICAL_EXAMPLES}}` | 1-2 example interactions in `<example>` tags | Derived from domain research |
 | `{{TOOLS_BUILTIN}}` | `settings.tools` (built-in types) | references/orqai-agent-fields.md |
 | `{{TOOLS_FUNCTION}}` | `settings.tools` (function type) | references/orqai-agent-fields.md |
 | `{{TOOLS_HTTP}}` | `settings.tools` (http type) | references/orqai-agent-fields.md |
@@ -51,9 +57,44 @@ Output template for individual Orq.ai agent specifications. The spec generator f
 
 ## Instructions
 
-{{INSTRUCTIONS}}
+```xml
+<instructions>
+{{AGENT_ROLE_AND_PURPOSE}}
 
-> The instructions field is the full system prompt. Include behavioral guidelines, task handling directives, output format requirements, and any constraints the agent must follow.
+<task_handling>
+{{HEURISTIC_TASK_APPROACH}}
+</task_handling>
+
+<constraints>
+{{BOUNDARIES_WITH_REASONS}}
+</constraints>
+
+<output_format>
+{{EXPECTED_RESPONSE_STRUCTURE}}
+</output_format>
+
+<context_management>
+{{CONTEXT_BUDGET_DIRECTIVES}}
+</context_management>
+
+<examples>
+{{CANONICAL_EXAMPLES}}
+</examples>
+</instructions>
+```
+
+> The instructions field is the full system prompt using XML-tagged structure. Each section serves a specific purpose:
+> - **Role and purpose**: 2-3 sentences establishing identity and authority
+> - **task_handling**: Heuristic approach -- how a skilled human would do this work, not rigid flowcharts
+> - **constraints**: Security, scope, and data boundaries with WHY each matters
+> - **output_format**: Expected response structure
+> - **context_management**: Always present -- directives for managing context window
+> - **examples**: 1-2 canonical examples in `<example>` tags with `<input>` and `<output>` pairs
+>
+> **Conditional sections** (include only when applicable):
+> - `<memory_patterns>` -- Include when Memory Store tools are present. Omit for agents without persistent memory needs.
+> - `<delegation_framework>` -- Include for orchestrator agents only. See ORCHESTRATION.md for delegation details.
+> - `<thinking_recommendation>` -- Advisory section. Orchestrators and complex reasoners: extended thinking recommended. Simple formatters: standard mode sufficient.
 
 ## Tools
 
