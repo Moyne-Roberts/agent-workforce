@@ -52,7 +52,7 @@ Agents/[swarm-name]/
 
 | Command | File | Purpose |
 |---------|------|---------|
-| `/orq-agent` | `commands/orq-agent.md` | Main orchestrator -- accepts use case descriptions, classifies input depth, runs adaptive pipeline, produces complete swarm specs |
+| `/orq-agent` | `commands/orq-agent.md` | Main orchestrator -- accepts use case descriptions, runs structured discussion, enriches input, runs adaptive pipeline, produces complete swarm specs |
 | `/orq-agent:update` | `commands/update.md` | Check for and install updates from GitHub |
 | `/orq-agent:help` | `commands/help.md` | Show available commands, usage examples, and version |
 
@@ -113,8 +113,8 @@ Agents/[swarm-name]/
 - **{{PLACEHOLDER}} format:** Matches Orq.ai native variable syntax for consistency
 - **Self-contained templates:** Each template has its own legend; no cross-template dependencies
 - **Hyphens-only naming:** Agent keys use kebab-case despite regex allowing dots and underscores
-- **Embedded classifier:** Input classification is an LLM analysis step within the orchestrator prompt, not a separate subagent
-- **Only researcher is skippable:** All other stages always run regardless of input detail level
+- **Discussion-first flow:** Every invocation starts with a GSD-style structured discussion that surfaces domain-specific gray areas and enriches user input before the architect runs
+- **Only researcher is skippable:** Researcher skip decision is made internally after discussion enrichment, not as a user-facing checkpoint
 - **Wave-based parallelism:** Researchers parallel, then spec generators parallel, then post-generation parallel
 - **Lean orchestrator:** Passes file paths to subagents rather than loading outputs into orchestrator context
 - **`--gsd` flag is a hint, not a dependency:** Skill works standalone without GSD installed
