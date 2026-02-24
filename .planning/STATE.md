@@ -5,16 +5,16 @@
 See: .planning/PROJECT.md (updated 2026-02-24)
 
 **Core value:** Given any use case description, produce correct, complete, copy-paste-ready Orq.ai Agent specifications with orchestration logic that a non-technical colleague can set up in Orq.ai Studio.
-**Current focus:** Phase 04.2 complete — next: Phase 04.3 (Beste Prompt Strategy)
+**Current focus:** Phase 04.3 in progress -- Beste Prompt Strategy (XML-tagged heuristic-first agent instructions)
 
 ## Current Position
 
-Phase: 04.2 (Tool Selection and MCP Servers) — COMPLETE
-Plan: 2 of 2 — all plans complete, verified
-Status: Phase Complete (verified 2026-02-24)
-Last activity: 2026-02-24 -- Phase 04.2 verification passed (7/7 must-haves)
+Phase: 04.3 (Beste Prompt Strategy)
+Plan: 1 of 3 complete
+Status: Executing
+Last activity: 2026-02-24 -- Completed 04.3-01 (spec generator + template XML upgrade)
 
-Progress: [██████████] 100%
+Progress: [███-------] 33%
 
 ## Performance Metrics
 
@@ -48,6 +48,7 @@ Progress: [██████████] 100%
 | Phase 04.1 P01 | 3min | 2 tasks | 2 files |
 | Phase 04.2 P01 | 3min | 2 tasks | 3 files |
 | Phase 04.2 P02 | 3min | 2 tasks | 4 files |
+| Phase 04.3 P01 | 4min | 2 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -108,6 +109,12 @@ Recent decisions affecting current work:
 - [Phase 04.2-02]: Step 5.5 numbering to avoid disrupting existing step references
 - [Phase 04.2-02]: Tool resolver always runs even when researcher is skipped
 - [Phase 04.2-02]: TOOLS.md is authoritative -- spec generator and researcher defer but add domain-specific detail
+- [Phase 04.3-01]: XML tags for instruction structure: instructions, task_handling, constraints, output_format, examples, context_management as core sections
+- [Phase 04.3-01]: Heuristic-first task handling replaces rigid numbered flowcharts in generated agent instructions
+- [Phase 04.3-01]: Few-shot examples (minimum 2 per agent) are primary edge-case mechanism; rules reserved for security/data/scope
+- [Phase 04.3-01]: Context management section mandatory for every generated agent
+- [Phase 04.3-01]: Self-validation checklist expanded from 12 to 19 checks to cover XML structure, examples, heuristics
+- [Phase 04.3-01]: Thinking recommendation advisory: extended for orchestrators/complex, standard for simple agents
 
 ### Pending Todos
 
@@ -128,5 +135,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-02-24
-Stopped at: Completed 04.2-02-PLAN.md
-Resume file: .planning/phases/04.2-tool-selection-and-mcp-servers/04.2-02-SUMMARY.md
+Stopped at: Completed 04.3-01-PLAN.md
+Resume file: .planning/phases/04.3-beste-prompt-strategy/04.3-01-SUMMARY.md
