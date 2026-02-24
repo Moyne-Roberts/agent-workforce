@@ -22,9 +22,9 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Domain Research
 
-- [ ] **RSRCH-01**: Domain research subagents investigate best practices per agent role when input lacks sufficient detail
-- [ ] **RSRCH-02**: Research covers: optimal model selection, prompt patterns, tool needs, guardrail recommendations, and context requirements
-- [ ] **RSRCH-03**: Research is skipped entirely when user provides detailed input (smart spawning)
+- [x] **RSRCH-01**: Domain research subagents investigate best practices per agent role when input lacks sufficient detail
+- [x] **RSRCH-02**: Research covers: optimal model selection, prompt patterns, tool needs, guardrail recommendations, and context requirements
+- [x] **RSRCH-03**: Research is skipped entirely when user provides detailed input (smart spawning)
 
 ### Agent Spec Generation
 
@@ -45,11 +45,11 @@ Each agent `.md` must include ALL Orq.ai Agent fields:
 
 ### Orchestration
 
-- [ ] **ORCH-01**: `ORCHESTRATION.md` documents the full agent swarm: which agent is the orchestrator, which agents are assigned as tools to it
-- [ ] **ORCH-02**: Orchestration spec includes agent-as-tool assignments — explicitly states which sub-agents are added as tools to which parent agents
-- [ ] **ORCH-03**: Orchestration spec includes data flow — what information passes between agents and in what format
-- [ ] **ORCH-04**: Orchestration spec includes error handling — what happens when a sub-agent fails or times out
-- [ ] **ORCH-05**: Orchestration spec includes human-in-the-loop decision points — where human approval is needed before proceeding
+- [x] **ORCH-01**: `ORCHESTRATION.md` documents the full agent swarm: which agent is the orchestrator, which agents are assigned as tools to it
+- [x] **ORCH-02**: Orchestration spec includes agent-as-tool assignments — explicitly states which sub-agents are added as tools to which parent agents
+- [x] **ORCH-03**: Orchestration spec includes data flow — what information passes between agents and in what format
+- [x] **ORCH-04**: Orchestration spec includes error handling — what happens when a sub-agent fails or times out
+- [x] **ORCH-05**: Orchestration spec includes human-in-the-loop decision points — where human approval is needed before proceeding
 
 ### Tool & Function Schemas
 
@@ -117,9 +117,9 @@ Deferred to future release. Tracked but not in current roadmap.
 | ARCH-02 | Phase 1 | Complete |
 | ARCH-03 | Phase 1 | Complete |
 | ARCH-04 | Phase 1 | Complete |
-| RSRCH-01 | Phase 2 | Pending |
-| RSRCH-02 | Phase 2 | Pending |
-| RSRCH-03 | Phase 2 | Pending |
+| RSRCH-01 | Phase 2 | Complete |
+| RSRCH-02 | Phase 2 | Complete |
+| RSRCH-03 | Phase 2 | Complete |
 | SPEC-01 | Phase 2 | Pending |
 | SPEC-02 | Phase 2 | Pending |
 | SPEC-03 | Phase 2 | Pending |
@@ -132,11 +132,11 @@ Deferred to future release. Tracked but not in current roadmap.
 | SPEC-10 | Phase 1 | Complete |
 | SPEC-11 | Phase 2 | Pending |
 | SPEC-12 | Phase 2 | Pending |
-| ORCH-01 | Phase 2 | Pending |
-| ORCH-02 | Phase 2 | Pending |
-| ORCH-03 | Phase 2 | Pending |
-| ORCH-04 | Phase 2 | Pending |
-| ORCH-05 | Phase 2 | Pending |
+| ORCH-01 | Phase 2 | Complete |
+| ORCH-02 | Phase 2 | Complete |
+| ORCH-03 | Phase 2 | Complete |
+| ORCH-04 | Phase 2 | Complete |
+| ORCH-05 | Phase 2 | Complete |
 | TOOL-01 | Phase 2 | Pending |
 | TOOL-02 | Phase 2 | Pending |
 | TOOL-03 | Phase 2 | Pending |

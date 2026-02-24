@@ -5,23 +5,23 @@
 See: .planning/PROJECT.md (updated 2026-02-24)
 
 **Core value:** Given any use case description, produce correct, complete, copy-paste-ready Orq.ai Agent specifications with orchestration logic that a non-technical colleague can set up in Orq.ai Studio.
-**Current focus:** Phase 1: Foundation
+**Current focus:** Phase 2: Core Generation Pipeline
 
 ## Current Position
 
-Phase: 1 of 4 (Foundation) -- COMPLETE
-Plan: 3 of 3 in current phase
-Status: Phase Complete
-Last activity: 2026-02-24 -- Completed 01-03-PLAN.md
+Phase: 2 of 4 (Core Generation Pipeline)
+Plan: 4 of 5 in current phase
+Status: In Progress
+Last activity: 2026-02-24 -- Completed 02-04-PLAN.md
 
-Progress: [███░░░░░░░] 25%
+Progress: [██████░░░░] 55%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 3
-- Average duration: 3min
-- Total execution time: 0.13 hours
+- Total plans completed: 7
+- Average duration: 2min
+- Total execution time: 0.25 hours
 
 **By Phase:**
 
@@ -34,6 +34,10 @@ Progress: [███░░░░░░░] 25%
 - Trend: stable
 
 *Updated after each plan completion*
+| 02-01 researcher | 2min | 1 tasks | 1 files |
+| 02-02 spec-generator | 2min | 1 tasks | 1 files |
+| 02-03 orchestration-generator | 2min | 1 tasks | 1 files |
+| Phase 02 P04 | 3min | 1 tasks | 1 files |
 
 ## Accumulated Context
 
@@ -54,6 +58,15 @@ Recent decisions affecting current work:
 - 01-03: Three few-shot examples (simple/moderate/complex) as primary calibration mechanism for architect
 - 01-03: Anti-patterns section in architect prompt to prevent over-engineering at decision time
 - 01-03: SKILL.md as lightweight index (84 lines) with Phase 2 subagent placeholders
+- 02-03: Mermaid diagram rules embedded directly in subagent prompt for reliable rendering
+- 02-03: Error handling categorized by agent role criticality (critical/support/classification/generation)
+- 02-03: HITL identification via 6 trigger categories (high-value, sensitive data, scope-exceeding, low-confidence, external writes, irreversible)
+- 02-03: Single-agent swarms get simplified ORCHESTRATION.md with N/A sections
+- [Phase 02-01]: One researcher for entire swarm with per-agent sections (not one per agent)
+- [Phase 02-01]: Confidence scoring (HIGH/MEDIUM/LOW) based on web search result quality
+- [Phase 02-01]: Researcher always runs -- skip logic deferred to Phase 3 orchestrator per RSRCH-03
+- [Phase 02-04]: All 9 OWASP attack vectors mapped as mandatory categories for edge case datasets
+- [Phase 02-04]: Self-validation checklist built into subagent prompt to enforce quality gates
 
 ### Pending Todos
 
@@ -68,5 +81,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-02-24
-Stopped at: Completed 01-03-PLAN.md (Architect subagent) -- Phase 1 complete
+Stopped at: Completed 02-04-PLAN.md (Dataset generator subagent)
 Resume file: None
