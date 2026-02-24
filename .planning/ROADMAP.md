@@ -99,12 +99,15 @@ Phases execute in numeric order: 1 → 2 → 3 → 4
 
 ### Phase 04.3: Beste Prompt Strategy (INSERTED)
 
-**Goal:** [Urgent work - to be planned]
+**Goal:** Upgrade all generation subagents to produce XML-tagged, heuristic-first agent instructions with Anthropic context engineering patterns (delegation frameworks, context budget awareness, Memory Store integration, few-shot examples as primary calibration)
 **Depends on:** Phase 4
-**Plans:** 3/3 plans complete
+**Requirements:** SPEC-02, SPEC-05, SPEC-06, SPEC-12, ORCH-01, ORCH-02, RSRCH-02, TOOL-01, TOOL-02
+**Plans:** 3 plans
 
 Plans:
-- [ ] TBD (run /gsd:plan-phase 04.3 to break down)
+- [ ] 04.3-01-PLAN.md — Spec generator and agent-spec template: XML-tagged instructions, heuristic-first, context management, few-shot examples
+- [ ] 04.3-02-PLAN.md — Orchestration generator, researcher, and orchestration template: delegation frameworks, effort scaling, tool overlap detection, context management recommendations
+- [ ] 04.3-03-PLAN.md — Orchestrator prompt and secondary subagents (architect, dataset-gen, readme-gen): XML tags, heuristic guidelines, consistent patterns
 
 ### Phase 04.2: Tool Selection and MCP Servers (INSERTED)
 
