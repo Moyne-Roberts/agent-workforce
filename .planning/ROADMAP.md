@@ -94,3 +94,26 @@ Phases execute in numeric order: 1 → 2 → 3 → 4
 | 2. Core Generation Pipeline | 0/3 | Not started | - |
 | 3. Orchestrator and Adaptive Pipeline | 2/2 | Complete   | 2026-02-24 |
 | 4. Distribution | 0/1 | Not started | - |
+
+### Phase 04.2: Tool Selection and MCP Servers (INSERTED)
+
+**Goal:** [Urgent work - to be planned]
+**Depends on:** Phase 4
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /gsd:plan-phase 04.2 to break down)
+
+### Phase 04.1: Introducing a Discussion phase on start if needed (INSERTED)
+
+**Goal:** Replace the classify-then-confirm flow with a GSD-style structured discussion that always runs, surfaces domain-specific gray areas, and enriches user input before the architect runs
+**Depends on:** Phase 3
+**Requirements:** INPT-01, INPT-02, INPT-03
+**Success Criteria** (what must be TRUE):
+  1. Every `/orq-agent` invocation presents a structured discussion step with domain-specific gray areas before the architect runs
+  2. Discussion adapts naturally to input detail level -- brief inputs produce longer discussions, detailed inputs produce shorter ones
+  3. Researcher skip classification still functions internally after discussion enrichment without user-facing checkpoint
+**Plans:** 1 plan
+
+Plans:
+- [ ] 04.1-01-PLAN.md — Replace Steps 2-3 with discussion step, renumber flow, update SKILL.md
