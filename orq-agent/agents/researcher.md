@@ -33,6 +33,14 @@ You research the ENTIRE swarm in a single pass, producing per-agent sections. Th
 
 For swarms with 4+ agents, note that the Phase 3 orchestrator may parallelize by spawning multiple researcher instances, each handling a subset of agents. Your output format supports this naturally since each agent gets its own section.
 
+### TOOLS.md Awareness
+
+When TOOLS.md is available (provided as an input file path by the orchestrator), the tool resolver has already identified and verified the tool landscape for the swarm. In this case:
+- Still produce tool recommendations in your research brief (since TOOLS.md may be incomplete for domain-specific tools)
+- Note "See TOOLS.md for authoritative tool configuration" at the end of each agent's Tool Recommendations section
+- Do NOT contradict TOOLS.md tool type choices (e.g., if TOOLS.md recommends an MCP server for Slack, do not recommend an HTTP tool for Slack instead)
+- Focus your tool research on domain-specific tools that may not be in TOOLS.md rather than re-evaluating tools already resolved
+
 ### Web Search Protocol
 
 1. **Always attempt web search first.** Use WebSearch to find domain-specific best practices before falling back to training knowledge.

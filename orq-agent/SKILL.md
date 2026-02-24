@@ -11,6 +11,7 @@ orq-agent/
     orq-agent.md                 # Phase 3: Orchestrator slash command
   agents/
     architect.md                 # Phase 1: Architect subagent
+    tool-resolver.md             # Phase 4.2: Tool resolver subagent
     researcher.md                # Phase 2: Domain researcher subagent
     spec-generator.md            # Phase 2: Spec generator subagent (includes tool schemas)
     orchestration-generator.md   # Phase 2: Orchestration generator subagent
@@ -21,11 +22,13 @@ orq-agent/
     orchestration.md             # Template: swarm orchestration document
     dataset.md                   # Template: test dataset with adversarial cases
     readme.md                    # Template: swarm README for non-technical users
+    tools.md                     # Template: tool landscape and per-agent assignments
   references/
     orqai-agent-fields.md        # Orq.ai v2 API field reference (18 fields, 15 tool types)
     orqai-model-catalog.md       # Model catalog by use case (14 providers, 12 models)
     orchestration-patterns.md    # Three orchestration patterns with complexity gate
     naming-conventions.md        # Agent key naming rules with regex validation
+    tool-catalog.md              # Unified tool catalog (built-in + MCP + HTTP/function patterns)
 ```
 
 ## Output Directory Convention
@@ -34,6 +37,7 @@ Generated swarms are written to the following structure:
 
 ```
 Agents/[swarm-name]/
+  TOOLS.md                       # Tool landscape and per-agent assignments (always generated)
   ORCHESTRATION.md               # Swarm orchestration document (multi-agent only)
   agents/
     [agent-name].md              # Per-agent specification
@@ -52,7 +56,7 @@ Agents/[swarm-name]/
 
 | Command | File | Purpose |
 |---------|------|---------|
-| `/orq-agent` | `commands/orq-agent.md` | Main orchestrator -- accepts use case descriptions, runs structured discussion, enriches input, runs adaptive pipeline, produces complete swarm specs |
+| `/orq-agent` | `commands/orq-agent.md` | Main orchestrator -- accepts use case descriptions, runs structured discussion, enriches input, runs adaptive pipeline (Architect -> Tool Resolver -> Researcher -> Spec Generator -> Post-Generation), produces complete swarm specs |
 | `/orq-agent:update` | `commands/update.md` | Check for and install updates from GitHub |
 | `/orq-agent:help` | `commands/help.md` | Show available commands, usage examples, and version |
 
@@ -80,6 +84,12 @@ Agents/[swarm-name]/
 | Dataset Generator | `agents/dataset-generator.md` | Produces dual datasets (clean + edge case) with eval pairs and multi-model comparison matrices |
 | README Generator | `agents/readme-generator.md` | Generates per-swarm README with setup instructions for non-technical users |
 
+### Phase 4.2 (Tool Resolution)
+
+| Agent | File | Purpose |
+|-------|------|---------|
+| Tool Resolver | `agents/tool-resolver.md` | Resolves tool needs per agent by consulting curated catalog and web search, produces TOOLS.md with verified Orq.ai-native configs |
+
 ## References
 
 | File | Purpose |
@@ -88,6 +98,7 @@ Agents/[swarm-name]/
 | `orqai-model-catalog.md` | 14 providers with format patterns, 12 curated models across 5 use cases |
 | `orchestration-patterns.md` | Single, sequential, and parallel patterns with selection criteria and complexity gate |
 | `naming-conventions.md` | `[domain]-[role]-agent` convention, regex validation, 12 valid and 7 invalid examples |
+| `tool-catalog.md` | Unified catalog: built-in tools, 21 MCP servers, HTTP/function patterns with resolution priority chain |
 
 ## Templates
 
@@ -97,6 +108,7 @@ Agents/[swarm-name]/
 | `orchestration.md` | Template for swarm orchestration docs with setup steps and data flow |
 | `dataset.md` | Template for test datasets requiring 30% adversarial cases minimum |
 | `readme.md` | Template for swarm READMEs with non-technical setup instructions |
+| `tools.md` | Template for TOOLS.md output with capability-first organization and per-agent config JSON |
 
 ## Distribution
 
@@ -120,3 +132,6 @@ Agents/[swarm-name]/
 - **`--gsd` flag is a hint, not a dependency:** Skill works standalone without GSD installed
 - **Install to skills directory:** `~/.claude/skills/orq-agent/` for multi-file support without plugin namespace overhead
 - **Clean install every time:** No preservation of user customizations; always overwrite from GitHub
+- **MCP-first tool resolution:** Tool resolver prefers MCP servers for external integrations, verified via web search before recommending
+- **Tool resolver always runs:** Even when researcher is skipped, tools still need resolution from the architect blueprint
+- **TOOLS.md is authoritative:** Spec generator and researcher defer to TOOLS.md for tool selection; both add domain-specific detail but do not override
