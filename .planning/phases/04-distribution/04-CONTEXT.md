@@ -15,7 +15,7 @@ Package the Orq Agent Designer as an installable Claude Code plugin (`/orq-agent
 
 ### Install experience
 - curl one-liner install: `curl https://...install.sh | bash`
-- Installs to `~/.claude/commands/` so `/orq-agent` is available as a native Claude Code slash command
+- Installs to `~/.claude/skills/orq-agent/` (multi-file skill directory, confirmed over original ~/.claude/commands/ after research)
 - Script checks prerequisites (Node.js, Claude Code) and shows clear error messages if missing
 - Post-install shows quick-start guide with 2-3 example commands the user can try immediately
 
