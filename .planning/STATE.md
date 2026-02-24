@@ -5,21 +5,21 @@
 See: .planning/PROJECT.md (updated 2026-02-24)
 
 **Core value:** Given any use case description, produce correct, complete, copy-paste-ready Orq.ai Agent specifications with orchestration logic that a non-technical colleague can set up in Orq.ai Studio.
-**Current focus:** Phase 3: Orchestrator and Adaptive Pipeline
+**Current focus:** Phase 4: Distribution
 
 ## Current Position
 
-Phase: 3 of 4 (Orchestrator and Adaptive Pipeline)
-Plan: 2 of 2 in current phase
-Status: In Progress
-Last activity: 2026-02-24 -- Completed 03-01-PLAN.md
+Phase: 4 of 4 (Distribution)
+Plan: 1 of 1 in current phase
+Status: Not Started
+Last activity: 2026-02-24 -- Completed 03-02-PLAN.md
 
-Progress: [████████░░] 75%
+Progress: [█████████░] 90%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 8
+- Total plans completed: 10
 - Average duration: 2min
 - Total execution time: 0.25 hours
 
@@ -41,6 +41,7 @@ Progress: [████████░░] 75%
 | Phase 02 P02 | 3min | 1 tasks | 1 files |
 | Phase 02 P05 | 2min | 2 tasks | 2 files |
 | Phase 03 P01 | 2min | 2 tasks | 1 files |
+| Phase 03 P02 | 3min | 3 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -80,6 +81,10 @@ Recent decisions affecting current work:
 - [Phase 03-01]: Only researcher stage is ever skippable -- all other stages always run regardless of input detail
 - [Phase 03-01]: Blueprint written to output directory for downstream subagent file path consumption (lean orchestrator)
 - [Phase 03-01]: Auto-versioning uses [swarm-name]-vN pattern for existing output directories
+- [Phase 03-02]: Wave-based parallelism: Wave 1 research, Wave 2 spec generation, Wave 3 post-generation
+- [Phase 03-02]: Researcher scaling: 1-3 agents single invocation, 4+ agents parallel instances
+- [Phase 03-02]: Lean orchestrator passes file paths to subagents, never loads outputs into context
+- [Phase 03-02]: Graceful degradation: failed subagent marked incomplete, pipeline continues, failures reported at end
 
 ### Pending Todos
 
@@ -94,5 +99,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-02-24
-Stopped at: Completed 03-01-PLAN.md (Orchestrator command with input handling, classification, and architect stage)
+Stopped at: Completed 03-02-PLAN.md (Generation pipeline waves, output assembly, metadata, and SKILL.md update)
 Resume file: None
