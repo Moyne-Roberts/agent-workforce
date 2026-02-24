@@ -21,6 +21,10 @@ Your job:
 - Describe data flow between agents with both ASCII and Mermaid flowchart diagrams
 - Produce per-agent error handling tables (failure, timeout, retry behavior)
 - Identify human-in-the-loop decision points where human approval is needed
+- Generate a delegation framework with effort scaling for orchestrator agents
+- Embed collaborative scope awareness (each agent knows its scope AND neighbors' responsibilities)
+- Perform cross-swarm tool overlap detection across all generated agent specs
+- Enforce self-contained tool descriptions across the swarm
 - Generate Orq.ai Studio setup steps
 
 You receive:
@@ -75,6 +79,70 @@ Format:
 - The parent agent must have `retrieve_agents` and `call_sub_agent` in its tools
 - The parent agent must list all sub-agent keys in `team_of_agents`
 - For single-agent swarms: **omit this entire section**
+
+### Delegation Framework
+
+Generate a `<delegation_framework>` section to be embedded in the orchestrator agent's instructions. This section tells the orchestrator HOW to decompose and delegate work to its sub-agents.
+
+**The delegation framework must include:**
+
+1. **Named sub-agent list with delegation triggers:** For each sub-agent, state its role and the conditions under which the orchestrator should call it. Example:
+   ```
+   - [agent-a]: [role] -- call when [specific condition]
+   - [agent-b]: [role] -- call when [specific condition]
+   ```
+
+2. **Task decomposition heuristic:** The orchestrator should assess complexity first, then decide whether to handle directly or delegate:
+   - Simple (single-domain, factual): handle directly
+   - Multi-faceted: decompose into sub-tasks with clear boundaries
+   - Each sub-agent invocation specifies objective, expected output format, and task boundaries (not vague "research X")
+
+3. **Synthesis directive:** After receiving sub-agent results, the orchestrator must synthesize a coherent response -- never concatenate raw outputs.
+
+4. **Effort scaling guidelines:** Embed within the delegation framework using `<effort_scaling>` tags:
+
+```xml
+<effort_scaling>
+- Simple queries (single-domain, factual): Handle directly with 3-10 tool calls
+- Moderate queries (comparison, multi-source): Delegate to 2-4 agents with clear domain division
+- Complex queries (open-ended, creative): Delegate to multiple agents with distinct responsibilities
+</effort_scaling>
+```
+
+**Per-delegation specification requirements:** Every delegation instruction must specify:
+- **Objective:** What the sub-agent should find or produce (specific, not vague)
+- **Output format:** How the sub-agent should structure its response (structured data preferred over prose)
+- **Task boundaries:** What is in scope and what is NOT in scope for this sub-agent
+
+**Rules:**
+- Only generate delegation frameworks for multi-agent swarms with an orchestrator
+- For single-agent swarms: **omit this section**
+- For sequential patterns without an orchestrator: **omit this section** (agents are wired in a pipeline, not delegated)
+
+### Collaborative Scope Awareness
+
+The generated ORCHESTRATION.md must specify collaborative scope awareness -- each agent in the swarm knows not only its own scope but also the responsibilities of neighboring agents. This is critical because Anthropic found collaborative framework prompts outperform individual-behavior-only prompts.
+
+**For the orchestrator agent's instructions, include:**
+- The full agent map: all agents, their roles, and their boundaries
+- When to use each agent (delegation triggers from the delegation framework)
+
+**For each worker agent's instructions, flag for the spec generator to include:**
+- The worker's own scope and responsibility
+- What neighboring agents handle (so the worker can redirect or defer out-of-scope requests)
+- Example: "You handle knowledge base queries. Account modifications are handled by [account-agent]. If a customer asks to change their subscription, redirect them."
+
+**Format this as a note in the ORCHESTRATION.md:**
+```
+### Scope Awareness Notes
+
+**For spec generator:** Each agent's instructions should include awareness of neighboring agents' responsibilities:
+- [agent-a] should know that [agent-b] handles [responsibility] and [agent-c] handles [responsibility]
+- [agent-b] should know that [agent-a] handles [responsibility]
+```
+
+**Rules:**
+- For single-agent swarms: **omit this section**
 
 ### Data Flow (ORCH-03)
 
@@ -201,6 +269,44 @@ Generate numbered configuration steps for Orq.ai Studio. Follow this structure:
 5. **Test the full swarm** end-to-end
 6. **Verify error handling** with invalid inputs
 
+## Tool Overlap Detection (Cross-Validation)
+
+After reading all generated agent spec files, perform a cross-validation of tool assignments across the entire swarm. This is the second stage of tool overlap detection (the first stage happens during individual spec generation).
+
+### Process
+
+1. **Collect tool lists:** For each agent in the swarm, extract the complete list of configured tools from its spec file.
+
+2. **Compare across agents:** Identify any tools that appear in multiple agents with identical or overlapping functionality. Consider:
+   - Same tool type used by multiple agents (e.g., two agents both have `query_knowledge_base` pointing to the same knowledge base)
+   - Function tools with overlapping purposes (e.g., two agents both have a custom function for "customer lookup")
+   - MCP server tools with redundant capabilities across agents
+
+3. **Flag overlaps:** For each overlap found, document:
+   - Which agents share the tool
+   - Whether the overlap is intentional (orchestrator + worker both need `current_date`) or unintentional (two workers duplicating research capability)
+   - Recommended resolution: remove from one agent, clarify distinct purposes in tool descriptions, or confirm intentional sharing
+
+4. **Report in ORCHESTRATION.md:** Add a "Tool Overlap Validation" section:
+   - If overlaps found: list them with resolution recommendations
+   - If no overlaps: state "No tool overlaps detected across the swarm. Each agent's tool set is distinct and purpose-specific."
+
+### Self-Contained Tool Description Enforcement
+
+While performing tool overlap detection, also validate that all tool descriptions across the swarm are self-contained:
+
+- **No cross-references:** Tool descriptions must not reference other tools (e.g., "use this after calling Y" is not acceptable)
+- **Minimal viable parameter set:** Each tool should have only the parameters it needs, no more
+- **Clear single-purpose description:** Each tool description explains its complete purpose independently
+- If a human could not pick the right tool from the description alone, the description needs improvement
+
+Flag any tool descriptions that violate these principles and recommend specific improvements.
+
+**Rules:**
+- Always perform this cross-validation for multi-agent swarms (2+ agents)
+- For single-agent swarms: **omit this section**
+- This cross-validation runs AFTER all agent specs have been generated -- the orchestration generator already reads all specs, making it the natural place for this check
+
 ## Single-Agent Swarm Handling
 
 For single-agent swarms, produce a SIMPLIFIED ORCHESTRATION.md:
@@ -261,6 +367,38 @@ This example shows a COMPLETE orchestration document for a 2-agent customer supp
 - Tools: add `{ "type": "retrieve_agents" }` and `{ "type": "call_sub_agent" }`
 - Field: set `team_of_agents: ["customer-support-resolver-agent"]`
 
+## Delegation Framework
+
+```xml
+<delegation_framework>
+You coordinate 1 specialized agent: the customer-support-resolver-agent.
+
+When a support ticket arrives:
+1. Classify the ticket by urgency (low, medium, high, critical)
+2. Assess whether you can resolve it directly:
+   - Simple status inquiries or FAQ-level questions: handle directly if you have the information
+   - Questions requiring knowledge base lookup: delegate to customer-support-resolver-agent
+   - High-urgency or complex issues: escalate to human support
+3. When delegating to the resolver, specify:
+   - Objective: "Answer this customer question using the company knowledge base"
+   - Output format: "Structured response with greeting, answer with policy reference, and next steps"
+   - Boundaries: "Do not process account modifications, refunds, or subscription changes"
+4. After receiving the resolver's response, review for completeness and format the final response to the customer -- do not forward raw sub-agent output.
+
+<effort_scaling>
+- Simple queries (status check, FAQ): Handle directly with 1-3 tool calls
+- Moderate queries (policy questions, product comparisons): Delegate to resolver with clear question framing
+- Complex queries (multi-issue tickets, complaints with escalation needs): Delegate knowledge lookup to resolver, handle escalation logic yourself
+</effort_scaling>
+</delegation_framework>
+```
+
+### Scope Awareness Notes
+
+**For spec generator:** Each agent's instructions should include awareness of neighboring agents' responsibilities:
+- `customer-support-resolver-agent` should know that the triage agent handles urgency classification and escalation decisions -- the resolver focuses only on answering questions using the knowledge base
+- `customer-support-triage-agent` should know that the resolver handles knowledge-base-powered question answering -- the triage agent handles classification, routing, and escalation
+
 ## Data Flow
 
 The triage agent receives customer support tickets as input. It classifies each ticket by urgency (low, medium, high, critical). For low and medium urgency tickets with answerable questions, it delegates to the resolver agent via `call_sub_agent`. The resolver queries the company knowledge base and returns a detailed response. The triage agent formats the final response or, for high/critical tickets, produces an escalation notice for human support staff.
@@ -319,6 +457,21 @@ flowchart TD
 5. **Test the full swarm** -- send end-to-end support tickets through the triage agent and verify delegation to resolver
 6. **Verify error handling** -- send invalid inputs, simulate resolver timeout, verify escalation behavior
 
+## Tool Overlap Validation
+
+| Shared Tool | Agents | Intentional? | Resolution |
+|-------------|--------|-------------|------------|
+| `current_date` | `customer-support-triage-agent` | Single agent only | No overlap -- only the triage agent uses this tool |
+
+**Self-contained tool description check:**
+- `retrieve_agents`: OK -- self-contained, describes discovering available sub-agents
+- `call_sub_agent`: OK -- self-contained, describes invoking a sub-agent for task delegation
+- `retrieve_knowledge_bases`: OK -- self-contained, describes discovering knowledge sources
+- `query_knowledge_base`: OK -- self-contained, describes searching knowledge base content
+- `current_date`: OK -- self-contained, describes getting the current date
+
+No tool overlaps detected across the swarm. Each agent's tool set is distinct and purpose-specific.
+
 ---
 
 ## Anti-Patterns to Avoid
@@ -345,3 +498,8 @@ Before producing your final ORCHESTRATION.md, verify ALL of the following:
 - [ ] No `{{PLACEHOLDER}}` text remains in the output
 - [ ] Single-agent swarms have simplified output (overview + agents table only)
 - [ ] All tool type references are valid Orq.ai types from the agent fields reference
+- [ ] Delegation framework includes per-sub-agent objective, output format, and task boundaries
+- [ ] Effort scaling guidelines are embedded within the delegation framework
+- [ ] Collaborative scope awareness notes are included for spec generator consumption
+- [ ] Tool overlap cross-validation has been performed across all agent specs
+- [ ] All tool descriptions are self-contained (no cross-references between tools)
