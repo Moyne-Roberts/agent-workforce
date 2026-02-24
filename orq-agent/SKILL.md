@@ -7,6 +7,8 @@ Generate complete, copy-paste-ready Orq.ai Agent specifications with orchestrati
 ```
 orq-agent/
   SKILL.md                       # This file -- skill index
+  commands/
+    orq-agent.md                 # Phase 3: Orchestrator slash command
   agents/
     architect.md                 # Phase 1: Architect subagent
     researcher.md                # Phase 2: Domain researcher subagent
@@ -43,6 +45,18 @@ Agents/[swarm-name]/
 - `[swarm-name]` matches the domain portion of agent keys (e.g., `customer-support`)
 - Single-agent swarms still use this structure (ORCHESTRATION.md is omitted)
 - All files are markdown -- no runtime code, no dependencies
+
+## Commands
+
+### Phase 3 (Orchestrator)
+
+| Command | File | Purpose |
+|---------|------|---------|
+| `/orq-agent` | `commands/orq-agent.md` | Main orchestrator -- accepts use case descriptions, classifies input depth, runs adaptive pipeline, produces complete swarm specs |
+
+**Invocation modes:**
+- Inline: `/orq-agent "Build a customer support triage system"`
+- Interactive: `/orq-agent` (prompts for input)
 
 ## Subagents
 
@@ -87,3 +101,7 @@ Agents/[swarm-name]/
 - **{{PLACEHOLDER}} format:** Matches Orq.ai native variable syntax for consistency
 - **Self-contained templates:** Each template has its own legend; no cross-template dependencies
 - **Hyphens-only naming:** Agent keys use kebab-case despite regex allowing dots and underscores
+- **Embedded classifier:** Input classification is an LLM analysis step within the orchestrator prompt, not a separate subagent
+- **Only researcher is skippable:** All other stages always run regardless of input detail level
+- **Wave-based parallelism:** Researchers parallel, then spec generators parallel, then post-generation parallel
+- **Lean orchestrator:** Passes file paths to subagents rather than loading outputs into orchestrator context
