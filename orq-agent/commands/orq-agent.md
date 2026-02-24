@@ -183,6 +183,7 @@ For the **Researcher** stage, evaluate whether the enriched input explicitly pro
 | Stage | Decision | Rule |
 |-------|----------|------|
 | Architect | RUN | Always runs -- determines swarm topology regardless of input detail |
+| Tool Resolver | RUN | Always runs -- resolves tool needs from blueprint regardless of input detail |
 | Researcher | RUN or SKIP | SKIP only when enriched input explicitly provides agent configuration details (all 5 dimensions above for every agent) |
 | Spec Generator | RUN | Always runs -- transforms blueprint + research into complete specs |
 | Orchestration Generator | TBD | RUN if multi-agent pattern (determined after architect), N/A if single-agent |
@@ -302,6 +303,39 @@ Display the output directory confirmation:
 
 ---
 
+## Step 5.5: Run Tool Resolver
+
+Display the tool resolver banner:
+
+```
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ ORQ > TOOL RESOLVER
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+```
+
+The tool resolver ALWAYS runs (never skipped) -- even when the researcher is skipped, tools still need resolution.
+
+Spawn the tool resolver subagent using the Task tool:
+- **Agent file:** `@orq-agent/agents/tool-resolver.md`
+- **Input:** Pass the blueprint file path (`{OUTPUT_DIR}/[swarm-name]/blueprint.md`) and the original user input
+- **Files to read:** The tool resolver loads its own references via `<files_to_read>` -- do NOT load them in the orchestrator
+
+The tool resolver writes: `{OUTPUT_DIR}/[swarm-name]/TOOLS.md`
+
+On completion, display:
+```
+✓ Tool resolution complete: [summary of tool types found]
+```
+
+**Error handling:** If the tool resolver fails:
+- Write marker file: `{OUTPUT_DIR}/[swarm-name]/TOOLS.md.incomplete` with error details
+- Log failure in failures list
+- Continue to Wave 1 -- downstream stages will still function without TOOLS.md but tool recommendations will be less accurate
+
+Store the TOOLS.md path for use in Wave 1 (researcher) and Wave 2 (spec generator).
+
+---
+
 ## Step 5: Execute Generation Pipeline
 
 Execute the generation pipeline in three waves. Track timing for each wave and each subagent invocation. Collect all failures for reporting in Step 6.
@@ -309,7 +343,7 @@ Execute the generation pipeline in three waves. Track timing for each wave and e
 Initialize a pipeline tracker:
 - `pipeline_started_at`: current UTC timestamp
 - `failures`: empty list
-- `stages_completed`: empty list
+- `stages_completed`: empty list (include `tool_resolver` from Step 5.5 if it ran)
 - `agents_generated`: empty list (one entry per agent with key + status)
 
 ### Wave 1: Research (if not skipped)
@@ -347,7 +381,10 @@ Extract the list of agent keys from the architect blueprint.
 
   Use the Task tool to spawn a single researcher:
   - **Agent file:** `@orq-agent/agents/researcher.md`
-  - **Input:** Pass the blueprint file path (`{OUTPUT_DIR}/[swarm-name]/blueprint.md`) and the original user input
+  - **Input:** Pass the following:
+    1. Blueprint: `{OUTPUT_DIR}/[swarm-name]/blueprint.md`
+    2. Original user input
+    3. TOOLS.md: `{OUTPUT_DIR}/[swarm-name]/TOOLS.md` (or note "Tool resolution unavailable" if Step 5.5 failed)
   - The researcher reads its own reference files via `<files_to_read>` -- do NOT load them in the orchestrator
 
   On completion, the researcher writes a research brief file. Store the research brief path for Wave 2 (e.g., `{OUTPUT_DIR}/[swarm-name]/research-brief.md`).
@@ -360,7 +397,7 @@ Extract the list of agent keys from the architect blueprint.
     → [agent-key-4], [agent-key-5], [agent-key-6]
   ```
 
-  Use the Task tool to spawn multiple researchers in parallel. Each receives the blueprint path and a subset of agent keys to research. Each produces a research brief file (e.g., `research-brief-1.md`, `research-brief-2.md`).
+  Use the Task tool to spawn multiple researchers in parallel. Each receives the blueprint path, TOOLS.md path (or note "Tool resolution unavailable" if Step 5.5 failed), and a subset of agent keys to research. Each produces a research brief file (e.g., `research-brief-1.md`, `research-brief-2.md`).
 
 **Error handling for Wave 1:**
 If a researcher invocation fails or times out:
@@ -394,10 +431,11 @@ Spawn ONE spec generator per agent, all in parallel using the Task tool.
 
 For each agent, invoke a spec generator:
 - **Agent file:** `@orq-agent/agents/spec-generator.md`
-- **Input:** Pass three file paths:
+- **Input:** Pass four file paths:
   1. Architect blueprint: `{OUTPUT_DIR}/[swarm-name]/blueprint.md`
   2. Research brief: `{OUTPUT_DIR}/[swarm-name]/research-brief.md` (or note "Research was skipped -- generate specs from blueprint and user input only" if Wave 1 was skipped; or note "Research unavailable for this agent due to researcher failure" if that agent's researcher failed)
-  3. The specific agent key to generate
+  3. TOOLS.md: `{OUTPUT_DIR}/[swarm-name]/TOOLS.md` (or note "Tool resolution unavailable" if Step 5.5 failed)
+  4. The specific agent key to generate
 - The spec generator reads its own reference files and templates via `<files_to_read>` -- do NOT load them in the orchestrator
 
 Each spec generator writes its output to: `{OUTPUT_DIR}/[swarm-name]/agents/[agent-key].md`
@@ -495,6 +533,7 @@ Display the output directory tree using Bash `find` or construct an ASCII tree:
 ```
 {OUTPUT_DIR}/[swarm-name]/
   ├── blueprint.md
+  ├── TOOLS.md
   ├── research-brief.md (if research ran)
   ├── ORCHESTRATION.md (if multi-agent)
   ├── agents/
@@ -595,6 +634,7 @@ Write `pipeline-run.json` to the output directory root using the Write tool:
     },
     "stages": {
       "architect": { "decision": "run", "reason": "Always runs" },
+      "tool_resolver": { "decision": "run", "reason": "Always runs to resolve tool needs" },
       "researcher": { "decision": "[run | skip]", "reason": "[from Step 2.5 internal classification]" },
       "spec_generator": { "decision": "run", "reason": "Always runs" },
       "orchestration_generator": { "decision": "[run | skip | n/a]", "reason": "[from Step 4 post-blueprint update]" },
@@ -608,6 +648,7 @@ Write `pipeline-run.json` to the output directory root using the Write tool:
   ],
   "stages_completed": [
     { "stage": "architect", "duration_seconds": "[elapsed]", "status": "success" },
+    { "stage": "tool_resolver", "duration_seconds": "[elapsed]", "status": "[success | failed]" },
     { "stage": "researcher", "duration_seconds": "[elapsed]", "agents": "[count]", "status": "[success | partial | skipped]" },
     { "stage": "spec_generator", "duration_seconds": "[elapsed]", "agents": "[count]", "status": "[success | partial]" },
     { "stage": "orchestration_generator", "duration_seconds": "[elapsed]", "status": "[success | skipped | n/a]" },
