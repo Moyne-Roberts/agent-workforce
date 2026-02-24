@@ -5,16 +5,16 @@
 See: .planning/PROJECT.md (updated 2026-02-24)
 
 **Core value:** Given any use case description, produce correct, complete, copy-paste-ready Orq.ai Agent specifications with orchestration logic that a non-technical colleague can set up in Orq.ai Studio.
-**Current focus:** Phase 2: Core Generation Pipeline
+**Current focus:** Phase 3: Orchestrator and Adaptive Pipeline
 
 ## Current Position
 
-Phase: 2 of 4 (Core Generation Pipeline)
-Plan: 5 of 5 in current phase
-Status: Phase Complete
-Last activity: 2026-02-24 -- Completed 02-05-PLAN.md
+Phase: 3 of 4 (Orchestrator and Adaptive Pipeline)
+Plan: 2 of 2 in current phase
+Status: In Progress
+Last activity: 2026-02-24 -- Completed 03-01-PLAN.md
 
-Progress: [███████░░░] 65%
+Progress: [████████░░] 75%
 
 ## Performance Metrics
 
@@ -40,6 +40,7 @@ Progress: [███████░░░] 65%
 | Phase 02 P04 | 3min | 1 tasks | 1 files |
 | Phase 02 P02 | 3min | 1 tasks | 1 files |
 | Phase 02 P05 | 2min | 2 tasks | 2 files |
+| Phase 03 P01 | 2min | 2 tasks | 1 files |
 
 ## Accumulated Context
 
@@ -75,6 +76,10 @@ Recent decisions affecting current work:
 - [Phase 02]: Deep vs shallow instructions comparison embedded in spec generator prompt to calibrate output quality (500+ words with all subsections required)
 - [Phase 02]: Tool schema generation merged into spec generator (not separate subagent) -- schemas are one section of agent-spec template
 - [Phase 02]: Self-validation checklist (12 checks) embedded in spec generator prompt rather than separate validation subagent
+- [Phase 03-01]: Embedded classifier in orchestrator prompt (not separate subagent) -- simpler, less overhead
+- [Phase 03-01]: Only researcher stage is ever skippable -- all other stages always run regardless of input detail
+- [Phase 03-01]: Blueprint written to output directory for downstream subagent file path consumption (lean orchestrator)
+- [Phase 03-01]: Auto-versioning uses [swarm-name]-vN pattern for existing output directories
 
 ### Pending Todos
 
@@ -83,11 +88,11 @@ None yet.
 ### Blockers/Concerns
 
 - Phase 2 may need `/gsd:research-phase` for prompt quality gate criteria and A2A Protocol orchestration spec format (flagged by research)
-- Phase 3 needs concrete heuristic for input detail classification (not yet defined)
+- Phase 3 input classification implemented: LLM-based per-stage evaluation, only researcher skippable
 - Phase 4 requires testing on non-developer machines before release
 
 ## Session Continuity
 
 Last session: 2026-02-24
-Stopped at: Completed 02-05-PLAN.md (README generator and SKILL.md update -- Phase 2 complete)
+Stopped at: Completed 03-01-PLAN.md (Orchestrator command with input handling, classification, and architect stage)
 Resume file: None

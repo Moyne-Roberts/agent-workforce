@@ -9,9 +9,9 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Input Handling
 
-- [ ] **INPT-01**: User can provide a brief use case description (1-3 sentences) and receive a complete agent swarm spec
-- [ ] **INPT-02**: User can provide a detailed brief (multi-paragraph document) and receive a complete agent swarm spec
-- [ ] **INPT-03**: Agent adapts pipeline depth based on input detail — skips research subagents when input provides sufficient context
+- [x] **INPT-01**: User can provide a brief use case description (1-3 sentences) and receive a complete agent swarm spec
+- [x] **INPT-02**: User can provide a detailed brief (multi-paragraph document) and receive a complete agent swarm spec
+- [x] **INPT-03**: Agent adapts pipeline depth based on input detail — skips research subagents when input provides sufficient context
 
 ### Agent Architecture
 
@@ -110,9 +110,9 @@ Deferred to future release. Tracked but not in current roadmap.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| INPT-01 | Phase 3 | Pending |
-| INPT-02 | Phase 3 | Pending |
-| INPT-03 | Phase 3 | Pending |
+| INPT-01 | Phase 3 | Complete |
+| INPT-02 | Phase 3 | Complete |
+| INPT-03 | Phase 3 | Complete |
 | ARCH-01 | Phase 1 | Complete |
 | ARCH-02 | Phase 1 | Complete |
 | ARCH-03 | Phase 1 | Complete |
