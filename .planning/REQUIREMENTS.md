@@ -30,18 +30,18 @@ Requirements for initial release. Each maps to roadmap phases.
 
 Each agent `.md` must include ALL Orq.ai Agent fields:
 
-- [ ] **SPEC-01**: Agent spec includes **description** — brief purpose summary (Orq.ai Configuration description field)
-- [ ] **SPEC-02**: Agent spec includes **instructions** — full system prompt (Orq.ai Instructions field)
-- [ ] **SPEC-03**: Agent spec includes **model** — recommended model in `provider/model-name` format (e.g., `anthropic/claude-sonnet-4-5`)
-- [ ] **SPEC-04**: Agent spec includes **fallback models** — ordered list of fallback models if primary is unavailable
-- [ ] **SPEC-05**: Agent spec includes **tools** — categorized by type: Built-in Tools, Function Tools (with JSON schema), HTTP Tools, Python Tools, and Agent Tools (sub-agents as tools for orchestration)
-- [ ] **SPEC-06**: Agent spec includes **context** — what context the agent needs and how to configure it
-- [ ] **SPEC-07**: Agent spec includes **evaluators** — recommended evaluator configuration for the agent
-- [ ] **SPEC-08**: Agent spec includes **guardrails** — recommended guardrails for the agent
-- [ ] **SPEC-09**: Agent spec includes **runtime constraints** — Max. Turns and Max. Execution Time recommendations
+- [x] **SPEC-01**: Agent spec includes **description** — brief purpose summary (Orq.ai Configuration description field)
+- [x] **SPEC-02**: Agent spec includes **instructions** — full system prompt (Orq.ai Instructions field)
+- [x] **SPEC-03**: Agent spec includes **model** — recommended model in `provider/model-name` format (e.g., `anthropic/claude-sonnet-4-5`)
+- [x] **SPEC-04**: Agent spec includes **fallback models** — ordered list of fallback models if primary is unavailable
+- [x] **SPEC-05**: Agent spec includes **tools** — categorized by type: Built-in Tools, Function Tools (with JSON schema), HTTP Tools, Python Tools, and Agent Tools (sub-agents as tools for orchestration)
+- [x] **SPEC-06**: Agent spec includes **context** — what context the agent needs and how to configure it
+- [x] **SPEC-07**: Agent spec includes **evaluators** — recommended evaluator configuration for the agent
+- [x] **SPEC-08**: Agent spec includes **guardrails** — recommended guardrails for the agent
+- [x] **SPEC-09**: Agent spec includes **runtime constraints** — Max. Turns and Max. Execution Time recommendations
 - [x] **SPEC-10**: Agent spec includes **key** — unique identifier following `[domain]-[role]-agent` kebab-case convention
-- [ ] **SPEC-11**: Agent spec includes **input/output message templates** with `{{variables}}` matching Orq.ai variable syntax
-- [ ] **SPEC-12**: All specs are copy-paste ready — a non-technical user can transfer each section directly into Orq.ai Studio fields
+- [x] **SPEC-11**: Agent spec includes **input/output message templates** with `{{variables}}` matching Orq.ai variable syntax
+- [x] **SPEC-12**: All specs are copy-paste ready — a non-technical user can transfer each section directly into Orq.ai Studio fields
 
 ### Orchestration
 
@@ -53,10 +53,10 @@ Each agent `.md` must include ALL Orq.ai Agent fields:
 
 ### Tool & Function Schemas
 
-- [ ] **TOOL-01**: Generate valid JSON Schema definitions for Function Tools each agent needs
-- [ ] **TOOL-02**: Recommend appropriate Built-in Tools per agent (Web search, Current date, Write/Delete memory store)
-- [ ] **TOOL-03**: Identify when HTTP Tools or Python Tools are needed and provide configuration guidance
-- [ ] **TOOL-04**: Identify when MCP Server connections are relevant and recommend them
+- [x] **TOOL-01**: Generate valid JSON Schema definitions for Function Tools each agent needs
+- [x] **TOOL-02**: Recommend appropriate Built-in Tools per agent (Web search, Current date, Write/Delete memory store)
+- [x] **TOOL-03**: Identify when HTTP Tools or Python Tools are needed and provide configuration guidance
+- [x] **TOOL-04**: Identify when MCP Server connections are relevant and recommend them
 
 ### Dataset Generation
 
@@ -120,27 +120,27 @@ Deferred to future release. Tracked but not in current roadmap.
 | RSRCH-01 | Phase 2 | Complete |
 | RSRCH-02 | Phase 2 | Complete |
 | RSRCH-03 | Phase 2 | Complete |
-| SPEC-01 | Phase 2 | Pending |
-| SPEC-02 | Phase 2 | Pending |
-| SPEC-03 | Phase 2 | Pending |
-| SPEC-04 | Phase 2 | Pending |
-| SPEC-05 | Phase 2 | Pending |
-| SPEC-06 | Phase 2 | Pending |
-| SPEC-07 | Phase 2 | Pending |
-| SPEC-08 | Phase 2 | Pending |
-| SPEC-09 | Phase 2 | Pending |
+| SPEC-01 | Phase 2 | Complete |
+| SPEC-02 | Phase 2 | Complete |
+| SPEC-03 | Phase 2 | Complete |
+| SPEC-04 | Phase 2 | Complete |
+| SPEC-05 | Phase 2 | Complete |
+| SPEC-06 | Phase 2 | Complete |
+| SPEC-07 | Phase 2 | Complete |
+| SPEC-08 | Phase 2 | Complete |
+| SPEC-09 | Phase 2 | Complete |
 | SPEC-10 | Phase 1 | Complete |
-| SPEC-11 | Phase 2 | Pending |
-| SPEC-12 | Phase 2 | Pending |
+| SPEC-11 | Phase 2 | Complete |
+| SPEC-12 | Phase 2 | Complete |
 | ORCH-01 | Phase 2 | Complete |
 | ORCH-02 | Phase 2 | Complete |
 | ORCH-03 | Phase 2 | Complete |
 | ORCH-04 | Phase 2 | Complete |
 | ORCH-05 | Phase 2 | Complete |
-| TOOL-01 | Phase 2 | Pending |
-| TOOL-02 | Phase 2 | Pending |
-| TOOL-03 | Phase 2 | Pending |
-| TOOL-04 | Phase 2 | Pending |
+| TOOL-01 | Phase 2 | Complete |
+| TOOL-02 | Phase 2 | Complete |
+| TOOL-03 | Phase 2 | Complete |
+| TOOL-04 | Phase 2 | Complete |
 | DATA-01 | Phase 2 | Complete |
 | DATA-02 | Phase 2 | Complete |
 | DATA-03 | Phase 2 | Complete |

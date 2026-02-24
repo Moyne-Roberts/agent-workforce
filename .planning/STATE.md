@@ -38,6 +38,7 @@ Progress: [██████░░░░] 55%
 | 02-02 spec-generator | 2min | 1 tasks | 1 files |
 | 02-03 orchestration-generator | 2min | 1 tasks | 1 files |
 | Phase 02 P04 | 3min | 1 tasks | 1 files |
+| Phase 02 P02 | 3min | 1 tasks | 1 files |
 
 ## Accumulated Context
 
@@ -67,6 +68,9 @@ Recent decisions affecting current work:
 - [Phase 02-01]: Researcher always runs -- skip logic deferred to Phase 3 orchestrator per RSRCH-03
 - [Phase 02-04]: All 9 OWASP attack vectors mapped as mandatory categories for edge case datasets
 - [Phase 02-04]: Self-validation checklist built into subagent prompt to enforce quality gates
+- [Phase 02]: Deep vs shallow instructions comparison embedded in spec generator prompt to calibrate output quality (500+ words with all subsections required)
+- [Phase 02]: Tool schema generation merged into spec generator (not separate subagent) -- schemas are one section of agent-spec template
+- [Phase 02]: Self-validation checklist (12 checks) embedded in spec generator prompt rather than separate validation subagent
 
 ### Pending Todos
 
