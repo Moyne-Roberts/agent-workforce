@@ -5,16 +5,16 @@
 See: .planning/PROJECT.md (updated 2026-02-24)
 
 **Core value:** Given any use case description, produce correct, complete, copy-paste-ready Orq.ai Agent specifications with orchestration logic that a non-technical colleague can set up in Orq.ai Studio.
-**Current focus:** Phase 4.1: Introducing a Discussion Phase on Start if Needed
+**Current focus:** Phase 4.2: Tool Selection and MCP Servers
 
 ## Current Position
 
-Phase: 4.1 (Introducing a Discussion Phase on Start if Needed)
-Plan: 1 of 1 in current phase
-Status: Complete
-Last activity: 2026-02-24 -- Completed 04.1-01-PLAN.md
+Phase: 4.2 (Tool Selection and MCP Servers)
+Plan: 1 of 2 in current phase
+Status: In Progress
+Last activity: 2026-02-24 -- Completed 04.2-01-PLAN.md
 
-Progress: [██████████] 100%
+Progress: [█████░░░░░] 50%
 
 ## Performance Metrics
 
@@ -46,6 +46,7 @@ Progress: [██████████] 100%
 | Phase 04 P01 | 2min | 2 tasks | 5 files |
 | Phase 04 P03 | 2min | 1 tasks | 1 files |
 | Phase 04.1 P01 | 3min | 2 tasks | 2 files |
+| Phase 04.2 P01 | 3min | 2 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -100,6 +101,9 @@ Recent decisions affecting current work:
 - [Phase 04.1-01]: Internal researcher classification preserved in Step 2.5 -- enriched input makes skip decision more informed
 - [Phase 04.1-01]: Discussion summary capped at 100-300 words with original input verbatim
 - [Phase 04.1-01]: pipeline-run.json schema gains discussion sub-object, loses user_overrides field
+- [Phase 04.2-01]: Tool catalog at 1001 words with 21 MCP servers organized by 9 categories -- fits within 500-1000 word budget
+- [Phase 04.2-01]: Tool resolver prompt at 152 lines -- compact but complete with two-phase resolution, web search protocol, and self-validation checklist
+- [Phase 04.2-01]: TOOLS.md template includes Rationale column in Swarm Tool Landscape table for transparency
 
 ### Pending Todos
 
@@ -120,5 +124,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-02-24
-Stopped at: Completed 04.1-01-PLAN.md
-Resume file: .planning/phases/04.1-introducing-a-discussion-phase-on-start-if-needed/04.1-01-SUMMARY.md
+Stopped at: Completed 04.2-01-PLAN.md
+Resume file: .planning/phases/04.2-tool-selection-and-mcp-servers/04.2-01-SUMMARY.md
