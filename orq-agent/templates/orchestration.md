@@ -19,6 +19,9 @@ Output template for swarm orchestration documentation. The spec generator fills 
 | `{{DATA_FLOW}}` | Information flow between agents | Architect blueprint |
 | `{{ERROR_HANDLING}}` | Failure/timeout behavior | references/orchestration-patterns.md |
 | `{{HITL_POINTS}}` | Human approval decision points | Architect blueprint |
+| `{{DELEGATION_FRAMEWORK}}` | How the orchestrator decomposes tasks and assigns to sub-agents | orchestration-generator.md |
+| `{{EFFORT_SCALING_GUIDELINES}}` | Thresholds for direct handling vs. delegation | orchestration-generator.md |
+| `{{TOOL_OVERLAP_RESULTS}}` | Cross-agent tool overlap analysis and recommendations | orchestration-generator.md |
 
 ---
 
@@ -57,6 +60,32 @@ Output template for swarm orchestration documentation. The spec generator fills 
 > | `orchestrator-agent` | `sub-agent-a`, `sub-agent-b` | Delegates research and analysis |
 >
 > The parent agent needs `retrieve_agents` and `call_sub_agent` tools configured, plus `team_of_agents` listing sub-agent keys.
+>
+> Not applicable for single-agent swarms — omit this section.
+
+## Delegation Framework
+
+{{DELEGATION_FRAMEWORK}}
+
+> Embed this framework in the orchestrator agent's instructions. Each sub-agent delegation must specify: objective, expected output format, and task boundaries.
+>
+> The delegation framework tells the orchestrator HOW to decompose tasks, WHEN to delegate vs. handle directly, and HOW to synthesize sub-agent results into coherent responses.
+
+### Effort Scaling
+
+{{EFFORT_SCALING_GUIDELINES}}
+
+> Define thresholds for simple (handle directly), moderate (2-4 agents), and complex (full delegation) queries. Wrap in `<effort_scaling>` tags within the orchestrator's instructions.
+>
+> Not applicable for single-agent swarms — omit this section.
+
+## Tool Overlap Validation
+
+{{TOOL_OVERLAP_RESULTS}}
+
+> Cross-validate tool assignments across all agents. Flag overlapping functionality and recommend resolution. If no overlaps found, state "No tool overlaps detected."
+>
+> Also verify that all tool descriptions are self-contained: no cross-references between tools, minimal viable parameter set, clear single-purpose description.
 >
 > Not applicable for single-agent swarms — omit this section.
 
