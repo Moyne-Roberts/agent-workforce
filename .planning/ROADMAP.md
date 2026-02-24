@@ -129,7 +129,7 @@ Plans:
   1. Every `/orq-agent` invocation presents a structured discussion step with domain-specific gray areas before the architect runs
   2. Discussion adapts naturally to input detail level -- brief inputs produce longer discussions, detailed inputs produce shorter ones
   3. Researcher skip classification still functions internally after discussion enrichment without user-facing checkpoint
-**Plans:** 1 plan
+**Plans:** 1/1 plans complete
 
 Plans:
 - [ ] 04.1-01-PLAN.md — Replace Steps 2-3 with discussion step, renumber flow, update SKILL.md

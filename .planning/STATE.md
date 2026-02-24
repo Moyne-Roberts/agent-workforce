@@ -5,14 +5,14 @@
 See: .planning/PROJECT.md (updated 2026-02-24)
 
 **Core value:** Given any use case description, produce correct, complete, copy-paste-ready Orq.ai Agent specifications with orchestration logic that a non-technical colleague can set up in Orq.ai Studio.
-**Current focus:** Phase 4: Distribution
+**Current focus:** Phase 4.1: Introducing a Discussion Phase on Start if Needed
 
 ## Current Position
 
-Phase: 4 of 4 (Distribution)
-Plan: 3 of 3 in current phase
+Phase: 4.1 (Introducing a Discussion Phase on Start if Needed)
+Plan: 1 of 1 in current phase
 Status: Complete
-Last activity: 2026-02-24 -- Completed 04-03-PLAN.md
+Last activity: 2026-02-24 -- Completed 04.1-01-PLAN.md
 
 Progress: [██████████] 100%
 
@@ -45,6 +45,7 @@ Progress: [██████████] 100%
 | Phase 04 P02 | 3min | 2 tasks | 4 files |
 | Phase 04 P01 | 2min | 2 tasks | 5 files |
 | Phase 04 P03 | 2min | 1 tasks | 1 files |
+| Phase 04.1 P01 | 3min | 2 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -95,6 +96,10 @@ Recent decisions affecting current work:
 - [Phase 04-01]: Placeholder GitHub URLs (OWNER/REPO) to be replaced when repo is created
 - [Phase 04-01]: Version comparison before download to skip if already up to date
 - [Phase 04]: [Phase 04-03]: All pipeline file paths use {OUTPUT_DIR} variable -- ./Agents/ preserved only in Step 0 default-value documentation
+- [Phase 04.1-01]: Discussion step always runs but user can skip -- respects always-presented while not forcing interaction
+- [Phase 04.1-01]: Internal researcher classification preserved in Step 2.5 -- enriched input makes skip decision more informed
+- [Phase 04.1-01]: Discussion summary capped at 100-300 words with original input verbatim
+- [Phase 04.1-01]: pipeline-run.json schema gains discussion sub-object, loses user_overrides field
 
 ### Pending Todos
 
@@ -115,5 +120,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-02-24
-Stopped at: Completed 04-03-PLAN.md
-Resume file: .planning/phases/04-distribution/04-03-SUMMARY.md
+Stopped at: Completed 04.1-01-PLAN.md
+Resume file: .planning/phases/04.1-introducing-a-discussion-phase-on-start-if-needed/04.1-01-SUMMARY.md
