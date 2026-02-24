@@ -39,7 +39,7 @@ Each agent `.md` must include ALL Orq.ai Agent fields:
 - [ ] **SPEC-07**: Agent spec includes **evaluators** — recommended evaluator configuration for the agent
 - [ ] **SPEC-08**: Agent spec includes **guardrails** — recommended guardrails for the agent
 - [ ] **SPEC-09**: Agent spec includes **runtime constraints** — Max. Turns and Max. Execution Time recommendations
-- [ ] **SPEC-10**: Agent spec includes **key** — unique identifier following `[domain]-[role]-agent` kebab-case convention
+- [x] **SPEC-10**: Agent spec includes **key** — unique identifier following `[domain]-[role]-agent` kebab-case convention
 - [ ] **SPEC-11**: Agent spec includes **input/output message templates** with `{{variables}}` matching Orq.ai variable syntax
 - [ ] **SPEC-12**: All specs are copy-paste ready — a non-technical user can transfer each section directly into Orq.ai Studio fields
 
@@ -68,9 +68,9 @@ Each agent `.md` must include ALL Orq.ai Agent fields:
 ### Output Structure
 
 - [ ] **OUT-01**: Output follows directory structure: `Agents/[swarm-name]/ORCHESTRATION.md`, `agents/[agent-name].md`, `datasets/`, `README.md`
-- [ ] **OUT-02**: Naming convention enforced: `[domain]-[role]-agent` kebab-case for agent keys, swarm directory matches domain
+- [x] **OUT-02**: Naming convention enforced: `[domain]-[role]-agent` kebab-case for agent keys, swarm directory matches domain
 - [ ] **OUT-03**: Per-swarm README with numbered step-by-step setup instructions for non-technical users to configure agents in Orq.ai Studio
-- [ ] **OUT-04**: Output is machine-parseable — structured consistently so future Orq.ai MCP can consume it programmatically
+- [x] **OUT-04**: Output is machine-parseable — structured consistently so future Orq.ai MCP can consume it programmatically
 
 ### Distribution
 
@@ -129,7 +129,7 @@ Deferred to future release. Tracked but not in current roadmap.
 | SPEC-07 | Phase 2 | Pending |
 | SPEC-08 | Phase 2 | Pending |
 | SPEC-09 | Phase 2 | Pending |
-| SPEC-10 | Phase 1 | Pending |
+| SPEC-10 | Phase 1 | Complete |
 | SPEC-11 | Phase 2 | Pending |
 | SPEC-12 | Phase 2 | Pending |
 | ORCH-01 | Phase 2 | Pending |
@@ -146,9 +146,9 @@ Deferred to future release. Tracked but not in current roadmap.
 | DATA-03 | Phase 2 | Pending |
 | DATA-04 | Phase 2 | Pending |
 | OUT-01 | Phase 1 | Pending |
-| OUT-02 | Phase 1 | Pending |
+| OUT-02 | Phase 1 | Complete |
 | OUT-03 | Phase 2 | Pending |
-| OUT-04 | Phase 1 | Pending |
+| OUT-04 | Phase 1 | Complete |
 | DIST-01 | Phase 4 | Pending |
 | DIST-02 | Phase 4 | Pending |
 | DIST-03 | Phase 4 | Pending |
