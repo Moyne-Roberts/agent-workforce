@@ -90,6 +90,10 @@ Recent decisions affecting current work:
 
 None yet.
 
+### Roadmap Evolution
+
+- Phase 4.1 inserted after Phase 4: Introducing a Discussion phase on start if needed (URGENT)
+
 ### Blockers/Concerns
 
 - Phase 2 may need `/gsd:research-phase` for prompt quality gate criteria and A2A Protocol orchestration spec format (flagged by research)
@@ -99,5 +103,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-02-24
-Stopped at: Completed 03-02-PLAN.md (Generation pipeline waves, output assembly, metadata, and SKILL.md update)
-Resume file: None
+Stopped at: Phase 4.1 context gathered
+Resume file: .planning/phases/04.1-introducing-a-discussion-phase-on-start-if-needed/04.1-CONTEXT.md
