@@ -223,18 +223,321 @@ Display the output directory confirmation:
 
 ## Step 6: Execute Generation Pipeline
 
-<!-- TODO: Plan 02 will implement this step -->
-<!-- Wave 1: Researchers in parallel (if not skipped) -->
-<!-- Wave 2: Spec generators in parallel -->
-<!-- Wave 3: Orchestration doc + datasets + README in parallel -->
-<!-- Error handling: mark incomplete, continue, report at end -->
+Execute the generation pipeline in three waves. Track timing for each wave and each subagent invocation. Collect all failures for reporting in Step 7.
+
+Initialize a pipeline tracker:
+- `pipeline_started_at`: current UTC timestamp
+- `failures`: empty list
+- `stages_completed`: empty list
+- `agents_generated`: empty list (one entry per agent with key + status)
+
+### Wave 1: Research (if not skipped)
+
+```
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ ORQ ► RESEARCH (Wave 1)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+```
+
+**If researcher was classified as SKIP:**
+
+Display:
+```
+Skipped — user provided sufficient domain context
+```
+
+Record in `stages_completed`: `{ stage: "researcher", duration_seconds: 0, agents: 0, status: "skipped" }`
+
+Proceed directly to Wave 2.
+
+**If researcher was classified as RUN:**
+
+Extract the list of agent keys from the architect blueprint.
+
+**Strategy based on agent count:**
+- **1-3 agents:** Invoke ONE researcher for the entire swarm. The researcher is designed to produce per-agent sections in a single invocation.
+
+  ```
+  ◆ Spawning researcher for entire swarm...
+    → [agent-key-1]
+    → [agent-key-2]
+    → [agent-key-3]
+  ```
+
+  Use the Task tool to spawn a single researcher:
+  - **Agent file:** `@orq-agent/agents/researcher.md`
+  - **Input:** Pass the blueprint file path (`./Agents/[swarm-name]/blueprint.md`) and the original user input
+  - The researcher reads its own reference files via `<files_to_read>` -- do NOT load them in the orchestrator
+
+  On completion, the researcher writes a research brief file. Store the research brief path for Wave 2 (e.g., `./Agents/[swarm-name]/research-brief.md`).
+
+- **4+ agents:** Invoke MULTIPLE researcher instances in parallel, each handling a subset of agents (e.g., 3 agents per researcher). The researcher prompt supports this naturally since each agent gets its own section.
+
+  ```
+  ◆ Spawning [N] researchers in parallel...
+    → [agent-key-1], [agent-key-2], [agent-key-3]
+    → [agent-key-4], [agent-key-5], [agent-key-6]
+  ```
+
+  Use the Task tool to spawn multiple researchers in parallel. Each receives the blueprint path and a subset of agent keys to research. Each produces a research brief file (e.g., `research-brief-1.md`, `research-brief-2.md`).
+
+**Error handling for Wave 1:**
+If a researcher invocation fails or times out:
+- Write a marker file: `./Agents/[swarm-name]/research-brief.incomplete` with error details
+- Log the failure: add to `failures` list with stage, agent keys affected, and error message
+- Continue to Wave 2 -- spec generators for affected agents will still run but with a note that research was unavailable
+
+On success, display:
+```
+✓ Research complete: [N]/[M] agents researched
+```
+
+Record in `stages_completed`: `{ stage: "researcher", duration_seconds: [elapsed], agents: [count], status: "success" or "partial" }`
+
+### Wave 2: Spec Generation
+
+```
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ ORQ ► SPEC GENERATION (Wave 2)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+```
+
+Spawn ONE spec generator per agent, all in parallel using the Task tool.
+
+```
+◆ Spawning [N] spec generators in parallel...
+  → [agent-key-1]
+  → [agent-key-2]
+  → [agent-key-N]
+```
+
+For each agent, invoke a spec generator:
+- **Agent file:** `@orq-agent/agents/spec-generator.md`
+- **Input:** Pass three file paths:
+  1. Architect blueprint: `./Agents/[swarm-name]/blueprint.md`
+  2. Research brief: `./Agents/[swarm-name]/research-brief.md` (or note "Research was skipped -- generate specs from blueprint and user input only" if Wave 1 was skipped; or note "Research unavailable for this agent due to researcher failure" if that agent's researcher failed)
+  3. The specific agent key to generate
+- The spec generator reads its own reference files and templates via `<files_to_read>` -- do NOT load them in the orchestrator
+
+Each spec generator writes its output to: `./Agents/[swarm-name]/agents/[agent-key].md`
+
+**Error handling for Wave 2:**
+If a spec generator fails for a specific agent:
+- Write a marker file: `./Agents/[swarm-name]/agents/[agent-key].md.incomplete` with error details
+- Log the failure: add to `failures` list
+- Mark that agent's `agents_generated` entry as `"incomplete"`
+- Continue with remaining generators -- do NOT abort other agents
+- In Wave 3: skip dataset generation for the failed agent only; orchestration generator and README generator still run with whatever specs succeeded
+
+On success per agent, add to `agents_generated`: `{ key: "[agent-key]", status: "complete" }`
+
+Display completion:
+```
+✓ Specs complete: [N]/[M] agents generated
+```
+
+Record in `stages_completed`: `{ stage: "spec_generator", duration_seconds: [elapsed], agents: [count], status: "success" or "partial" }`
+
+### Wave 3: Post-Generation
+
+```
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ ORQ ► POST-GENERATION (Wave 3)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+```
+
+All of the following run in parallel using the Task tool, spawned simultaneously after all Wave 2 spec generators complete.
+
+Count the generators to spawn:
+
+```
+◆ Spawning [N] generators in parallel...
+  → ORCHESTRATION.md (if multi-agent)
+  → [agent-key-1] dataset
+  → [agent-key-2] dataset
+  → README.md
+```
+
+**Orchestration Generator** (multi-agent swarms only -- skip if single-agent or if classification set it to N/A):
+- **Agent file:** `@orq-agent/agents/orchestration-generator.md`
+- **Input:** Pass the blueprint path and all successfully generated agent spec file paths
+- Output: `./Agents/[swarm-name]/ORCHESTRATION.md`
+
+**Dataset Generator** (one invocation per agent that has a successfully generated spec):
+- **Agent file:** `@orq-agent/agents/dataset-generator.md`
+- **Input:** Pass three file paths per agent:
+  1. Blueprint: `./Agents/[swarm-name]/blueprint.md`
+  2. Research brief: `./Agents/[swarm-name]/research-brief.md` (or note if skipped/failed)
+  3. Agent spec: `./Agents/[swarm-name]/agents/[agent-key].md`
+- Output per agent: `./Agents/[swarm-name]/datasets/[agent-key]-dataset.md` and `./Agents/[swarm-name]/datasets/[agent-key]-edge-dataset.md`
+- Skip dataset generation for any agent whose spec generation failed in Wave 2
+
+**README Generator:**
+- **Agent file:** `@orq-agent/agents/readme-generator.md`
+- **Input:** Pass all generated file paths:
+  1. Blueprint: `./Agents/[swarm-name]/blueprint.md`
+  2. All agent spec paths: `./Agents/[swarm-name]/agents/*.md`
+  3. Orchestration doc path: `./Agents/[swarm-name]/ORCHESTRATION.md` (if multi-agent)
+  4. Dataset file list: all files in `./Agents/[swarm-name]/datasets/`
+- Output: `./Agents/[swarm-name]/README.md`
+
+**Error handling for Wave 3:**
+If any Wave 3 subagent fails:
+- Write a marker file: `[output-path].incomplete` with error details
+- Log the failure in `failures` list
+- Continue with remaining subagents -- do NOT abort
+- Report all failures in Step 7
+
+Display completion:
+```
+✓ Post-generation complete: [N]/[M] outputs generated
+```
+
+Record each in `stages_completed` with stage name, duration, and status.
 
 ---
 
 ## Step 7: Final Summary
 
-<!-- TODO: Plan 02 will implement this step -->
-<!-- Display directory tree view -->
-<!-- Show stats: agent count, stages run/skipped, one-liner per agent -->
-<!-- Write pipeline-run.json metadata -->
-<!-- Suggest review priorities and Orq.ai Studio deploy steps -->
+Record `pipeline_completed_at` as current UTC timestamp. Calculate `duration_seconds` from `pipeline_started_at`.
+
+```
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ ORQ ► COMPLETE ✓
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+```
+
+### 7.1 Directory Tree
+
+Display the output directory tree using Bash `find` or construct an ASCII tree:
+
+```
+./Agents/[swarm-name]/
+  ├── blueprint.md
+  ├── research-brief.md (if research ran)
+  ├── ORCHESTRATION.md (if multi-agent)
+  ├── agents/
+  │   ├── [agent-key-1].md
+  │   └── [agent-key-2].md
+  ├── datasets/
+  │   ├── [agent-key-1]-dataset.md
+  │   ├── [agent-key-1]-edge-dataset.md
+  │   ├── [agent-key-2]-dataset.md
+  │   └── [agent-key-2]-edge-dataset.md
+  ├── README.md
+  └── pipeline-run.json
+```
+
+### 7.2 Stats
+
+Display a summary table:
+
+```
+Agents:    [N] generated ([list of agent keys])
+Stages:    [N] run, [N] skipped
+Duration:  [time]
+
+Per-agent summary:
+  → [agent-key-1]: [one-liner role description from blueprint]
+  → [agent-key-2]: [one-liner role description from blueprint]
+```
+
+### 7.3 Failures (if any)
+
+If `failures` list is non-empty, display each failure:
+
+```
+⚠ [N] failure(s) detected:
+
+  1. [stage] → [agent-key]: [error summary]
+     Output: [path].incomplete
+
+  2. [stage] → [agent-key]: [error summary]
+     Output: [path].incomplete
+
+──────────────────────────────────────────────────────────────
+→ Type "retry" to re-run failed stages only
+→ Type "done" to accept current output as-is
+──────────────────────────────────────────────────────────────
+```
+
+If the user types "retry": re-run ONLY the failed subagents with the same inputs. After retry completes, display the updated summary. Failed retries are reported again with a note that retry was attempted.
+
+If no failures, display:
+```
+✓ All stages completed successfully — no failures
+```
+
+### 7.4 Next Steps
+
+```
+╔══════════════════════════════════════════════════════════════╗
+║  Next Steps                                                   ║
+╚══════════════════════════════════════════════════════════════╝
+
+1. Review agent specs in ./Agents/[swarm-name]/agents/
+   Priority: check system prompts and tool configurations
+
+2. Review ORCHESTRATION.md for agent wiring (if multi-agent)
+   Priority: verify agent-as-tool assignments match your intent
+
+3. Run test datasets against your agents in Orq.ai Studio
+   Location: ./Agents/[swarm-name]/datasets/
+
+4. Deploy to Orq.ai Studio:
+   - Create each agent using the spec files
+   - Configure tools and knowledge bases as specified
+   - Set up orchestration wiring per ORCHESTRATION.md
+   - See README.md for step-by-step setup guide
+```
+
+### 7.5 Write Pipeline Metadata
+
+Write `pipeline-run.json` to the output directory root using the Write tool:
+
+```json
+{
+  "pipeline_version": "1.0",
+  "swarm_name": "[from architect blueprint]",
+  "output_directory": "./Agents/[swarm-name]/",
+  "started_at": "[pipeline_started_at ISO timestamp]",
+  "completed_at": "[pipeline_completed_at ISO timestamp]",
+  "duration_seconds": [calculated duration],
+  "input_classification": {
+    "input_length_words": [word count of user input],
+    "detail_level": "[brief | moderate | detailed]",
+    "stages": {
+      "architect": { "decision": "run", "reason": "[from Step 2 classification]" },
+      "researcher": { "decision": "[run | skip]", "reason": "[from Step 2 classification]" },
+      "spec_generator": { "decision": "run", "reason": "[from Step 2 classification]" },
+      "orchestration_generator": { "decision": "[run | skip | n/a]", "reason": "[from Step 2 or Step 5 update]" },
+      "dataset_generator": { "decision": "run", "reason": "[from Step 2 classification]" },
+      "readme_generator": { "decision": "run", "reason": "[from Step 2 classification]" }
+    },
+    "user_overrides": ["[any overrides from Step 3, or empty array]"]
+  },
+  "agents_generated": [
+    { "key": "[agent-key-1]", "status": "[complete | incomplete]" },
+    { "key": "[agent-key-2]", "status": "[complete | incomplete]" }
+  ],
+  "stages_completed": [
+    { "stage": "architect", "duration_seconds": [elapsed], "status": "success" },
+    { "stage": "researcher", "duration_seconds": [elapsed], "agents": [count], "status": "[success | partial | skipped]" },
+    { "stage": "spec_generator", "duration_seconds": [elapsed], "agents": [count], "status": "[success | partial]" },
+    { "stage": "orchestration_generator", "duration_seconds": [elapsed], "status": "[success | skipped | n/a]" },
+    { "stage": "dataset_generator", "duration_seconds": [elapsed], "agents": [count], "status": "[success | partial]" },
+    { "stage": "readme_generator", "duration_seconds": [elapsed], "status": "[success | failed]" }
+  ],
+  "failures": [
+    {
+      "stage": "[stage name]",
+      "agent_key": "[agent key or null]",
+      "error": "[error message]",
+      "retried": false,
+      "retry_result": null
+    }
+  ]
+}
+```
+
+This metadata file captures the full pipeline run for debugging, reproducibility, and audit purposes.
