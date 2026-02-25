@@ -109,7 +109,12 @@ Phases execute in numeric order: 1 → 2 → 3 → 4
   2. Researcher subagent output includes a "Knowledge Base Design" section with chunking strategy, embedding model recommendation, metadata fields, and document preparation guidance
   3. Spec Generator includes actionable KB setup instructions (not just placeholder IDs) in the agent spec and README output
   4. Pipeline correctly skips KB questions when the use case has no knowledge base needs
-**Plans:** TBD (to be created during /gsd:plan-phase)
+**Plans:** 3 plans
+
+Plans:
+- [ ] 04.4-01-PLAN.md — Architect KB classification (blueprint fields) + Discussion conditional KB section
+- [ ] 04.4-02-PLAN.md — Researcher KB Design section + Orchestration KB output and template
+- [ ] 04.4-03-PLAN.md — Spec Generator KB context references + README KB setup steps
 
 ### Phase 04.5: Automated KB Setup via Supabase MCP (INSERTED)
 
