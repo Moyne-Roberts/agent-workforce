@@ -22,6 +22,7 @@ Output template for swarm orchestration documentation. The spec generator fills 
 | `{{DELEGATION_FRAMEWORK}}` | How the orchestrator decomposes tasks and assigns to sub-agents | orchestration-generator.md |
 | `{{EFFORT_SCALING_GUIDELINES}}` | Thresholds for direct handling vs. delegation | orchestration-generator.md |
 | `{{TOOL_OVERLAP_RESULTS}}` | Cross-agent tool overlap analysis and recommendations | orchestration-generator.md |
+| `{{KB_DESIGN}}` | Knowledge base design: chunking, metadata, document prep per KB | researcher.md research briefs |
 
 ---
 
@@ -140,6 +141,15 @@ Output template for swarm orchestration documentation. The spec generator fills 
 > | Sensitive data | `agent-b` | PII detected | Data handling plan |
 >
 > Not applicable if no human approval points — omit this section.
+
+## Knowledge Base Design
+
+{{KB_DESIGN}}
+
+> KB design recommendations for this swarm. Each named KB is referenced by agent specs in their Context section.
+> Includes: source type, chunking strategy, metadata fields, and document preparation steps per KB.
+> If no agents need knowledge bases, fill with "N/A -- no knowledge bases required for this swarm."
+> Include this section even for single-agent swarms when the agent needs a knowledge base.
 
 ## Setup Steps
 

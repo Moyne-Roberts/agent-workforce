@@ -253,6 +253,55 @@ Format:
 - If the swarm has no HITL needs (e.g., read-only agents with no external writes), include the section with: "No human approval points identified for this swarm. All agent operations are read-only or low-risk."
 - For single-agent swarms: **omit this section** (or include the "not applicable" note)
 
+### Knowledge Base Design (KB_DESIGN)
+
+Generate the Knowledge Base Design section by consolidating the researcher's per-agent KB Design sections into a swarm-level view organized by KB name.
+
+**Process:**
+
+1. **Read the researcher's KB Design sections** from the research briefs. Each KB-needing agent has a "Knowledge Base Design: [kb-name]" section with source type, chunking strategy, metadata fields, document preparation, and KB architecture recommendation.
+
+2. **Consolidate into per-KB subsections:** Group by KB name. For shared KBs, list all agents that use them under "Used by." Merge recommendations when multiple agents reference the same KB.
+
+3. **Format each KB subsection as:**
+
+```markdown
+### [kb-name]
+
+**Used by:** `[agent-key-1]`, `[agent-key-2]`
+**Source type:** [type]
+**Data structure:** [structured | semi-structured | unstructured]
+
+**Chunking Strategy:**
+- Approach: [strategy]
+- Chunk size: ~[N] tokens with [N] token overlap
+- Rationale: [why]
+
+**Metadata Fields:**
+| Field | Description |
+|-------|-------------|
+| `source` | [description] |
+| `timestamp` | [description] |
+
+**Document Preparation:**
+1. [Step]
+2. [Step]
+
+**Access Control:** [public | internal-only | per-user rules]
+```
+
+4. **If no agents need KBs:** Fill `{{KB_DESIGN}}` with "N/A -- no knowledge bases required for this swarm." The section heading is still present but with the N/A note.
+
+5. **Single-agent swarm handling:** Include the Knowledge Base Design section even for single-agent swarms if that agent needs a KB. Do NOT strip it during single-agent simplification. This is an exception to the general rule of omitting sections for single-agent swarms.
+
+6. **Discussion KB context:** If the discussion summary included KB context (source type, freshness, access control), use those answers to refine the researcher's heuristic defaults. If no discussion KB context is available, use the researcher's recommendations as-is.
+
+**Rules:**
+- Only include `source` and `timestamp` as metadata fields -- no additional fields
+- Do NOT mention embedding models (deferred to Phase 4.5)
+- KB names must be descriptive (e.g., `product-docs-kb`, not `kb-1`)
+- Access control defaults to "internal-only" if not specified in discussion context
+
 ### Setup Steps
 
 Generate numbered configuration steps for Orq.ai Studio. Follow this structure:
@@ -314,6 +363,7 @@ For single-agent swarms, produce a SIMPLIFIED ORCHESTRATION.md:
 **Include:**
 - Overview table (pattern: `single`, agent count: 1, justification: "Single agent is sufficient")
 - Agents table (the one agent)
+- Knowledge Base Design section (if the agent needs a KB -- this is an exception to the simplification rule)
 
 **Mark as not applicable:**
 - Agent-as-Tool Assignments: "Not applicable -- single-agent swarm"
@@ -472,6 +522,33 @@ flowchart TD
 
 No tool overlaps detected across the swarm. Each agent's tool set is distinct and purpose-specific.
 
+## Knowledge Base Design
+
+### customer-support-kb
+
+**Used by:** `customer-support-resolver-agent`
+**Source type:** PDFs, web pages
+**Data structure:** semi-structured
+
+**Chunking Strategy:**
+- Approach: Semantic chunking at heading boundaries for policy PDFs; paragraph-based for FAQ web pages
+- Chunk size: ~512 tokens with 50-100 token overlap for PDFs; ~300 tokens with no overlap for FAQ entries
+- Rationale: Policy documents have natural section boundaries. FAQ pages are self-contained Q&A pairs.
+
+**Metadata Fields:**
+| Field | Description |
+|-------|-------------|
+| `source` | Document filename or FAQ page URL |
+| `timestamp` | Last revision date of the policy or FAQ |
+
+**Document Preparation:**
+1. Extract text from policy PDFs, removing headers, footers, and page numbers
+2. Split FAQ pages into individual Q&A pairs before chunking
+3. Normalize formatting (consistent headings, remove decorative elements)
+4. Verify all policy references include effective dates
+
+**Access Control:** internal-only
+
 ---
 
 ## Anti-Patterns to Avoid
@@ -503,3 +580,7 @@ Before producing your final ORCHESTRATION.md, verify ALL of the following:
 - [ ] Collaborative scope awareness notes are included for spec generator consumption
 - [ ] Tool overlap cross-validation has been performed across all agent specs
 - [ ] All tool descriptions are self-contained (no cross-references between tools)
+- [ ] Knowledge Base Design section is present when any agent needs a KB (including single-agent swarms)
+- [ ] Knowledge Base Design section shows "N/A" when no agents need KBs
+- [ ] KB metadata fields limited to `source` and `timestamp` only
+- [ ] No embedding model recommendations in KB Design section
