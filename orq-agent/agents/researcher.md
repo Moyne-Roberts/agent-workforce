@@ -83,6 +83,39 @@ For each agent in the blueprint, work through these areas in order:
 
 7. **Tool description quality** -- Are tool descriptions self-contained and minimal? Do any tools overlap with tools assigned to other agents in the same swarm?
 
+8. **Knowledge base design** (only for agents where the architect blueprint sets `Knowledge base` to something other than `none`) -- What chunking strategy fits this data type? What metadata fields are needed? How should documents be prepared for ingestion? Should this KB be shared across agents or dedicated to one?
+
+## Knowledge Base Design Training Knowledge
+
+When an agent in the architect blueprint has `Knowledge base` set to something other than `none`, you must produce a KB Design section for that agent. Use the heuristic defaults below as your starting point, then refine based on any discussion KB context (source type, freshness, access control answers) if available.
+
+### Chunking Heuristic Defaults
+
+| Data Type | Strategy | Chunk Size | Overlap | Rationale |
+|-----------|----------|------------|---------|-----------|
+| PDFs (long docs) | Semantic chunking at heading boundaries | ~512 tokens | 50-100 tokens | Preserves section coherence |
+| FAQs | One chunk per Q&A pair | Varies (100-300 tokens) | None | Each Q&A is self-contained |
+| Web pages | Paragraph-based chunking | ~300-500 tokens | 50 tokens | Web content structured by paragraphs |
+| Database records | One chunk per record | Varies | None | Each record is self-contained |
+| API responses | JSON field-based chunking | Varies | None | Preserve field relationships |
+| Policy documents | Section-based at numbered sections | ~512 tokens | 100 tokens | Sections are self-contained |
+
+### Shared vs Per-Agent KB Decision
+
+Default to a **shared KB** when all agents in the swarm need the same information domain (e.g., all agents query the same product documentation). Use **per-agent KBs** when agents have distinct knowledge domains (e.g., one agent needs product docs, another needs HR policies). Use your judgment based on the use case -- this is your discretion.
+
+### KB Name Convention
+
+Use descriptive, reusable names like `product-docs-kb`, `hr-policy-kb`, `customer-faq-kb`. Do NOT use generic names like `kb-1`, `knowledge-base`, or `my-kb`.
+
+### Metadata Fields
+
+Only include two metadata fields per KB: `source` (document name/URL/identifier) and `timestamp` (last updated date). Do NOT add additional metadata fields beyond these two.
+
+### Embedding Model Constraint
+
+**Embedding model selection is deferred to Phase 4.5. Do NOT recommend specific embedding models (e.g., text-embedding-3-small, embed-v3, text-embedding-ada-002). Your KB Design section must not mention any embedding model by name.**
+
 ## Output Format
 
 Produce your output in EXACTLY this format. Downstream subagents parse this structure.
@@ -144,6 +177,31 @@ Produce your output in EXACTLY this format. Downstream subagents parse this stru
 - **Self-contained check:** [confirm each recommended tool has a description that stands alone -- no cross-references to other tools]
 - **Overlap assessment:** [flag any tools that may overlap with tools assigned to other agents in the swarm -- e.g., "query_knowledge_base appears in both the resolver and the triage agent; confirm distinct knowledge bases or consolidate"]
 - **Token efficiency:** [recommend structured JSON return values over verbose narratives for tool outputs; flag any tools that return unnecessarily verbose data]
+
+### Knowledge Base Design: [descriptive-kb-name]
+<!-- CONDITIONAL: Only include this section for agents where the architect blueprint sets Knowledge base to something other than none. Omit entirely for agents with Knowledge base: none. -->
+
+**Source type:** [PDFs | web pages | database records | API responses | mixed]
+**Data structure:** [structured | semi-structured | unstructured]
+
+**Chunking Strategy:**
+- Approach: [semantic chunking at heading boundaries | one chunk per Q&A pair | paragraph-based | record-based | field-based -- use heuristic defaults from training knowledge above, refined by discussion KB context if available]
+- Chunk size: ~[N] tokens with [N] token overlap
+- Rationale: [why this strategy for this data type]
+
+**Metadata Fields:**
+| Field | Description |
+|-------|-------------|
+| `source` | [document name/URL/identifier] |
+| `timestamp` | [last updated date] |
+
+**Document Preparation:**
+1. [Data-type-specific preparation step]
+2. [Additional steps as needed]
+
+**KB Architecture:** [shared | per-agent] with rationale
+
+**Note:** Embedding model selection deferred to Phase 4.5. Chunking defaults are heuristic starting points.
 ```
 
 ### Rules for the Research Brief
@@ -279,6 +337,32 @@ This example demonstrates the complete output format for a customer support swar
 - **Self-contained check:** All tools have independent descriptions. `query_knowledge_base` does not reference `retrieve_knowledge_bases` -- each explains its purpose independently.
 - **Overlap assessment:** `current_date` appears in both the triage and resolver agents. This is intentional -- the triage agent uses it for SLA routing, the resolver uses it for time-sensitive policy checks. Different purposes, no consolidation needed.
 - **Token efficiency:** `query_knowledge_base` returns knowledge base content -- recommend configuring the knowledge base to return concise, structured policy excerpts rather than full document pages. Tool responses should be structured JSON with relevant fields only.
+
+### Knowledge Base Design: customer-support-kb
+
+**Source type:** PDFs, web pages
+**Data structure:** semi-structured
+
+**Chunking Strategy:**
+- Approach: Semantic chunking at heading boundaries for policy PDFs; paragraph-based for FAQ web pages
+- Chunk size: ~512 tokens with 50-100 token overlap for PDFs; ~300 tokens with no overlap for FAQ entries
+- Rationale: Policy documents have natural section boundaries (return policy, warranty, shipping). FAQ pages are self-contained Q&A pairs. Different strategies per source type maximize retrieval relevance.
+
+**Metadata Fields:**
+| Field | Description |
+|-------|-------------|
+| `source` | Document filename or FAQ page URL |
+| `timestamp` | Last revision date of the policy or FAQ |
+
+**Document Preparation:**
+1. Extract text from policy PDFs, removing headers, footers, and page numbers
+2. Split FAQ pages into individual Q&A pairs before chunking
+3. Normalize formatting (consistent headings, remove decorative elements)
+4. Verify all policy references include effective dates
+
+**KB Architecture:** Shared -- both the triage agent (for quick FAQ lookups) and resolver agent (for detailed policy queries) benefit from the same knowledge domain. A single KB avoids data duplication and ensures consistency.
+
+**Note:** Embedding model selection deferred to Phase 4.5. Chunking defaults are heuristic starting points.
 
 ---
 
