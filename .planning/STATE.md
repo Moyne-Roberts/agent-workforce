@@ -10,11 +10,11 @@ See: .planning/PROJECT.md (updated 2026-02-24)
 ## Current Position
 
 Phase: 04.4 (KB-Aware Discussion & Researcher)
-Plan: 1 of 3 complete
-Status: In Progress
-Last activity: 2026-02-25 -- Completed 04.4-01 (architect KB fields + discussion KB section)
+Plan: 3 of 3 complete
+Status: Complete
+Last activity: 2026-02-25 -- Completed 04.4-03 (KB-aware spec and README generators)
 
-Progress: [███░░░░░░░] 33%
+Progress: [██████████] 100%
 
 ## Performance Metrics
 
@@ -52,6 +52,8 @@ Progress: [███░░░░░░░] 33%
 | Phase 04.3 P02 | 4min | 3 tasks | 3 files |
 | Phase 04.3 P03 | 6min | 2 tasks | 4 files |
 | Phase 04.4 P01 | 2min | 2 tasks | 2 files |
+| Phase 04.4 P03 | 2min | 2 tasks | 2 files |
+| Phase 04.4 P02 | 2min | 2 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -130,6 +132,10 @@ Recent decisions affecting current work:
 - [Phase 04.4]: Discussion does its own lightweight KB signal detection (heuristic, not keyword matching) since it runs before the architect
 - [Phase 04.4]: KB discussion inserted as Step 2.4, renumbering internal classification to Step 2.6
 - [Phase 04.4]: Six KB type values (none, documents, faq, product-data, policy, mixed) for architect blueprint classification
+- [Phase 04.4-03]: KB descriptions in agent specs always reference ORCHESTRATION.md KB Design section for setup details
+- [Phase 04.4-03]: Descriptive KB names required (product-docs-kb, not kb-1) matching researcher naming
+- [Phase 04.4-03]: README KB steps are high-level only; detailed KB design deferred to ORCHESTRATION.md
+- [Phase 04.4-03]: KB setup section is Step 3.5 in README (between field config and orchestration setup)
 
 ### Pending Todos
 
@@ -150,5 +156,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-02-25
-Stopped at: Completed 04.4-01-PLAN.md
-Resume file: .planning/phases/04.4-kb-aware-discussion-and-researcher/04.4-01-SUMMARY.md
+Stopped at: Completed 04.4-03-PLAN.md
+Resume file: .planning/phases/04.4-kb-aware-discussion-and-researcher/04.4-03-SUMMARY.md

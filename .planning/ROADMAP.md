@@ -96,7 +96,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4
 | 2. Core Generation Pipeline | 0/3 | Not started | - |
 | 3. Orchestrator and Adaptive Pipeline | 2/2 | Complete   | 2026-02-24 |
 | 4. Distribution | 0/1 | Complete    | 2026-02-24 |
-| 04.4 KB-Aware Discussion & Researcher | 1/3 | In Progress|  |
+| 04.4 KB-Aware Discussion & Researcher | 3/3 | Complete   | 2026-02-25 |
 | 04.5 Automated KB Setup (Supabase MCP) | 0/? | Not started | - |
 
 ### Phase 04.4: KB-Aware Discussion & Researcher (INSERTED)
@@ -109,7 +109,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4
   2. Researcher subagent output includes a "Knowledge Base Design" section with chunking strategy, embedding model recommendation, metadata fields, and document preparation guidance
   3. Spec Generator includes actionable KB setup instructions (not just placeholder IDs) in the agent spec and README output
   4. Pipeline correctly skips KB questions when the use case has no knowledge base needs
-**Plans:** 1/3 plans executed
+**Plans:** 3/3 plans complete
 
 Plans:
 - [ ] 04.4-01-PLAN.md — Architect KB classification (blueprint fields) + Discussion conditional KB section
