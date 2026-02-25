@@ -5,16 +5,16 @@
 See: .planning/PROJECT.md (updated 2026-02-24)
 
 **Core value:** Given any use case description, produce correct, complete, copy-paste-ready Orq.ai Agent specifications with orchestration logic that a non-technical colleague can set up in Orq.ai Studio.
-**Current focus:** Phase 04.3 in progress -- Beste Prompt Strategy (XML-tagged heuristic-first agent instructions)
+**Current focus:** Phase 04.4 in progress -- KB-Aware Discussion & Researcher
 
 ## Current Position
 
-Phase: 04.3 (Beste Prompt Strategy)
-Plan: 3 of 3 complete
-Status: Phase Complete
-Last activity: 2026-02-24 -- Completed 04.3-03 (orchestrator + secondary subagent XML upgrade)
+Phase: 04.4 (KB-Aware Discussion & Researcher)
+Plan: 1 of 3 complete
+Status: In Progress
+Last activity: 2026-02-25 -- Completed 04.4-01 (architect KB fields + discussion KB section)
 
-Progress: [██████████] 100%
+Progress: [███░░░░░░░] 33%
 
 ## Performance Metrics
 
@@ -51,6 +51,7 @@ Progress: [██████████] 100%
 | Phase 04.3 P01 | 4min | 2 tasks | 2 files |
 | Phase 04.3 P02 | 4min | 3 tasks | 3 files |
 | Phase 04.3 P03 | 6min | 2 tasks | 4 files |
+| Phase 04.4 P01 | 2min | 2 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -126,6 +127,9 @@ Recent decisions affecting current work:
 - [Phase 04.3-03]: Heuristic-first classification in orchestrator: job-application analogy replaces rigid decision logic rules
 - [Phase 04.3-03]: Architect anti-patterns converted to constraints with WHY explanations for each boundary
 - [Phase 04.3-03]: All subagent examples wrapped in <example name=''> with <input>/<output> sub-tags for consistent parsing
+- [Phase 04.4]: Discussion does its own lightweight KB signal detection (heuristic, not keyword matching) since it runs before the architect
+- [Phase 04.4]: KB discussion inserted as Step 2.4, renumbering internal classification to Step 2.6
+- [Phase 04.4]: Six KB type values (none, documents, faq, product-data, policy, mixed) for architect blueprint classification
 
 ### Pending Todos
 
@@ -145,6 +149,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-02-24
-Stopped at: Completed 04.3-03-PLAN.md
-Resume file: .planning/phases/04.3-beste-prompt-strategy/04.3-03-SUMMARY.md
+Last session: 2026-02-25
+Stopped at: Completed 04.4-01-PLAN.md
+Resume file: .planning/phases/04.4-kb-aware-discussion-and-researcher/04.4-01-SUMMARY.md
