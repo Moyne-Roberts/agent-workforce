@@ -136,6 +136,9 @@ Recent decisions affecting current work:
 - [Phase 04.4-03]: Descriptive KB names required (product-docs-kb, not kb-1) matching researcher naming
 - [Phase 04.4-03]: README KB steps are high-level only; detailed KB design deferred to ORCHESTRATION.md
 - [Phase 04.4-03]: KB setup section is Step 3.5 in README (between field config and orchestration setup)
+- [Phase 04.4]: Chunking heuristic defaults embedded as training knowledge in researcher prompt (not external reference)
+- [Phase 04.4]: KB Design section included even for single-agent swarms with KB needs (exception to simplification rule)
+- [Phase 04.4]: Orchestration generator consolidates per-agent KB sections into per-KB subsections grouped by KB name
 
 ### Pending Todos
 
