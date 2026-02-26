@@ -9,6 +9,11 @@ orq-agent/
   SKILL.md                       # This file -- skill index
   commands/
     orq-agent.md                 # Phase 3: Orchestrator slash command
+    prompt.md                    # Quick single-agent spec generator
+    architect.md                 # Standalone architect command
+    tools.md                     # Standalone tool resolver command
+    research.md                  # Standalone researcher command
+    datasets.md                  # Standalone dataset generator command
   agents/
     architect.md                 # Phase 1: Architect subagent
     tool-resolver.md             # Phase 4.2: Tool resolver subagent
@@ -59,6 +64,10 @@ Agents/[swarm-name]/
 | `/orq-agent` | `commands/orq-agent.md` | Main orchestrator -- accepts use case descriptions, runs structured discussion, enriches input, runs adaptive pipeline (Architect -> Tool Resolver -> Researcher -> Spec Generator -> Post-Generation), produces complete swarm specs |
 | `/orq-agent:update` | `commands/update.md` | Check for and install updates from GitHub |
 | `/orq-agent:prompt` | `commands/prompt.md` | Quick single-agent spec generator -- skips full pipeline, asks 2-3 questions inline, spawns spec-generator directly |
+| `/orq-agent:architect` | `commands/architect.md` | Standalone architect -- designs swarm blueprint from use case description |
+| `/orq-agent:tools` | `commands/tools.md` | Standalone tool resolver -- resolves tool needs and produces TOOLS.md |
+| `/orq-agent:research` | `commands/research.md` | Standalone researcher -- investigates domain best practices for agent roles |
+| `/orq-agent:datasets` | `commands/datasets.md` | Standalone dataset generator -- produces dual test datasets (clean + edge) |
 | `/orq-agent:help` | `commands/help.md` | Show available commands, usage examples, and version |
 
 **Invocation modes:**
@@ -67,6 +76,10 @@ Agents/[swarm-name]/
 - GSD mode: `/orq-agent --gsd "Build invoice processing agents"`
 - Custom output: `/orq-agent --output ./my-agents "Build a chatbot"`
 - Single agent: `/orq-agent:prompt "Build a customer FAQ bot"` (fast path, single spec only)
+- Architect only: `/orq-agent:architect "Build a customer support triage system"` (blueprint only)
+- Tool resolution: `/orq-agent:tools --blueprint ./Agents/support/blueprint.md` (resolve tools from existing blueprint)
+- Research: `/orq-agent:research "Customer support triage agent that routes tickets"` (research brief only)
+- Datasets: `/orq-agent:datasets ./Agents/support/agents/support-triage-agent.md` (generate test datasets from spec)
 
 ## Subagents
 
