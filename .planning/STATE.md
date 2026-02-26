@@ -13,7 +13,7 @@ See: .planning/PROJECT.md (updated 2026-02-24)
 Version: V1.0 — COMPLETE (all 8 phases done)
 Next: V1.1 Phase 5 (Orq.ai MCP Agent Deployment)
 Status: Ready to ship V1.0; V1.1 needs /gsd:plan-phase 5
-Last activity: 2026-02-26 — Phase 04.4 UAT complete, roadmap restructured into versions
+Last activity: 2026-02-26 - Completed quick task 1: Add single-prompt generation command to orq-agent skill
 
 ## Version Progress
 
@@ -69,6 +69,12 @@ None yet.
 - V1.2: Automated KB Setup via Supabase MCP (Phase 6, formerly 04.5)
 - V2.0: Automated Experiment & Iterate (Phase 7, formerly Phase 5)
 - V3.0: Browser Automation (Phase 8, formerly Phase 6)
+
+### Quick Tasks Completed
+
+| # | Description | Date | Commit | Directory |
+|---|-------------|------|--------|-----------|
+| 1 | Add single-prompt generation command to orq-agent skill | 2026-02-26 | ae3f22d | [1-add-single-prompt-generation-command-to-](./quick/1-add-single-prompt-generation-command-to-/) |
 
 ### Blockers/Concerns
 
