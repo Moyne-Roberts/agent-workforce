@@ -96,7 +96,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4
 | 2. Core Generation Pipeline | 0/3 | Not started | - |
 | 3. Orchestrator and Adaptive Pipeline | 2/2 | Complete   | 2026-02-24 |
 | 4. Distribution | 0/1 | Complete    | 2026-02-24 |
-| 04.4 KB-Aware Discussion & Researcher | 3/3 | Complete   | 2026-02-25 |
+| 04.4 KB-Aware Discussion & Researcher | 3/3 | Complete    | 2026-02-26 |
 | 04.5 Automated KB Setup (Supabase MCP) | 0/? | Not started | - |
 
 ### Phase 04.4: KB-Aware Discussion & Researcher (INSERTED)
@@ -112,9 +112,9 @@ Phases execute in numeric order: 1 → 2 → 3 → 4
 **Plans:** 3/3 plans complete
 
 Plans:
-- [ ] 04.4-01-PLAN.md — Architect KB classification (blueprint fields) + Discussion conditional KB section
-- [ ] 04.4-02-PLAN.md — Researcher KB Design section + Orchestration KB output and template
-- [ ] 04.4-03-PLAN.md — Spec Generator KB context references + README KB setup steps
+- [x] 04.4-01-PLAN.md — Architect KB classification (blueprint fields) + Discussion conditional KB section
+- [x] 04.4-02-PLAN.md — Researcher KB Design section + Orchestration KB output and template
+- [x] 04.4-03-PLAN.md — Spec Generator KB context references + README KB setup steps
 
 ### Phase 04.5: Automated KB Setup via Supabase MCP (INSERTED)
 
@@ -165,3 +165,21 @@ Plans:
 
 Plans:
 - [ ] 04.1-01-PLAN.md — Replace Steps 2-3 with discussion step, renumber flow, update SKILL.md
+
+### Phase 5: Automated Experiment, Feedback and Prompt Iteration using Orq.ai MCP and API
+
+**Goal:** [To be planned]
+**Depends on:** Phase 4
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /gsd:plan-phase 5 to break down)
+
+### Phase 6: Automated process for Playwright Automation Scripts Development or Explicit LLM Instructions for Natural Language Browser Use
+
+**Goal:** [To be planned]
+**Depends on:** Phase 5
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /gsd:plan-phase 6 to break down)
