@@ -5,55 +5,45 @@
 See: .planning/PROJECT.md (updated 2026-02-24)
 
 **Core value:** Given any use case description, produce correct, complete, copy-paste-ready Orq.ai Agent specifications with orchestration logic that a non-technical colleague can set up in Orq.ai Studio.
-**Current focus:** Phase 04.4 complete -- next: Phase 04.5 or Phase 2
+**Current version:** V1.0 complete — ready for rollout
+**Next milestone:** V1.1 (Orq.ai MCP Agent Deployment)
 
 ## Current Position
 
-Phase: 04.4 (KB-Aware Discussion & Researcher) -- COMPLETE
-Plan: 3 of 3 complete
-Status: Complete (verified, UAT passed 7/7)
-Last activity: 2026-02-26 -- Phase 04.4 UAT complete, all tests passed
+Version: V1.0 — COMPLETE (all 8 phases done)
+Next: V1.1 Phase 5 (Orq.ai MCP Agent Deployment)
+Status: Ready to ship V1.0; V1.1 needs /gsd:plan-phase 5
+Last activity: 2026-02-26 — Phase 04.4 UAT complete, roadmap restructured into versions
 
-Progress: [██████████] 100%
+## Version Progress
+
+| Version | Milestone | Status |
+|---------|-----------|--------|
+| **V1.0** | Core Pipeline | **Complete** (2026-02-26) |
+| V1.1 | Orq.ai MCP Deployment | Not started |
+| V1.2 | Automated KB Setup | Not started |
+| V2.0 | Experiment & Iterate | Not started |
+| V3.0 | Browser Automation | Not started |
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 11
-- Average duration: 2min
-- Total execution time: 0.25 hours
+- Total plans completed: 20 (across V1.0)
+- Average duration: 2-3min per plan
+- Total execution time: ~1 hour
 
 **By Phase:**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
 | 01-foundation | 3 | 8min | 3min |
-
-**Recent Trend:**
-- Last 5 plans: 01-01 (2min), 01-02 (2min), 01-03 (4min)
-- Trend: stable
-
-*Updated after each plan completion*
-| 02-01 researcher | 2min | 1 tasks | 1 files |
-| 02-02 spec-generator | 2min | 1 tasks | 1 files |
-| 02-03 orchestration-generator | 2min | 1 tasks | 1 files |
-| Phase 02 P04 | 3min | 1 tasks | 1 files |
-| Phase 02 P02 | 3min | 1 tasks | 1 files |
-| Phase 02 P05 | 2min | 2 tasks | 2 files |
-| Phase 03 P01 | 2min | 2 tasks | 1 files |
-| Phase 03 P02 | 3min | 3 tasks | 2 files |
-| Phase 04 P02 | 3min | 2 tasks | 4 files |
-| Phase 04 P01 | 2min | 2 tasks | 5 files |
-| Phase 04 P03 | 2min | 1 tasks | 1 files |
-| Phase 04.1 P01 | 3min | 2 tasks | 2 files |
-| Phase 04.2 P01 | 3min | 2 tasks | 3 files |
-| Phase 04.2 P02 | 3min | 2 tasks | 4 files |
-| Phase 04.3 P01 | 4min | 2 tasks | 2 files |
-| Phase 04.3 P02 | 4min | 3 tasks | 3 files |
-| Phase 04.3 P03 | 6min | 2 tasks | 4 files |
-| Phase 04.4 P01 | 2min | 2 tasks | 2 files |
-| Phase 04.4 P03 | 2min | 2 tasks | 2 files |
-| Phase 04.4 P02 | 2min | 2 tasks | 3 files |
+| 02-core-generation | 5 | 12min | 2min |
+| 03-orchestrator | 2 | 5min | 3min |
+| 04-distribution | 3 | 7min | 2min |
+| 04.1-discussion | 1 | 3min | 3min |
+| 04.2-tool-selection | 2 | 6min | 3min |
+| 04.3-prompt-strategy | 3 | 14min | 5min |
+| 04.4-kb-aware | 3 | 6min | 2min |
 
 ## Accumulated Context
 
@@ -62,83 +52,10 @@ Progress: [██████████] 100%
 Decisions are logged in PROJECT.md Key Decisions table.
 Recent decisions affecting current work:
 
-- Roadmap: 4 phases (quick depth) -- Foundation, Core Generation, Orchestrator, Distribution
-- Roadmap: Complexity gate must be in Phase 1 architect (research flags it as cannot-bolt-on-later)
-- Roadmap: All Orq.ai field coverage in Phase 2 spec generator (expanded from original to include evaluators, guardrails, context, fallback models)
-- 01-01: Reference files target 500-1000 words each to preserve subagent context window
-- 01-01: Model catalog curates 12 recommended models across 5 use cases rather than listing all 300+
-- 01-01: Hyphens-only convention for agent keys despite regex allowing dots and underscores
-- 01-02: Used {{PLACEHOLDER}} format matching Orq.ai native variable syntax for consistency
-- 01-02: Each template is self-contained with its own legend -- no cross-template dependencies
-- 01-02: Included guidance notes in each section for not-applicable cases to guide spec generator
-- 01-03: Three few-shot examples (simple/moderate/complex) as primary calibration mechanism for architect
-- 01-03: Anti-patterns section in architect prompt to prevent over-engineering at decision time
-- 01-03: SKILL.md as lightweight index (84 lines) with Phase 2 subagent placeholders
-- [Phase 02-05]: Technical-but-clear tone for READMEs -- assumes Orq.ai Studio basics, no LLM jargon in business sections
-- [Phase 02-05]: Complete few-shot example uses 2-agent customer support swarm (consistent with architect examples)
-- [Phase 02-05]: Tool Schema Generator confirmed removed from SKILL.md (merged into spec generator)
-- 02-03: Mermaid diagram rules embedded directly in subagent prompt for reliable rendering
-- 02-03: Error handling categorized by agent role criticality (critical/support/classification/generation)
-- 02-03: HITL identification via 6 trigger categories (high-value, sensitive data, scope-exceeding, low-confidence, external writes, irreversible)
-- 02-03: Single-agent swarms get simplified ORCHESTRATION.md with N/A sections
-- [Phase 02-01]: One researcher for entire swarm with per-agent sections (not one per agent)
-- [Phase 02-01]: Confidence scoring (HIGH/MEDIUM/LOW) based on web search result quality
-- [Phase 02-01]: Researcher always runs -- skip logic deferred to Phase 3 orchestrator per RSRCH-03
-- [Phase 02-04]: All 9 OWASP attack vectors mapped as mandatory categories for edge case datasets
-- [Phase 02-04]: Self-validation checklist built into subagent prompt to enforce quality gates
-- [Phase 02]: Deep vs shallow instructions comparison embedded in spec generator prompt to calibrate output quality (500+ words with all subsections required)
-- [Phase 02]: Tool schema generation merged into spec generator (not separate subagent) -- schemas are one section of agent-spec template
-- [Phase 02]: Self-validation checklist (12 checks) embedded in spec generator prompt rather than separate validation subagent
-- [Phase 03-01]: Embedded classifier in orchestrator prompt (not separate subagent) -- simpler, less overhead
-- [Phase 03-01]: Only researcher stage is ever skippable -- all other stages always run regardless of input detail
-- [Phase 03-01]: Blueprint written to output directory for downstream subagent file path consumption (lean orchestrator)
-- [Phase 03-01]: Auto-versioning uses [swarm-name]-vN pattern for existing output directories
-- [Phase 03-02]: Wave-based parallelism: Wave 1 research, Wave 2 spec generation, Wave 3 post-generation
-- [Phase 03-02]: Researcher scaling: 1-3 agents single invocation, 4+ agents parallel instances
-- [Phase 03-02]: Lean orchestrator passes file paths to subagents, never loads outputs into context
-- [Phase 03-02]: Graceful degradation: failed subagent marked incomplete, pipeline continues, failures reported at end
-- [Phase 04-02]: --gsd flag is a hint for metadata/logging, does not change output directory
-- [Phase 04-02]: Step 0 argument parsing inserted before Step 1 without disrupting existing pipeline steps
-- [Phase 04-02]: OUTPUT_DIR variable replaces hardcoded ./Agents/ in Step 5 for --output flag support
-- [Phase 04-01]: Skills directory install path (~/.claude/skills/orq-agent) over commands directory per research
-- [Phase 04-01]: Placeholder GitHub URLs (OWNER/REPO) to be replaced when repo is created
-- [Phase 04-01]: Version comparison before download to skip if already up to date
-- [Phase 04]: [Phase 04-03]: All pipeline file paths use {OUTPUT_DIR} variable -- ./Agents/ preserved only in Step 0 default-value documentation
-- [Phase 04.1-01]: Discussion step always runs but user can skip -- respects always-presented while not forcing interaction
-- [Phase 04.1-01]: Internal researcher classification preserved in Step 2.5 -- enriched input makes skip decision more informed
-- [Phase 04.1-01]: Discussion summary capped at 100-300 words with original input verbatim
-- [Phase 04.1-01]: pipeline-run.json schema gains discussion sub-object, loses user_overrides field
-- [Phase 04.2-01]: Tool catalog at 1001 words with 21 MCP servers organized by 9 categories -- fits within 500-1000 word budget
-- [Phase 04.2-01]: Tool resolver prompt at 152 lines -- compact but complete with two-phase resolution, web search protocol, and self-validation checklist
-- [Phase 04.2-01]: TOOLS.md template includes Rationale column in Swarm Tool Landscape table for transparency
-- [Phase 04.2-02]: Step 5.5 numbering to avoid disrupting existing step references
-- [Phase 04.2-02]: Tool resolver always runs even when researcher is skipped
-- [Phase 04.2-02]: TOOLS.md is authoritative -- spec generator and researcher defer but add domain-specific detail
-- [Phase 04.3-01]: XML tags for instruction structure: instructions, task_handling, constraints, output_format, examples, context_management as core sections
-- [Phase 04.3-01]: Heuristic-first task handling replaces rigid numbered flowcharts in generated agent instructions
-- [Phase 04.3-01]: Few-shot examples (minimum 2 per agent) are primary edge-case mechanism; rules reserved for security/data/scope
-- [Phase 04.3-01]: Context management section mandatory for every generated agent
-- [Phase 04.3-01]: Self-validation checklist expanded from 12 to 19 checks to cover XML structure, examples, heuristics
-- [Phase 04.3-01]: Thinking recommendation advisory: extended for orchestrators/complex, standard for simple agents
-- [Phase 04.3-02]: Delegation framework in orchestration generator with per-sub-agent objective/format/boundaries
-- [Phase 04.3-02]: Tool overlap detection in orchestration generator (reads all specs, natural cross-validation point)
-- [Phase 04.3-02]: Collaborative scope awareness as notes for spec generator (each agent knows neighbors' responsibilities)
-- [Phase 04.3-02]: Researcher heuristic-first prompt strategy with "Approach" field replacing rigid "Role" definitions
-- [Phase 04.3-02]: Memory Store candidate identification includes recommended description text for Orq.ai configuration
-- [Phase 04.3-03]: XML section tags for orchestrator: role, pipeline, classification, error_handling, output_rules as top-level boundaries
-- [Phase 04.3-03]: Heuristic-first classification in orchestrator: job-application analogy replaces rigid decision logic rules
-- [Phase 04.3-03]: Architect anti-patterns converted to constraints with WHY explanations for each boundary
-- [Phase 04.3-03]: All subagent examples wrapped in <example name=''> with <input>/<output> sub-tags for consistent parsing
-- [Phase 04.4]: Discussion does its own lightweight KB signal detection (heuristic, not keyword matching) since it runs before the architect
-- [Phase 04.4]: KB discussion inserted as Step 2.4, renumbering internal classification to Step 2.6
-- [Phase 04.4]: Six KB type values (none, documents, faq, product-data, policy, mixed) for architect blueprint classification
-- [Phase 04.4-03]: KB descriptions in agent specs always reference ORCHESTRATION.md KB Design section for setup details
-- [Phase 04.4-03]: Descriptive KB names required (product-docs-kb, not kb-1) matching researcher naming
-- [Phase 04.4-03]: README KB steps are high-level only; detailed KB design deferred to ORCHESTRATION.md
-- [Phase 04.4-03]: KB setup section is Step 3.5 in README (between field config and orchestration setup)
-- [Phase 04.4]: Chunking heuristic defaults embedded as training knowledge in researcher prompt (not external reference)
-- [Phase 04.4]: KB Design section included even for single-agent swarms with KB needs (exception to simplification rule)
-- [Phase 04.4]: Orchestration generator consolidates per-agent KB sections into per-KB subsections grouped by KB name
+- [V1.0 Roadmap restructure]: Project organized into V1.0-V3.0 milestones; V1.0 ships all core pipeline phases
+- [V1.1]: Orq.ai MCP agent deployment prioritized over KB automation (V1.2) as more natural next step
+- [V1.2]: Automated KB Setup (formerly Phase 04.5) — Supabase MCP provisioning
+- Phases renumbered: old Phase 5 → Phase 5 under V1.1, old Phase 04.5 → Phase 6 under V1.2, old Phase 5 → Phase 7 under V2.0, old Phase 6 → Phase 8 under V3.0
 
 ### Pending Todos
 
@@ -146,20 +63,20 @@ None yet.
 
 ### Roadmap Evolution
 
-- Phase 4.1 inserted after Phase 4: Introducing a Discussion phase on start if needed (URGENT)
-- Phase 4.2 inserted after Phase 4: Tool Selection and MCP Servers (URGENT)
-- Phase 4.3 inserted after Phase 4: Beste Prompt Strategy (URGENT)
-- Phase 5 added: Automated Experiment, Feedback and Prompt Iteration using Orq.ai MCP and API
-- Phase 6 added: Automated process for Playwright Automation Scripts Development or Explicit LLM Instructions for Natural Language Browser Use
+- V1.0: Phases 1-4 + 04.1-04.4 — all complete
+- V1.1 added: Orq.ai MCP Agent Deployment (new Phase 5)
+- V1.2: Automated KB Setup via Supabase MCP (Phase 6, formerly 04.5)
+- V2.0: Automated Experiment & Iterate (Phase 7, formerly Phase 5)
+- V3.0: Browser Automation (Phase 8, formerly Phase 6)
 
 ### Blockers/Concerns
 
-- Phase 2 may need `/gsd:research-phase` for prompt quality gate criteria and A2A Protocol orchestration spec format (flagged by research)
-- Phase 3 input classification implemented: LLM-based per-stage evaluation, only researcher skippable
-- Phase 4 requires testing on non-developer machines before release
+- V1.0 rollout: needs testing on non-developer machines before broad release
+- V1.1: requires Orq.ai MCP server availability and API exploration
+- V1.2: requires Supabase MCP setup and pgvector configuration
 
 ## Session Continuity
 
 Last session: 2026-02-26
-Stopped at: Phase 04.4 complete (verified + UAT passed)
-Resume file: .planning/phases/04.4-kb-aware-discussion-and-researcher/04.4-UAT.md
+Stopped at: V1.0 complete, roadmap restructured into version milestones
+Resume with: /gsd:plan-phase 5 (for V1.1) or start V1.0 rollout
