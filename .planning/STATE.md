@@ -3,12 +3,12 @@ gsd_state_version: 1.0
 milestone: v0.3
 milestone_name: milestone
 status: unknown
-last_updated: "2026-03-01T15:33:22.233Z"
+last_updated: "2026-03-01T15:57:24Z"
 progress:
   total_phases: 2
   completed_phases: 2
-  total_plans: 4
-  completed_plans: 4
+  total_plans: 5
+  completed_plans: 5
 ---
 
 # Project State
@@ -18,24 +18,24 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-01)
 
 **Core value:** Given any use case description, produce correct, complete Orq.ai Agent specifications and autonomously deploy, test, iterate, and harden them via the Orq.ai MCP server and API.
-**Current focus:** Phase 7 — Automated Testing
+**Current focus:** Phase 8 — Prompt Iteration Loop
 **Previous milestone:** v0.3 shipped 2026-03-01 — 11 phases, 28 plans, 50/50 requirements
 
 ## Current Position
 
-Phase: 7 of 9 (Automated Testing) — second of 4 V2.0 phases
-Plan: 2 of 2 complete
-Status: Phase Complete
-Last activity: 2026-03-01 — Completed 07-02 (Experiment Execution, Results Aggregation, and Test Command Pipeline)
+Phase: 8 of 9 (Prompt Iteration Loop) — third of 4 V2.0 phases
+Plan: 1 of 2 complete
+Status: In Progress
+Last activity: 2026-03-01 — Completed 08-01 (Iterator Subagent with Diagnosis, Proposals, Approval, Loop Control, and Logging)
 
-Progress: [██████████] 100% (2/2 plans in Phase 7)
+Progress: [█████░░░░░] 50% (1/2 plans in Phase 8)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 4 (V2.0)
-- Average duration: 3.3min
-- Total execution time: 13min
+- Total plans completed: 5 (V2.0)
+- Average duration: 3.2min
+- Total execution time: 16min
 
 **By Phase:**
 
@@ -43,7 +43,7 @@ Progress: [██████████] 100% (2/2 plans in Phase 7)
 |-------|-------|-------|----------|
 | 6. Orq.ai Deployment | 2/2 | 7min | 3.5min |
 | 7. Automated Testing | 2/2 | 6min | 3min |
-| 8. Prompt Iteration Loop | 0/? | — | — |
+| 8. Prompt Iteration Loop | 1/2 | 3min | 3min |
 | 9. Guardrails and Hardening | 0/? | — | — |
 
 ## Accumulated Context
@@ -70,6 +70,9 @@ Progress: [██████████] 100% (2/2 plans in Phase 7)
 - LLM evaluators run platform-side (Orq.ai scores), function evaluators use local evaluatorq scorers with platform fallback
 - Bottleneck score (lowest evaluator median) as single per-agent summary metric in terminal output
 - Step 2 MCP unavailable + API key set continues via REST for test command (matches deploy pattern)
+- Iterator is a subagent (.md file) -- LLM reasoning does diagnosis and proposal generation, no custom code
+- Four iteration stop conditions: max 3 iterations, <5% improvement, user_declined, 10min wall-clock timeout
+- Logs written BEFORE applying changes to preserve audit trail even on apply/test failure
 
 ### Blockers/Concerns
 
@@ -86,5 +89,5 @@ Progress: [██████████] 100% (2/2 plans in Phase 7)
 ## Session Continuity
 
 Last session: 2026-03-01
-Stopped at: Completed 07-02-PLAN.md (Experiment Execution, Results Aggregation, and Test Command Pipeline)
-Resume with: /gsd:execute-phase 08 (Phase 8: Prompt Iteration Loop)
+Stopped at: Completed 08-01-PLAN.md (Iterator Subagent with Diagnosis, Proposals, Approval, Loop Control, and Logging)
+Resume with: /gsd:execute-phase 08 (continue Phase 8: plan 08-02)
