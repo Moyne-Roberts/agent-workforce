@@ -68,14 +68,28 @@ Attempt a lightweight MCP operation to verify MCP server availability:
 claude mcp list 2>/dev/null | grep -q "orqai" && echo "MCP_AVAILABLE" || echo "MCP_UNAVAILABLE"
 ```
 
-**If MCP_UNAVAILABLE:** Display the following warning and fall back to V1.0 output:
+**If MCP_UNAVAILABLE:** Check if the REST API is reachable (the tester uses REST for datasets and evaluatorq manages its own API calls):
+
+```bash
+[ -n "$ORQ_API_KEY" ] && curl -s -o /dev/null -w "%{http_code}" \
+  -H "Authorization: Bearer $ORQ_API_KEY" \
+  https://api.orq.ai/v2/models
+```
+
+**If MCP unavailable AND ORQ_API_KEY is set AND API returns 200:** Set `mcp_available = false`. Display a note and continue to Step 3:
+
+```
+MCP server not available -- testing via REST API.
+```
+
+**If MCP unavailable AND (ORQ_API_KEY is empty OR API returns non-200):** Display V1.0 fallback and STOP:
 
 ```
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
  ORQ ► TEST (V1.0 Fallback)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-MCP server not available. Falling back to V1.0 copy-paste output.
+MCP server not available and no API key configured.
 
 To test your agents manually:
 
@@ -91,22 +105,158 @@ To test your agents manually:
    c. Run batch evaluation and review results
 5. Record pass/fail results for each test case
 
-Re-enable autonomous testing by ensuring the Orq.ai MCP server is registered:
-  claude mcp add orqai
+To enable autonomous testing, either:
+  - Register the MCP server: claude mcp add orqai
+  - Or set your API key: export ORQ_API_KEY="your-api-key-here"
 ```
 
 STOP after displaying fallback instructions.
 
-**If MCP_AVAILABLE:** Proceed to Step 3.
+**If MCP_AVAILABLE:** Set `mcp_available = true`. Proceed to Step 3.
 
-## Step 3: Test (Stub)
+## Step 3: Locate Swarm Output
 
-Phase 7 will implement testing logic here. For now, display:
+Parse the command argument and locate the swarm output directory.
+
+**Command format:** `/orq-agent:test [agent-key]` where `agent-key` is optional.
+
+- If `agent-key` is provided: filter testing to that single agent
+- If no `agent-key`: test all agents in the swarm
+
+Find the most recent swarm output directory (same logic as deploy command):
+
+```bash
+find Agents/ -name "ORCHESTRATION.md" -type f 2>/dev/null
+```
+
+**If no ORCHESTRATION.md found:** Display the following and STOP:
+
+```
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ ORQ ► TEST — No Swarm Found
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+No swarm output found. Run /orq-agent first to generate agent specifications.
+
+Expected: Agents/<swarm-name>/ORCHESTRATION.md
+```
+
+**If ORCHESTRATION.md found:** Use the most recently modified swarm directory. Read ORCHESTRATION.md to get the full agent list.
+
+If `agent-key` was provided, verify the agent exists in the swarm:
+- If found: filter to that single agent
+- If not found: display error listing available agents and STOP
+
+Display the test target summary:
 
 ```
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
  ORQ ► TEST
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-Test command ready. Implementation coming in Phase 7.
+Swarm: [swarm-name]
+Testing: [N] agents ([list agent keys])
+Channel: [MCP + REST | REST only]
+```
+
+Proceed to Step 4.
+
+## Step 4: Pre-check Deployment
+
+For each agent to test, verify that `orqai_id` exists in the agent spec file's YAML frontmatter (set by the deployer during Phase 6).
+
+**If any target agent lacks `orqai_id`:** Display a clear error listing undeployed agents and STOP:
+
+```
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ ORQ ► TEST — Agents Not Deployed
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+The following agents are not deployed to Orq.ai:
+
+  - {agent-key-1}
+  - {agent-key-2}
+
+Run /orq-agent:deploy first to deploy all agents before testing.
+```
+
+**If all agents have `orqai_id`:** Display pre-check success and proceed:
+
+```
+Pre-check: All {N} agents verified as deployed.
+```
+
+Proceed to Step 5.
+
+## Step 5: Invoke Tester Subagent
+
+Read the tester subagent instructions from `orq-agent/agents/tester.md`. Invoke the tester with:
+
+- **Swarm directory path** (from Step 3)
+- **Agent filter** (if single agent-key specified in the command)
+- **MCP availability flag** (from Step 2)
+
+The tester handles the entire 8-phase pipeline:
+1. Pre-check deployment (Phase 1)
+2. Parse V1.0 datasets (Phase 2)
+3. Augment to minimum 30 examples (Phase 3)
+4. Merge and split 60/20/20 (Phase 4)
+5. Upload datasets to Orq.ai (Phase 5)
+6. Infer roles and select evaluators (Phase 6)
+7. Execute experiments 3x per agent (Phase 7)
+8. Aggregate results and produce output (Phase 8)
+
+Display summary progress during execution (LOCKED: summary progress, not per-run verbose):
+
+```
+Testing {N} agents... [####----] {completed}/{total} complete
+```
+
+Update the progress bar as each agent completes its 3 experiment runs.
+
+Wait for the tester to complete and return results. Proceed to Step 6.
+
+## Step 6: Display Results
+
+Read `test-results.json` produced by the tester in the swarm output directory.
+
+Display the terminal summary table (from the tester's Phase 8 output):
+
+```
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ ORQ ► TEST RESULTS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Agent              | Role    | Score  | Status
+-------------------|---------|--------|-------
+{agent-key}        | struct  | 0.85   | PASS
+{agent-key}        | conv    | 0.72   | FAIL
+
+Overall: {passing}/{total} agents passing
+Details: test-results.md | JSON: test-results.json
+```
+
+**If any agents failed:** Also display the worst-performing case summary:
+
+```
+Worst performer: {agent-key} -- {lowest-evaluator} scored {score} (threshold: {threshold})
+```
+
+## Step 7: Next Steps Guidance
+
+Based on the test results, display appropriate guidance:
+
+**If all agents pass:**
+```
+All agents passing. Ready for production or run /orq-agent:iterate for further optimization.
+```
+
+**If some agents fail:**
+```
+Failing agents detected. Run /orq-agent:iterate to analyze failures and improve prompts.
+```
+
+**If testing single agent:**
+```
+Single agent tested. Run /orq-agent:test without arguments to test all agents.
 ```
