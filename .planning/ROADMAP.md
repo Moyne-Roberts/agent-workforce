@@ -104,7 +104,8 @@ Build a Claude Code skill that transforms natural language use case descriptions
   1. `orqai-api-endpoints.md` documents the SDK-to-REST mapping for `agents.responses.create()` → `POST /v2/agents/{id}/execute`, and tester.md REST fallback path covers agent invocation
   2. `@orq-ai/evaluators` package is declared with version pin in install surface (install script, SKILL.md, or test.md) alongside existing `@orq-ai/node` and `@orq-ai/evaluatorq` pins
   3. `deploy-log.json` template is either removed (orphaned) or updated to match live `deploy-log.md` markdown format with `unchanged` status support
-**Plans**: TBD
+**Plans:** 1 plan
+- [ ] 07.1-01-PLAN.md — SDK-to-REST mapping, package declaration, and orphaned template cleanup
 
 ### Phase 8: Prompt Iteration Loop
 **Goal**: Users can improve underperforming agents through a guided analyze-propose-approve-retest cycle that explains every change in plain language and never acts without permission
