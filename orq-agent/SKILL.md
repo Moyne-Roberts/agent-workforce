@@ -32,7 +32,6 @@ orq-agent/
     dataset.md                   # Template: test dataset with adversarial cases
     readme.md                    # Template: swarm README for non-technical users
     tools.md                     # Template: tool landscape and per-agent assignments
-    deploy-log.json              # Phase 5: V2.0 deployment audit template (JSON)
     test-results.json            # Phase 5: V2.0 test results template (JSON)
     iteration-log.json           # Phase 5: V2.0 iteration audit template (JSON)
   references/
@@ -150,6 +149,18 @@ Installed via `install.sh`. Config stored at `.orq-agent/config.json`.
 - Change profile: `/orq-agent:set-profile [quality|balanced|budget]`
 - V2.0 commands check MCP availability; fall back to V1.0 copy-paste output when MCP unavailable
 
+## V2.0 Runtime Dependencies
+
+Packages required by V2.0 subagents at runtime. Not installed by `install.sh` (which only copies files) — subagents ensure availability at execution time.
+
+| Package | Version | Purpose | Tier Required |
+|---------|---------|---------|---------------|
+| `@orq-ai/node` | `^3.14.45` | Orq.ai SDK (agent CRUD, dataset ops, agent invocation) | deploy+ |
+| `@orq-ai/evaluatorq` | `^1.1.0` | Experiment execution framework (Effect-based parallel evaluations) | test+ |
+| `@orq-ai/evaluators` | `^1.1.0` | Local evaluator scorers (peer dep of evaluatorq — cosine similarity, threshold evaluators) | test+ |
+
+> **Note:** `@orq-ai/evaluatorq` also declares peer dependencies on `@opentelemetry/*` packages for tracing. These are optional — evaluatorq works without them but npm may issue warnings.
+
 ## Templates
 
 | File | Purpose |
@@ -159,7 +170,6 @@ Installed via `install.sh`. Config stored at `.orq-agent/config.json`.
 | `dataset.md` | Template for test datasets requiring 30% adversarial cases minimum |
 | `readme.md` | Template for swarm READMEs with non-technical setup instructions |
 | `tools.md` | Template for TOOLS.md output with capability-first organization and per-agent config JSON |
-| `deploy-log.json` | V2.0 deployment audit log template (JSON) |
 | `test-results.json` | V2.0 test results template (JSON) |
 | `iteration-log.json` | V2.0 iteration audit log template (JSON) |
 
