@@ -2,13 +2,13 @@
 gsd_state_version: 1.0
 milestone: V2.0
 milestone_name: Autonomous Orq.ai Pipeline
-status: planning
-last_updated: "2026-03-01T15:00:00.000Z"
+status: executing
+last_updated: "2026-03-01T13:05:17.000Z"
 progress:
   total_phases: 4
   completed_phases: 0
-  total_plans: 0
-  completed_plans: 0
+  total_plans: 2
+  completed_plans: 1
 ---
 
 # Project State
@@ -24,24 +24,24 @@ See: .planning/PROJECT.md (updated 2026-03-01)
 ## Current Position
 
 Phase: 6 of 9 (Orq.ai Deployment) — first of 4 V2.0 phases
-Plan: —
-Status: Ready to plan
-Last activity: 2026-03-01 — Roadmap created for V2.0 (23 requirements mapped to 4 phases)
+Plan: 1 of 2 complete
+Status: Executing Phase 6
+Last activity: 2026-03-01 — Completed 06-01 (Core Deploy Pipeline)
 
-Progress: [░░░░░░░░░░] 0%
+Progress: [█████░░░░░] 50% (1/2 plans in Phase 6)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 0 (V2.0)
-- Average duration: —
-- Total execution time: —
+- Total plans completed: 1 (V2.0)
+- Average duration: 4min
+- Total execution time: 4min
 
 **By Phase:**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
-| 6. Orq.ai Deployment | 0/? | — | — |
+| 6. Orq.ai Deployment | 1/2 | 4min | 4min |
 | 7. Automated Testing | 0/? | — | — |
 | 8. Prompt Iteration Loop | 0/? | — | — |
 | 9. Guardrails and Hardening | 0/? | — | — |
@@ -56,6 +56,10 @@ Progress: [░░░░░░░░░░] 0%
 - User approval required before applying prompt changes (HITL)
 - Modular install — user selects capabilities (core/deploy/test/full)
 - Build order strictly: Deploy > Test > Iterate > Guardrails
+- Deployer is a subagent (.md file with natural language instructions), not application code
+- Step 2 MCP unavailable continues with REST-only deploy (no longer stops with V1.0 fallback)
+- team_of_agents: try strings first, fall back to objects on 422 (runtime validation needed)
+- Tool list cached per deploy run to avoid N+1 API calls
 
 ### Blockers/Concerns
 
@@ -72,5 +76,5 @@ Progress: [░░░░░░░░░░] 0%
 ## Session Continuity
 
 Last session: 2026-03-01
-Stopped at: V2.0 roadmap created — 23 requirements mapped to Phases 6-9
-Resume with: /gsd:plan-phase 6
+Stopped at: Completed 06-01-PLAN.md (Core Deploy Pipeline)
+Resume with: /gsd:execute-phase 06 (plan 02)
