@@ -338,7 +338,7 @@ Plans:
 | V1.0 | 04.4 KB-Aware Pipeline | 3/3 | Complete | 2026-02-26 |
 | **V1.0** | **All phases** | **22/22** | **Complete** | **2026-02-26** |
 | V2.0 | 5. References, Install, and Capability Infrastructure | 4/4 | Complete | 2026-03-01 |
-| V2.0 | 05.1 Fix Distribution Placeholders | 1/1 | Complete   | 2026-03-01 |
+| V2.0 | 05.1 Fix Distribution Placeholders | 1/1 | Complete    | 2026-03-01 |
 | V2.0 | 05.2 Fix Tool Catalog & Pipeline Wiring | 0/1 | Gap closure | - |
 | V2.0 | 6. Orq.ai Deployment | 0/? | Not started | - |
 | V2.0 | 7. Automated Testing | 0/? | Not started | - |
