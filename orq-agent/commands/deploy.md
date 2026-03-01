@@ -180,14 +180,14 @@ Proceed to Step 5.
 
 ## Step 5: Deploy Resources
 
-Read the deployer agent instructions from `orq-agent/agents/deployer.md`. The deployer implements the full 4-phase deployment pipeline.
+Read the deployer agent instructions from `orq-agent/agents/deployer.md`. The deployer implements the full 6-phase deployment pipeline.
 
 Invoke the deployer with the following context:
 - Swarm directory path (from Step 3)
 - `mcp_available` flag (from Steps 2/4)
 - Parsed swarm manifest: ORCHESTRATION.md content, TOOLS.md content, agent spec file contents
 
-The deployer executes its 4-phase pipeline:
+The deployer executes its 6-phase pipeline:
 
 1. **Phase 0: Pre-flight** -- The deployer performs its own pre-flight (API key validation, swarm parsing). Since we already validated in Step 4, the deployer will confirm and proceed quickly.
 
@@ -209,13 +209,102 @@ The deployer executes its 4-phase pipeline:
    Deploying orchestrator... (1/1) done
    ```
 
-**If any resource fails:** The deployer will stop immediately, report what succeeded and what failed, and return a partial result. Do NOT retry the entire deploy -- display the error and let the user fix the issue and re-run.
+5. **Phase 4: Read-Back Verification** -- Reads back every deployed resource from Orq.ai and compares against local spec. Collects discrepancies as warnings. Display progress:
+   ```
+   Verifying resources... (1/6)
+   Verifying resources... (6/6) done
+   ```
 
-**If all resources succeed:** The deployer returns the full deployment results. Proceed to Step 6.
+6. **Phase 5: Annotate Spec Files** -- Writes YAML frontmatter (orqai_id, version, timestamp, channel) to each local spec file. Display progress:
+   ```
+   Annotated 5 spec files with deployment metadata.
+   ```
 
-## Step 6: Results
+**If any resource fails during Phases 0-3:** The deployer will stop immediately, report what succeeded and what failed, and return a partial result. Do NOT retry the entire deploy -- display the error and let the user fix the issue and re-run.
 
-Collect deployment results from the deployer agent. Display the final status table:
+**If all resources succeed:** The deployer returns the full deployment results including verification warnings and annotation status. Proceed to Step 6.
+
+## Step 6: Verify and Annotate
+
+After the deployer completes Phases 0-3 (resource deployment), instruct it to continue with Phase 4 (read-back verification) and Phase 5 (frontmatter annotation).
+
+### 6.1: Read-Back Verification
+
+The deployer runs Phase 4: reads back every deployed resource from Orq.ai and compares field-by-field against the local spec. Only fields present in the local spec are compared (allowlist approach). Server-added metadata fields (`_id`, `created`, `updated`, `workspace_id`, `project_id`, `status`, `version_hash`, `created_by_id`, `updated_by_id`) are excluded.
+
+Collect verification results:
+- **Warnings list:** Any field-level discrepancies between deployed resource and local spec. Each warning includes: resource key, field name, expected value summary, actual value summary.
+- Discrepancies are warnings only -- they do NOT block the deploy (LOCKED decision).
+
+### 6.2: YAML Frontmatter Annotation
+
+The deployer runs Phase 5: updates each local agent spec `.md` file with YAML frontmatter containing deployment metadata (`orqai_id`, `orqai_version`, `deployed_at`, `deploy_channel`). Tool IDs are stored in TOOLS.md frontmatter.
+
+Collect annotation results:
+- **Deployment metadata:** Resource IDs, version hashes, timestamps, channels used per resource.
+- Number of files annotated.
+
+Proceed to Step 7.
+
+## Step 7: Write Deploy Log and Display Summary
+
+### 7.1: Write deploy-log.md
+
+Generate (or append to) `deploy-log.md` in the swarm output directory. Per user decision (LOCKED): deploy-log.md is a single append file -- each deploy run adds a section, full history is preserved.
+
+**If deploy-log.md does not exist:** Create it with a header and the first deploy run section.
+
+**If deploy-log.md already exists:** Append a new section at the end. Do NOT overwrite previous entries.
+
+Each deploy run section format:
+
+```markdown
+## Deploy: {ISO_8601_TIMESTAMP}
+
+**Swarm:** {swarm_name}
+**Deployment ID:** deploy-{YYYYMMDD}-{HHMMSS}
+
+| Resource | Type | Status | Channel | Orq.ai Link |
+|----------|------|--------|---------|-------------|
+| {resource_key} | tool | created | mcp | -- |
+| {agent_key} | agent | created | mcp | [Studio]({studio_url}) |
+| {agent_key} | agent | updated | rest (fallback) | [Studio]({studio_url}) |
+
+**Warnings:**
+- {agent_key}: {field} field differs after read-back ({summary})
+
+**Summary:** {N} resources deployed ({T} tools, {A} agents). {C} created, {U} updated, {X} unchanged, {F} failed.
+```
+
+**Status values (three-way distinction):**
+- `created` -- resource was new and created successfully
+- `updated` -- resource existed but differed from local spec; patched
+- `unchanged` -- resource existed and matched local spec; skipped
+- `failed` -- resource could not be deployed (only in partial failure scenarios)
+
+**Orq.ai Studio link construction:**
+- Check if the agent create/update API response contains a URL field
+- If not, construct: `https://cloud.orq.ai/toolkit/agents/{orqai_id}`
+- Note in the deploy log that the URL format is inferred if no URL was found in the API response
+- Tools do not get Studio links (use `--` in the Link column)
+
+**Warnings section:**
+- If no discrepancies from verification: omit the Warnings section entirely
+- If discrepancies exist: list each one with resource key, field name, and brief summary
+
+**deploy-log.md file header** (only written on creation, not on append):
+
+```markdown
+# Deploy Log
+
+Deployment audit trail for Orq.ai agent deployments. Each section records one deploy run with resource status and verification results. This file is append-only.
+
+---
+```
+
+### 7.2: Display Summary to User
+
+After writing deploy-log.md, display the same status table to the user in the terminal:
 
 ```
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -225,30 +314,33 @@ Collect deployment results from the deployer agent. Display the final status tab
 | Resource | Type | Status | Channel | Link |
 |----------|------|--------|---------|------|
 | [tool-key] | tool | created | mcp | -- |
-| [agent-key] | agent | updated | rest (fallback) | [Studio](https://studio.orq.ai/...) |
-| [orch-key] | agent | created | mcp | [Studio](https://studio.orq.ai/...) |
-
-Summary: [N] resources deployed. [X] created, [Y] updated, [Z] unchanged.
+| [agent-key] | agent | updated | rest (fallback) | [Studio](https://cloud.orq.ai/...) |
+| [orch-key] | agent | created | mcp | [Studio](https://cloud.orq.ai/...) |
 ```
 
-**Status values:**
-- `created` -- resource was new and created successfully
-- `updated` -- resource existed but differed from local spec; patched
-- `unchanged` -- resource existed and matched local spec; skipped
-
-**If any resources failed**, display the failure details after the table:
+**If there are warnings from verification**, display them after the table:
 
 ```
-FAILED:
-- [resource-key] ([type]): [error message]
-
-[X] resources succeeded, [W] failed. Re-run /orq-agent:deploy after fixing the issue.
+Warnings:
+- [agent-key]: instructions field differs after read-back (trailing whitespace added)
+- [tool-key]: description field differs after read-back (case normalization)
 ```
 
-**Verification and logging** (deploy-log.md writing, YAML frontmatter annotation, read-back verification) will be implemented in Plan 02. For now, the status table is the primary output.
+**If all resources succeeded (no failures):**
 
-Hand off to verification and logging (Plan 02 scope):
-- Write YAML frontmatter to each deployed agent spec file (orqai_id, version, timestamp, channel)
-- Append a deploy run section to deploy-log.md
-- Read back every deployed resource from Orq.ai and compare to local spec
-- Surface any verification discrepancies as warnings
+```
+Deploy complete. {N} resources deployed ({C} created, {U} updated, {X} unchanged). See deploy-log.md for details.
+```
+
+**If any resources failed:**
+
+```
+Deploy incomplete. {F}/{N} resources failed. See deploy-log.md for details.
+Re-run /orq-agent:deploy to retry failed resources.
+```
+
+**If deploy was fully unchanged (all resources matched):**
+
+```
+Deploy complete. {N} resources verified, all unchanged. No updates needed.
+```
