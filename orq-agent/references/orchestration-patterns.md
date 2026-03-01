@@ -1,6 +1,6 @@
 # Orq.ai Orchestration Patterns
 
-Three canonical patterns for agent orchestration in Orq.ai. Every swarm design maps to one of these. Subagents reference this to select the correct pattern and configure it properly.
+Three canonical Orq.ai patterns plus cross-framework patterns from OpenAI and Google A2A. Every swarm design maps to one of the Orq.ai patterns. Cross-framework patterns provide additional implementation guidance and interoperability context.
 
 ## Pattern 1: Single Agent
 
@@ -78,14 +78,16 @@ An orchestrator delegates independent subtasks to specialized sub-agents, then a
 
 ## Pattern Selection Criteria
 
-| Characteristic | Single Agent | Sequential Pipeline | Parallel Fan-Out |
-|---------------|-------------|-------------------|-----------------|
-| Task phases | One phase | Multiple ordered phases | Multiple independent phases |
-| Model needs | One model sufficient | Different models per phase | Different specializations |
-| Tool overlap | All tools in one agent | Different tools per phase | Different tools per agent |
-| Parallelism | N/A | No (sequential by definition) | Yes (independent subtasks) |
-| Data flow | Direct | Linear chain | Fan-out then merge |
-| Complexity | Lowest | Medium | Highest |
+| Characteristic | Single Agent | Sequential Pipeline | Parallel Fan-Out | Evaluator-Optimizer |
+|---------------|-------------|-------------------|-----------------|---------------------|
+| Task phases | One phase | Multiple ordered phases | Multiple independent phases | Generate-evaluate loop |
+| Model needs | One model sufficient | Different models per phase | Different specializations | Generator + evaluator |
+| Tool overlap | All tools in one agent | Different tools per phase | Different tools per agent | Evaluator tools separate |
+| Parallelism | N/A | No (sequential by definition) | Yes (independent subtasks) | No (sequential loop) |
+| Data flow | Direct | Linear chain | Fan-out then merge | Circular until threshold |
+| Complexity | Lowest | Medium | Highest | Medium-high |
+
+**When to use Evaluator-Optimizer:** Tasks with measurable quality criteria where iterative refinement improves output (e.g., prompt tuning, content generation with style guides). See agentic-patterns.md for full pattern description. Maps to Phase 8 iteration loop in Orq.ai.
 
 ## Complexity Gate
 
@@ -114,6 +116,31 @@ An orchestrator delegates independent subtasks to specialized sub-agents, then a
 - Decompose into sub-swarms with their own orchestrators
 - Each sub-swarm handles a distinct domain
 - A top-level orchestrator coordinates sub-swarms if needed
+
+## Cross-Framework Orchestration Patterns
+
+### OpenAI Agent-as-Tool
+
+The OpenAI Agents SDK `.as_tool()` pattern: sub-agents callable as tools without conversation transfer. Main agent retains control, calls sub-agent, receives result, decides next steps.
+
+**Orq.ai equivalence:** Direct 1:1 mapping. This IS how `team_of_agents` works -- sub-agents called via `call_sub_agent`, orchestrator retains control, sub-agents unaware of their role. No adaptation needed.
+
+### Google A2A Protocol v0.3 Task Lifecycle
+
+A2A Protocol defines 8 standardized task states for inter-agent communication:
+
+| State | Description | Orq.ai Relevance |
+|-------|-------------|------------------|
+| `submitted` | Task received, not yet started | Initial agent invocation |
+| `working` | Agent actively processing | Agent execution in progress |
+| `input-required` | Agent needs additional input from caller | Human-in-the-loop decision points |
+| `auth-required` | Agent needs authentication credentials (v0.3) | Relevant for agents calling external APIs |
+| `completed` | Task finished successfully | Successful agent response |
+| `failed` | Task failed with error | Agent error handling |
+| `canceled` | Task canceled by caller | Timeout or user cancellation |
+| `rejected` | Agent declined the task (v0.3) | Capability mismatch detection |
+
+**Orq.ai mapping:** Use A2A states as a checklist for agent error handling design. The `auth-required` and `rejected` states (added in v0.3) are useful for agents calling external services -- map these to error handling instructions in agent specs.
 
 ## Quick Reference
 
