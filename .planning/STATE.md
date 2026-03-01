@@ -3,12 +3,12 @@ gsd_state_version: 1.0
 milestone: V2.0
 milestone_name: Autonomous Orq.ai Pipeline
 status: executing
-last_updated: "2026-03-01T13:05:17.000Z"
+last_updated: "2026-03-01T13:10:10Z"
 progress:
   total_phases: 4
-  completed_phases: 0
+  completed_phases: 1
   total_plans: 2
-  completed_plans: 1
+  completed_plans: 2
 ---
 
 # Project State
@@ -24,24 +24,24 @@ See: .planning/PROJECT.md (updated 2026-03-01)
 ## Current Position
 
 Phase: 6 of 9 (Orq.ai Deployment) — first of 4 V2.0 phases
-Plan: 1 of 2 complete
-Status: Executing Phase 6
-Last activity: 2026-03-01 — Completed 06-01 (Core Deploy Pipeline)
+Plan: 2 of 2 complete
+Status: Phase 6 Complete
+Last activity: 2026-03-01 — Completed 06-02 (Verification, Logging, Metadata)
 
-Progress: [█████░░░░░] 50% (1/2 plans in Phase 6)
+Progress: [██████████] 100% (2/2 plans in Phase 6)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 1 (V2.0)
-- Average duration: 4min
-- Total execution time: 4min
+- Total plans completed: 2 (V2.0)
+- Average duration: 3.5min
+- Total execution time: 7min
 
 **By Phase:**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
-| 6. Orq.ai Deployment | 1/2 | 4min | 4min |
+| 6. Orq.ai Deployment | 2/2 | 7min | 3.5min |
 | 7. Automated Testing | 0/? | — | — |
 | 8. Prompt Iteration Loop | 0/? | — | — |
 | 9. Guardrails and Hardening | 0/? | — | — |
@@ -60,6 +60,10 @@ Progress: [█████░░░░░] 50% (1/2 plans in Phase 6)
 - Step 2 MCP unavailable continues with REST-only deploy (no longer stops with V1.0 fallback)
 - team_of_agents: try strings first, fall back to objects on 422 (runtime validation needed)
 - Tool list cached per deploy run to avoid N+1 API calls
+- Verification discrepancies are warnings only -- never block the deploy
+- Frontmatter merge-safe: preserve existing fields when annotating spec files
+- Tool IDs stored in TOOLS.md frontmatter as tool_ids mapping
+- Studio link inferred as https://cloud.orq.ai/toolkit/agents/{orqai_id}
 
 ### Blockers/Concerns
 
@@ -76,5 +80,5 @@ Progress: [█████░░░░░] 50% (1/2 plans in Phase 6)
 ## Session Continuity
 
 Last session: 2026-03-01
-Stopped at: Completed 06-01-PLAN.md (Core Deploy Pipeline)
-Resume with: /gsd:execute-phase 06 (plan 02)
+Stopped at: Completed 06-02-PLAN.md (Verification, Logging, Metadata) — Phase 6 fully complete
+Resume with: /gsd:plan-phase 07 (Automated Testing)

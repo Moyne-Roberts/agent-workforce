@@ -13,9 +13,9 @@ Requirements for V2.0 Autonomous Orq.ai Pipeline. Each maps to roadmap phases.
 - [x] **DEPLOY-02**: Tool definitions are created/updated in Orq.ai before agents that reference them
 - [x] **DEPLOY-03**: Orchestrator agent is deployed with agent-as-tool wiring after all sub-agents exist
 - [x] **DEPLOY-04**: Re-running deploy updates existing agents (new version) instead of creating duplicates
-- [ ] **DEPLOY-05**: Every deployed resource is read back from Orq.ai to verify successful creation
-- [ ] **DEPLOY-06**: User sees a deploy-log.md with status table (created/updated/failed per agent)
-- [ ] **DEPLOY-07**: Local agent spec files are annotated with deployment metadata (agent ID, version, timestamp)
+- [x] **DEPLOY-05**: Every deployed resource is read back from Orq.ai to verify successful creation
+- [x] **DEPLOY-06**: User sees a deploy-log.md with status table (created/updated/failed per agent)
+- [x] **DEPLOY-07**: Local agent spec files are annotated with deployment metadata (agent ID, version, timestamp)
 - [x] **DEPLOY-08**: Deployment works via REST API when MCP server is unavailable
 
 ### Testing
@@ -78,9 +78,9 @@ Which phases cover which requirements. Updated during roadmap creation.
 | DEPLOY-02 | Phase 6 | Complete |
 | DEPLOY-03 | Phase 6 | Complete |
 | DEPLOY-04 | Phase 6 | Complete |
-| DEPLOY-05 | Phase 6 | Pending |
-| DEPLOY-06 | Phase 6 | Pending |
-| DEPLOY-07 | Phase 6 | Pending |
+| DEPLOY-05 | Phase 6 | Complete |
+| DEPLOY-06 | Phase 6 | Complete |
+| DEPLOY-07 | Phase 6 | Complete |
 | DEPLOY-08 | Phase 6 | Complete |
 | TEST-01 | Phase 7 | Pending |
 | TEST-02 | Phase 7 | Pending |
