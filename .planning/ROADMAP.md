@@ -9,7 +9,7 @@ Build a Claude Code skill that transforms natural language use case descriptions
 | Version | Milestone | Status |
 |---------|-----------|--------|
 | **V1.0** | Core Pipeline — generate complete agent swarm specs from natural language | **Complete** |
-| **V2.0** | Autonomous Orq.ai Pipeline — deploy, test, iterate, and harden agent swarms via MCP/API | Planned |
+| **V2.0** | Autonomous Orq.ai Pipeline — deploy, test, iterate, and harden agent swarms via MCP/API | In progress |
 | **V2.1** | Automated KB Setup — provision vector stores and ingestion pipelines (Supabase or user-chosen RAG DB) | Planned |
 | **V3.0** | Browser Automation — Playwright scripts or natural language browser instructions | Planned |
 
@@ -167,7 +167,7 @@ Plans:
 
 ---
 
-## V2.0 — Autonomous Orq.ai Pipeline (PLANNED)
+## V2.0 — Autonomous Orq.ai Pipeline (IN PROGRESS)
 
 **Value:** Go from natural language use case to fully deployed, tested, and iterated agent swarm in Orq.ai — autonomously. MCP-first integration with API fallback. Modular install lets users control which automation capabilities are enabled. Local `.md` specs remain the source of truth with full audit trail of all iterations and reasoning.
 
@@ -194,18 +194,70 @@ Plans:
 | Models listing | Yes | Yes | Deploy |
 | Search/Analytics | Yes | - | Monitor |
 
-### Phases (TBD — to be broken down during `/gsd:new-milestone`)
+### Phases
 
-High-level pipeline stages to be decomposed into phases:
+- [ ] **Phase 5: References, Install, and Capability Infrastructure** — Updated agentic framework references, new API/evaluator references, V2.0 output templates, modular install with capability tiers and API key onboarding
+- [ ] **Phase 6: Orq.ai Deployment** — Deployer subagent, API adapter layer, idempotent agent/tool creation, orchestration wiring, verify-after-deploy, deployment status reporting
+- [ ] **Phase 7: Automated Testing** — Tester subagent, dataset transformation and upload, evaluator creation, experiment execution with statistical rigor, structured results presentation
+- [ ] **Phase 8: Prompt Iteration Loop** — Iterator subagent, results analysis with plain-language diagnosis, diff-based prompt proposals, per-iteration user approval, hard stopping conditions, audit trail
+- [ ] **Phase 9: Guardrails and Hardening** — Evaluator promotion to runtime guardrails, threshold-based quality gates, incremental per-agent deployment
 
-1. **Modular Install & API Key Onboarding** — Rework install script with capability selection (core/deploy/test/full), Orq.ai API key prompt, MCP server registration
-2. **Orq.ai Deployment** (absorbs former V1.1) — Create project/workspace, deploy agents via MCP, create tools via API, wire orchestration (agent-as-tool), idempotent updates, fallback to copy-paste when MCP unavailable
-3. **Automated Testing** — Upload test datasets, create evaluators (LLM-as-judge + custom), run experiments against deployed agents, collect and present results
-4. **Prompt Iteration Loop** — Analyze test results, propose prompt changes with reasoning, user approves, update agents, re-run experiments to validate, log all iterations to local `.md` audit trail
-5. **Guardrails & Hardening** — Configure evaluator-based guardrails on agents, threshold-based quality gates
+### V2.0 Phase Details
 
-**Requirements:** TBD
-**Plans:** TBD (run /gsd:new-milestone to initialize)
+### Phase 5: References, Install, and Capability Infrastructure
+**Goal**: Establish the knowledge foundation, output templates, and modular install infrastructure so all subsequent V2.0 phases have references to build against and a capability-gated environment to operate in
+**Depends on**: Phase 04.4 (V1.0 complete)
+**Requirements**: REF-01, REF-02, REF-03, REF-04, REF-05, INST-01, INST-02, INST-03, INST-04, INST-05
+**Success Criteria** (what must be TRUE):
+  1. Reference files contain latest Anthropic evaluator-optimizer pattern, OpenAI agent-as-tool patterns, Google A2A v0.3 task lifecycle, Orq.ai API endpoints, and Orq.ai evaluator types -- and V1.0 subagents can consume them
+  2. User can run the install script and select a capability tier (core/deploy/test/full) where each tier includes all lower tiers
+  3. Install script prompts for Orq.ai API key, validates it against the live API, stores it as an environment variable only (never in generated files), and registers the Orq.ai MCP server when deploy tier or higher is selected
+  4. V2.0 commands (`/orq-agent:deploy`, `/orq-agent:test`, `/orq-agent:iterate`) are only available when the corresponding capability tier is installed; running them at a lower tier produces a clear upgrade message
+  5. Pipeline falls back to V1.0 copy-paste behavior when MCP is unavailable or only core tier is installed
+**Plans**: TBD
+
+### Phase 6: Orq.ai Deployment
+**Goal**: Users can deploy a generated agent swarm to Orq.ai with a single command and get back a verified, live deployment with all agents wired together
+**Depends on**: Phase 5
+**Requirements**: DEPL-01, DEPL-02, DEPL-03, DEPL-04, DEPL-05, DEPL-06, DEPL-07
+**Success Criteria** (what must be TRUE):
+  1. User can run `/orq-agent:deploy` on any V1.0 swarm output and see all agents and tools created in their Orq.ai workspace, with orchestrator agents correctly wired to sub-agents via agent-as-tool relationships
+  2. Re-running deploy on an already-deployed swarm updates existing agents and tools without creating duplicates
+  3. After every deployment, the system reads back each agent's config from Orq.ai and confirms it matches the intended spec -- discrepancies are surfaced to the user
+  4. Local `.md` spec files are updated with deployment metadata (agent IDs, version numbers, timestamps) and a deployment status summary table is displayed
+**Plans**: TBD
+
+### Phase 7: Automated Testing
+**Goal**: Users can run automated evaluations against their deployed agents and receive structured, interpretable results that identify exactly where agents succeed and fail
+**Depends on**: Phase 6
+**Requirements**: TEST-01, TEST-02, TEST-03, TEST-04, TEST-05
+**Success Criteria** (what must be TRUE):
+  1. User can run `/orq-agent:test` and V1.0 markdown datasets are automatically transformed, split into train/test/holdout sets (minimum 30 examples), and uploaded to Orq.ai
+  2. Domain-appropriate evaluators are created automatically -- LLM-as-judge for semantic quality assessment, function evaluators for structural validation checks
+  3. Experiments run against deployed agents with 3-run median scoring and variance tracking, and results are presented in RESULTS.md with confidence intervals, per-evaluator scores, pass/fail summary, and worst-performing cases highlighted
+**Plans**: TBD
+
+### Phase 8: Prompt Iteration Loop
+**Goal**: Users can improve underperforming agents through a guided analyze-propose-approve-retest cycle that explains every change in plain language and never acts without permission
+**Depends on**: Phase 7
+**Requirements**: ITER-01, ITER-02, ITER-03, ITER-04, ITER-05, ITER-06
+**Success Criteria** (what must be TRUE):
+  1. After testing, the system analyzes results and presents plain-language diagnosis tied to specific test failures (e.g., "agent fails on multi-language inputs because instructions lack i18n guidance")
+  2. Proposed prompt changes are shown as diffs with per-change reasoning, and the user must explicitly approve each iteration before any changes are applied
+  3. Approved changes update both local `.md` specs and deployed Orq.ai agents, then re-run tests to validate improvement
+  4. Iteration automatically stops when any hard limit is reached: 3 iterations, 50 API calls, 10-minute timeout, or less than 5% improvement between iterations
+  5. ITERATIONS.md audit trail records every iteration with version, date, changes made, reasoning, scores before/after, and approval status
+**Plans**: TBD
+
+### Phase 9: Guardrails and Hardening
+**Goal**: Users can promote test evaluators to production guardrails and deploy agents incrementally with quality gates, ensuring only agents that meet defined thresholds reach production
+**Depends on**: Phase 8
+**Requirements**: GUARD-01, GUARD-02, GUARD-03
+**Success Criteria** (what must be TRUE):
+  1. User can promote any test evaluator to a runtime guardrail on its corresponding deployed Orq.ai agent
+  2. User can configure threshold-based quality gates per evaluator (e.g., helpfulness > 0.8, safety > 0.95) that must pass before an agent is considered production-ready
+  3. User can deploy, test, and iterate each agent individually before wiring the full orchestration -- enabling incremental rollout of multi-agent swarms
+**Plans**: TBD
 
 ---
 
@@ -240,17 +292,21 @@ High-level pipeline stages to be decomposed into phases:
 
 ## Progress Summary
 
-| Version | Phase | Status | Completed |
-|---------|-------|--------|-----------|
-| V1.0 | 1. Foundation | Complete | 2026-02-24 |
-| V1.0 | 2. Core Generation Pipeline | Complete | 2026-02-24 |
-| V1.0 | 3. Orchestrator and Adaptive Pipeline | Complete | 2026-02-24 |
-| V1.0 | 4. Distribution | Complete | 2026-02-24 |
-| V1.0 | 04.1 Discussion Step | Complete | 2026-02-24 |
-| V1.0 | 04.2 Tool Selection & MCP | Complete | 2026-02-24 |
-| V1.0 | 04.3 Prompt Strategy | Complete | 2026-02-24 |
-| V1.0 | 04.4 KB-Aware Pipeline | Complete | 2026-02-26 |
-| **V1.0** | **All phases** | **Complete** | **2026-02-26** |
-| V2.0 | Autonomous Orq.ai Pipeline | Not started | - |
-| V2.1 | Automated KB Setup | Not started | - |
-| V3.0 | Browser Automation | Not started | - |
+| Version | Phase | Plans Complete | Status | Completed |
+|---------|-------|----------------|--------|-----------|
+| V1.0 | 1. Foundation | 3/3 | Complete | 2026-02-24 |
+| V1.0 | 2. Core Generation Pipeline | 5/5 | Complete | 2026-02-24 |
+| V1.0 | 3. Orchestrator and Adaptive Pipeline | 2/2 | Complete | 2026-02-24 |
+| V1.0 | 4. Distribution | 3/3 | Complete | 2026-02-24 |
+| V1.0 | 04.1 Discussion Step | 1/1 | Complete | 2026-02-24 |
+| V1.0 | 04.2 Tool Selection & MCP | 2/2 | Complete | 2026-02-24 |
+| V1.0 | 04.3 Prompt Strategy | 3/3 | Complete | 2026-02-24 |
+| V1.0 | 04.4 KB-Aware Pipeline | 3/3 | Complete | 2026-02-26 |
+| **V1.0** | **All phases** | **22/22** | **Complete** | **2026-02-26** |
+| V2.0 | 5. References, Install, and Capability Infrastructure | 0/? | Not started | - |
+| V2.0 | 6. Orq.ai Deployment | 0/? | Not started | - |
+| V2.0 | 7. Automated Testing | 0/? | Not started | - |
+| V2.0 | 8. Prompt Iteration Loop | 0/? | Not started | - |
+| V2.0 | 9. Guardrails and Hardening | 0/? | Not started | - |
+| V2.1 | Automated KB Setup | - | Not started | - |
+| V3.0 | Browser Automation | - | Not started | - |

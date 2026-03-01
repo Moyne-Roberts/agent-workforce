@@ -219,44 +219,44 @@ Deferred to future releases. Tracked but not in current roadmap.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| REF-01 | TBD | Pending |
-| REF-02 | TBD | Pending |
-| REF-03 | TBD | Pending |
-| REF-04 | TBD | Pending |
-| REF-05 | TBD | Pending |
-| INST-01 | TBD | Pending |
-| INST-02 | TBD | Pending |
-| INST-03 | TBD | Pending |
-| INST-04 | TBD | Pending |
-| INST-05 | TBD | Pending |
-| DEPL-01 | TBD | Pending |
-| DEPL-02 | TBD | Pending |
-| DEPL-03 | TBD | Pending |
-| DEPL-04 | TBD | Pending |
-| DEPL-05 | TBD | Pending |
-| DEPL-06 | TBD | Pending |
-| DEPL-07 | TBD | Pending |
-| TEST-01 | TBD | Pending |
-| TEST-02 | TBD | Pending |
-| TEST-03 | TBD | Pending |
-| TEST-04 | TBD | Pending |
-| TEST-05 | TBD | Pending |
-| ITER-01 | TBD | Pending |
-| ITER-02 | TBD | Pending |
-| ITER-03 | TBD | Pending |
-| ITER-04 | TBD | Pending |
-| ITER-05 | TBD | Pending |
-| ITER-06 | TBD | Pending |
-| GUARD-01 | TBD | Pending |
-| GUARD-02 | TBD | Pending |
-| GUARD-03 | TBD | Pending |
+| REF-01 | Phase 5 | Pending |
+| REF-02 | Phase 5 | Pending |
+| REF-03 | Phase 5 | Pending |
+| REF-04 | Phase 5 | Pending |
+| REF-05 | Phase 5 | Pending |
+| INST-01 | Phase 5 | Pending |
+| INST-02 | Phase 5 | Pending |
+| INST-03 | Phase 5 | Pending |
+| INST-04 | Phase 5 | Pending |
+| INST-05 | Phase 5 | Pending |
+| DEPL-01 | Phase 6 | Pending |
+| DEPL-02 | Phase 6 | Pending |
+| DEPL-03 | Phase 6 | Pending |
+| DEPL-04 | Phase 6 | Pending |
+| DEPL-05 | Phase 6 | Pending |
+| DEPL-06 | Phase 6 | Pending |
+| DEPL-07 | Phase 6 | Pending |
+| TEST-01 | Phase 7 | Pending |
+| TEST-02 | Phase 7 | Pending |
+| TEST-03 | Phase 7 | Pending |
+| TEST-04 | Phase 7 | Pending |
+| TEST-05 | Phase 7 | Pending |
+| ITER-01 | Phase 8 | Pending |
+| ITER-02 | Phase 8 | Pending |
+| ITER-03 | Phase 8 | Pending |
+| ITER-04 | Phase 8 | Pending |
+| ITER-05 | Phase 8 | Pending |
+| ITER-06 | Phase 8 | Pending |
+| GUARD-01 | Phase 9 | Pending |
+| GUARD-02 | Phase 9 | Pending |
+| GUARD-03 | Phase 9 | Pending |
 
 **Coverage:**
-- V1.0 requirements: 40 total — 40 complete
-- V2.0 requirements: 26 total — 0 complete
-- Total: 66 requirements
-- Unmapped: 26 (V2.0 — awaiting roadmap)
+- V1.0 requirements: 40 total -- 40 complete
+- V2.0 requirements: 31 total -- 0 complete
+- Total: 71 requirements
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-02-24 (V1.0), 2026-03-01 (V2.0)*
-*Last updated: 2026-03-01 after V2.0 milestone requirements definition*
+*Last updated: 2026-03-01 after V2.0 roadmap creation*
