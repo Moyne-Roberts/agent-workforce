@@ -214,7 +214,13 @@ Plans:
   3. Install script prompts for Orq.ai API key, validates it against the live API, stores it as an environment variable only (never in generated files), and registers the Orq.ai MCP server when deploy tier or higher is selected
   4. V2.0 commands (`/orq-agent:deploy`, `/orq-agent:test`, `/orq-agent:iterate`) are only available when the corresponding capability tier is installed; running them at a lower tier produces a clear upgrade message
   5. Pipeline falls back to V1.0 copy-paste behavior when MCP is unavailable or only core tier is installed
-**Plans**: TBD
+**Plans:** 4 plans
+
+Plans:
+- [ ] 05-01-PLAN.md — Update/create agentic framework references (Anthropic composable patterns, context engineering, OpenAI agent-as-tool, A2A v0.3)
+- [ ] 05-02-PLAN.md — Create Orq.ai API endpoints reference, evaluator types reference, and V2.0 JSON output templates
+- [ ] 05-03-PLAN.md — Extend install script with capability tier selection, API key validation, and MCP server registration
+- [ ] 05-04-PLAN.md — Create capability-gated V2.0 command stubs, model profile management, and update SKILL.md
 
 ### Phase 6: Orq.ai Deployment
 **Goal**: Users can deploy a generated agent swarm to Orq.ai with a single command and get back a verified, live deployment with all agents wired together
@@ -303,7 +309,7 @@ Plans:
 | V1.0 | 04.3 Prompt Strategy | 3/3 | Complete | 2026-02-24 |
 | V1.0 | 04.4 KB-Aware Pipeline | 3/3 | Complete | 2026-02-26 |
 | **V1.0** | **All phases** | **22/22** | **Complete** | **2026-02-26** |
-| V2.0 | 5. References, Install, and Capability Infrastructure | 0/? | Not started | - |
+| V2.0 | 5. References, Install, and Capability Infrastructure | 0/4 | Planned | - |
 | V2.0 | 6. Orq.ai Deployment | 0/? | Not started | - |
 | V2.0 | 7. Automated Testing | 0/? | Not started | - |
 | V2.0 | 8. Prompt Iteration Loop | 0/? | Not started | - |
