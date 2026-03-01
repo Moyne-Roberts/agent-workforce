@@ -2,249 +2,128 @@
 
 **Domain:** V2.0 Autonomous Orq.ai Pipeline -- stack additions for deployment, testing, iteration, and guardrails
 **Researched:** 2026-03-01
-**Confidence:** MEDIUM (Orq.ai SDK versions verified via npm; MCP server capabilities partially verified; agentic patterns HIGH confidence from official sources)
+**Confidence:** HIGH (all package versions verified via npm registry; MCP server architecture verified; evaluatorq peer dependencies confirmed)
 
 ## Context: What V1.0 Already Has (DO NOT DUPLICATE)
 
-V1.0 is a pure markdown-driven Claude Code skill. No runtime dependencies. No npm packages. The entire stack is Claude Code skills, subagents, templates, and bash scripts distributed as a plugin via GitHub. This works and should remain the foundation.
+V1.0 is a pure markdown-driven Claude Code skill. Zero runtime dependencies. Zero npm packages. The entire stack is Claude Code skills, subagents, templates, and bash scripts distributed as a plugin via GitHub. V2.0 adds runtime capabilities (API calls for deploying, testing, iterating) which require the Orq.ai Node SDK and experiment tooling.
 
-V2.0 adds **runtime capabilities** that require actual API calls: deploying agents, running experiments, iterating prompts. This means V2.0 needs the Orq.ai Node SDK and evaluatorq SDK as runtime dependencies for the first time.
+The v0.3 Foundation milestone shipped: modular install with tiers, API key validation, MCP auto-registration, capability gating, and V2.0 output templates. These are complete and validated.
 
 ## Recommended Stack Additions
 
-### Orq.ai MCP Server (Primary Integration Point)
+### Core Technologies
 
 | Technology | Version | Purpose | Why Recommended |
 |------------|---------|---------|-----------------|
-| Orq.ai MCP Server | remote (HTTP) | MCP-first access to Orq.ai platform from Claude Code | The `@orq-ai/node` SDK doubles as an MCP server. Adding it via `claude mcp add --transport http orq https://my.orq.ai/v2/mcp` exposes all SDK methods as tools that Claude Code can invoke directly. This is the **primary integration path** -- no wrapper scripts needed. Claude Code natively speaks MCP. |
+| `@orq-ai/node` | ^3.14.45 (v3.x line) | TypeScript SDK + MCP server for Orq.ai API | **Must use v3.x, NOT v4.x.** V3 includes `bin/mcp-server.js` which serves as the workspace MCP server. V4 (latest=4.4.9) dropped the MCP server binary entirely. V3 also satisfies evaluatorq's peer dep (`@orq-ai/node@^3.9.26`). Only dependency is `zod@^3.25.0` and `@modelcontextprotocol/sdk@>=1.5.0 <1.10.0`. |
+| `@orq-ai/evaluatorq` | ^1.1.0 | Experiment runner with jobs, datasets, and evaluators | Evaluation framework with Effect-based architecture for running parallel AI evaluations. Peer-depends on `@orq-ai/node@^3.9.26`. Has its own deps: `ora`, `chalk`, `effect`, `strip-ansi`. Connects to Orq.ai platform datasets and sends results back for visualization. |
+| `@orq-ai/evaluators` | ^1.1.0 | Pre-built evaluator functions (cosine similarity, thresholds) | Companion package providing ready-made evaluators. Depends on `openai@^5.12.2` for embedding-based evaluators. Requires `OPENAI_API_KEY` env var. |
+| `@orq-ai/cli` | ^1.1.0 | CLI for discovering and running evaluation files | Provides `orq` command for running `.eval.ts` files with evaluatorq. Depends on `commander`, `tsx`, `glob`, `execa`. Useful for CI/CD experiment execution but NOT required for MCP-driven workflows. |
 
-**What the MCP server exposes (verified via SDK docs):**
-- Agent CRUD: create, update (PATCH), delete, list agents
-- Agent invocation: `POST /v2/agents/{key}/responses` with task continuation via `task_id`
-- Tool management: create/update HTTP tools, function tools, MCP tools
-- Prompt management: create, update, list prompts with model config, messages, metadata
-- Deployment invocation: invoke deployments for testing
-- Dataset operations: create, list, upload rows
-- Contact management (for audit trail)
-- Memory store operations: create, query, write
+### MCP Server Configuration
 
-**What the MCP server does NOT expose (needs direct API or SDK):**
-- Experiment execution (evaluatorq SDK handles this)
-- Evaluator creation and management (evaluatorq SDK)
-- Bulk dataset upload from local files
-- Version tagging and publishing
+The `@orq-ai/node` v3.x package IS the Orq.ai workspace MCP server. It exposes all SDK methods as MCP tools that Claude Code can invoke natively.
 
-**MCP server setup:**
-```bash
-# Add to Claude Code (project scope)
-claude mcp add --transport http --scope project orq https://my.orq.ai/v2/mcp \
-  --header "Authorization: Bearer ${ORQ_API_KEY}"
+**MCP server setup (verified from npm docs and orq.ai documentation):**
 
-# Or via .mcp.json in project root
+```json
 {
   "mcpServers": {
     "orq": {
-      "type": "http",
-      "url": "https://my.orq.ai/v2/mcp",
-      "headers": {
-        "Authorization": "Bearer ${ORQ_API_KEY}"
-      }
+      "command": "npx",
+      "args": [
+        "-y", "--package", "@orq-ai/node@3",
+        "--", "mcp", "start",
+        "--api-key", "${ORQ_API_KEY}",
+        "--environment", "production"
+      ]
     }
   }
 }
 ```
 
-### Orq.ai Node SDK (API Fallback + MCP Source)
-
-| Technology | Version | Purpose | Why Recommended |
-|------------|---------|---------|-----------------|
-| `@orq-ai/node` | ^3.2.8 | TypeScript SDK for Orq.ai API; also the MCP server source | The SDK provides type-safe access to all `/v2/*` endpoints. Use as API fallback when MCP tools are unavailable or for operations the MCP server does not expose. The SDK is the source of the MCP server -- installing it gives you both. Requires Node.js >= 20. |
-
-**Key SDK modules for V2.0:**
-
-| Module | Methods | V2.0 Use Case |
-|--------|---------|---------------|
-| `orq.agents` | `create()`, `update()` (PATCH), `createResponse()` | Deploy agent specs to Orq.ai, invoke agents for testing |
-| `orq.tools` | `create()`, `list()` | Create HTTP/function tools before agent deployment (tools must exist before agents reference them) |
-| `orq.prompts` | `create()`, `update()`, `list()` | Manage prompt versions during iteration loop |
-| `orq.datasets` | `create()`, `list()`, `createRows()` | Upload test datasets for experiments |
-| `orq.deployments` | `invoke()`, `getConfig()` | Invoke deployments for quick single-call tests |
-
-**Agent creation pattern (verified from API docs):**
-```typescript
-import { Orq } from "@orq-ai/node";
-
-const orq = new Orq({ apiKey: process.env.ORQ_API_KEY });
-
-// Create agent (idempotent via unique key)
-await orq.agents.create({
-  key: "invoice-checker-agent",
-  role: "Invoice document analyzer",
-  description: "Validates invoice fields against business rules",
-  instructions: "You are an invoice validation specialist...",
-  model: "anthropic/claude-sonnet-4-20250514",
-  path: "Default",
-  settings: {
-    max_iterations: 5,
-    max_execution_time: 300
-  },
-  tools: [
-    { type: "function", key: "validate-invoice", /* ... */ }
-  ]
-});
-
-// Update existing agent (PATCH)
-await orq.agents.update("invoice-checker-agent", {
-  instructions: "Updated instructions after test iteration..."
-});
-
-// Invoke agent
-const response = await orq.agents.createResponse("invoice-checker-agent", {
-  input: "Check this invoice: ...",
-});
+Or via Claude Code CLI:
+```bash
+claude mcp add --scope user orq \
+  -- npx -y --package @orq-ai/node@3 -- mcp start \
+  --api-key "$ORQ_API_KEY" --environment production
 ```
 
-**Tool creation must precede agent creation:**
-```typescript
-// Tools must exist before agents reference them
-await orq.tools.create({
-  key: "validate-invoice",
-  description: "Validates invoice against business rules",
-  type: "http",
-  path: "Default",
-  http: {
-    blueprint: "https://api.example.com/validate/{{invoice_id}}",
-    method: "POST",
-    arguments: {
-      invoice_id: { type: "string", description: "Invoice identifier" }
-    }
-  }
-});
-```
+**What the MCP server exposes (from SDK module surface):**
+- Agent CRUD: `agents.create()`, `agents.update()`, `agents.delete()`, `agents.list()`
+- Agent invocation: `agents.createResponse()` with task continuation via `task_id`
+- Tool management: `tools.create()`, `tools.update()`, `tools.list()`
+- Prompt management: `prompts.create()`, `prompts.update()`, `prompts.list()`
+- Dataset operations: `datasets.create()`, `datasets.list()`, `datasets.createRows()`
+- Memory store operations: `memoryStores.create()`, `memoryStores.query()`, `memoryStores.write()`
+- Deployment invocation: `deployments.invoke()`, `deployments.getConfig()`
 
-### Evaluatorq SDK (Experiment Engine)
-
-| Technology | Version | Purpose | Why Recommended |
-|------------|---------|---------|-----------------|
-| `@orq-ai/evaluatorq` | ^1.0.7 | Run experiments with datasets, jobs, and evaluators | This is the dedicated experiment runner for Orq.ai. It connects to platform datasets, runs jobs (your agent/deployment under test), applies evaluators, and sends results back to Orq.ai for visualization. Required for the automated testing pipeline. |
-| `@orq-ai/evaluators` | latest | Pre-built evaluator functions (cosine similarity, thresholds) | Companion package providing ready-made evaluators. Includes `cosineSimilarityEvaluator`, `cosineSimilarityThresholdEvaluator`, and `simpleCosineSimilarity`. Requires `OPENAI_API_KEY` for embedding-based evaluators. |
-
-**Experiment execution pattern:**
-```typescript
-import { evaluatorq, job } from "@orq-ai/evaluatorq";
-import { cosineSimilarityThresholdEvaluator } from "@orq-ai/evaluators";
-
-// Define the job (what you're testing)
-const agentJob = job("invoice-checker-test", async (input) => {
-  const response = await orq.agents.createResponse("invoice-checker-agent", {
-    input: input.text
-  });
-  return { output: response.output };
-});
-
-// Run experiment against platform dataset
-await evaluatorq({
-  dataset: "dataset-id-from-orq-platform",  // or inline data array
-  jobs: [agentJob],
-  evaluators: [
-    cosineSimilarityThresholdEvaluator({ threshold: 0.8 }),
-    // Custom evaluator
-    async (result) => ({
-      name: "has-required-fields",
-      score: result.output.includes("total") ? 1 : 0
-    })
-  ]
-});
-// Results automatically sent to Orq.ai platform
-```
+**What requires REST API or evaluatorq (not exposed via MCP):**
+- Experiment creation and execution (evaluatorq SDK)
+- Evaluator CRUD (REST API `/v2/evaluators`)
+- Experiment results retrieval (REST API `/v2/experiments/{id}/results`)
+- Bulk dataset file uploads
 
 ### Supporting Libraries
 
 | Library | Version | Purpose | When to Use |
 |---------|---------|---------|-------------|
-| `dotenv` | ^16.4 | Environment variable management for API keys | Load `ORQ_API_KEY` and `OPENAI_API_KEY` from `.env` during local development and testing. Not needed if keys are set in shell profile. |
-| `zod` | ^3.23 | Runtime validation of API responses and config | Validate Orq.ai API responses, experiment results, and user configuration during the deploy/test/iterate cycle. The `@orq-ai/node` SDK already uses zod internally. |
+| `openai` | ^5.12.2 | Transitive dep of `@orq-ai/evaluators` for embeddings | Pulled in automatically. Needed only for cosine similarity evaluators. Requires `OPENAI_API_KEY`. |
+| `zod` | ^3.25.0 | Runtime validation, transitive dep of `@orq-ai/node` | Already pulled in by the SDK. Use it for validating API responses and experiment results in wrapper scripts. |
+| `effect` | ^3.17.4 | Transitive dep of `@orq-ai/evaluatorq` | Effect-based architecture powers evaluatorq's parallel evaluation. No direct usage needed. |
 
 ### Development Tools
 
 | Tool | Purpose | Notes |
 |------|---------|-------|
-| `claude mcp add` | Register Orq.ai MCP server | Use `--scope project` to keep it project-local. Use `--scope user` for personal dev. |
-| `claude mcp list` | Verify MCP server registration | Confirms the Orq.ai MCP tools are available before subagents attempt to use them. |
-| Node.js >= 20 | Required runtime for MCP server from npm | The `@orq-ai/node` MCP server requires Node.js v20+. Verify with `node --version`. |
+| `claude mcp add` | Register Orq.ai MCP server | Use `--scope user` for cross-project availability. Requires `@orq-ai/node@3` (not v4). |
+| `claude mcp list` | Verify MCP server registration | Confirms Orq.ai MCP tools are available before subagents attempt to use them. |
+| Node.js >= 20 | Required runtime for MCP server | The `@orq-ai/node` MCP server and `@modelcontextprotocol/sdk` require Node.js v20+. |
+| `npx` | MCP server launcher | MCP server runs via npx -- no global install needed. |
 
-## Orq.ai API Surface Reference (V2.0 Endpoints)
+## Orq.ai REST API Surface (V2.0 Endpoints)
 
-### Agent Lifecycle Endpoints
+All endpoints require `Authorization: Bearer $ORQ_API_KEY` header. Base URL: `https://api.orq.ai/v2/`.
 
-| Endpoint | Method | Purpose | V2.0 Usage |
-|----------|--------|---------|------------|
-| `/v2/agents` | POST | Create agent | Deploy new agent specs |
-| `/v2/agents/{key}` | PATCH | Update agent | Iterate prompts/settings after test results |
-| `/v2/agents/{key}` | GET | Get agent config | Verify deployment state |
-| `/v2/agents/{key}` | DELETE | Remove agent | Cleanup failed deployments |
-| `/v2/agents/{key}/responses` | POST | Invoke agent | Run agent for testing; pass `task_id` for continuation |
+### Deployment Pipeline Endpoints
 
-### Tool Endpoints
+| Category | Key Endpoints | V2.0 Usage |
+|----------|--------------|------------|
+| Agents | POST/PATCH/GET/DELETE `/v2/agents` | Deploy, update, verify, cleanup agent specs |
+| Tools | POST/PATCH/GET `/v2/tools` | Create tools BEFORE agents that reference them |
+| Datasets | POST `/v2/datasets`, POST `/v2/datasets/{id}/rows` | Upload generated test data |
+| Evaluators | POST/PATCH/GET `/v2/evaluators` | Create custom LLM/Python/HTTP/JSON evaluators |
+| Experiments | POST `/v2/experiments`, POST `.../run`, GET `.../results` | Execute and retrieve experiment results |
+| Prompts | POST/PATCH/GET `/v2/prompts`, POST `.../versions` | Version and iterate prompts |
 
-| Endpoint | Method | Purpose | V2.0 Usage |
-|----------|--------|---------|------------|
-| `/v2/tools` | POST | Create tool | Deploy tools before agents that reference them |
-| `/v2/tools` | GET | List tools | Check if tools already exist (idempotent deploys) |
-| `/v2/tools/{key}` | PATCH | Update tool | Modify tool configs during iteration |
+### Key Patterns
 
-### Dataset Endpoints
+**Idempotent agent deployment:** Use agent `key` field. Check if key exists (GET), then PATCH to update or POST to create.
 
-| Endpoint | Method | Purpose | V2.0 Usage |
-|----------|--------|---------|------------|
-| `/v2/datasets` | POST | Create dataset | Upload generated test data |
-| `/v2/datasets` | GET | List datasets | Find existing datasets for experiments |
-| `/v2/datasets/{id}/rows` | POST | Add rows | Upload test inputs, expected outputs, messages |
+**Tool-before-agent ordering:** Tools must exist before agents that reference them. Deploy tools first, then agents.
 
-### Prompt Endpoints
+**Agent versioning:** Invoke `agent-key@2` to target a specific published version. Use for A/B testing prompt iterations.
 
-| Endpoint | Method | Purpose | V2.0 Usage |
-|----------|--------|---------|------------|
-| `/v2/prompts` | POST | Create prompt | Store prompt versions |
-| `/v2/prompts` | GET | List prompts | Retrieve current prompt versions |
-| `/v2/prompts/{key}` | PATCH | Update prompt | Apply iteration changes |
-
-### Agent Versioning
-
-Agents support version tags: invoke `agent-key@2` to target a specific published version. Default routing goes to the `latest` tag. Use this for A/B testing prompt iterations -- deploy v2 while v1 remains live.
-
-### Orchestrator Agent Pattern
-
-Orchestrator agents require two built-in tools:
-- `retrieve_agents` -- discovers available sub-agents in the workspace
-- `call_sub_agent` -- delegates tasks to discovered sub-agents
-
-These must be included in the orchestrator's tools array. The orchestrator must be instructed to call `retrieve_agents` first before delegating.
-
-### Memory Stores
-
-Agents can use memory stores for persistent context:
-- `retrieve_memory_stores` -- discovers available stores
-- `query_memory_store` -- reads from a store
-- `write_memory_store` -- writes to a store
-
-Memory stores require a unique key and embedding model configuration.
+**Orchestrator agents:** Require two built-in tools: `retrieve_agents` and `call_sub_agent`.
 
 ## Installation
 
 ```bash
 # V2.0 runtime dependencies (new -- V1.0 had zero npm deps)
-npm install @orq-ai/node@^3.2.8 @orq-ai/evaluatorq@^1.0.7 @orq-ai/evaluators
+# IMPORTANT: Pin to v3.x for MCP server support (v4 dropped MCP binary)
+npm install @orq-ai/node@^3.14.45
 
-# Optional: environment management
-npm install dotenv@^16.4
+# Experiment tooling (peer-depends on @orq-ai/node@^3.9.26)
+npm install @orq-ai/evaluatorq@^1.1.0 @orq-ai/evaluators@^1.1.0
 
-# Dev dependencies
-npm install -D typescript@^5.5 @types/node@^20
+# Optional: CLI for running .eval.ts files
+npm install @orq-ai/cli@^1.1.0
 
 # MCP server registration (run in Claude Code)
-claude mcp add --transport http --scope project orq https://my.orq.ai/v2/mcp \
-  --header "Authorization: Bearer ${ORQ_API_KEY}"
+claude mcp add --scope user orq \
+  -- npx -y --package @orq-ai/node@3 -- mcp start \
+  --api-key "$ORQ_API_KEY" --environment production
 ```
 
 **Environment variables required:**
@@ -256,68 +135,27 @@ ORQ_API_KEY=your-orq-api-key
 OPENAI_API_KEY=your-openai-api-key
 ```
 
-## Agentic Framework Patterns (Reference for Prompt Updates)
-
-These patterns inform how the skill's reference materials and agent instructions should be updated. They are NOT runtime dependencies -- they are knowledge to bake into the skill's templates and subagent prompts.
-
-### Anthropic: Building Effective Agents (Dec 2024, still canonical in 2026)
-
-**Core principle:** Start simple, add complexity only when measured improvement justifies it.
-
-**Six composable patterns (in order of complexity):**
-
-1. **Prompt Chaining** -- Break task into sequential steps, each LLM call processes output of previous. Gate steps with programmatic checks. Use when: task decomposes into fixed subtasks.
-
-2. **Routing** -- Classify input, route to specialized handler. Use when: distinct categories need different approaches.
-
-3. **Parallelization** -- Run multiple LLM calls simultaneously, aggregate results. Two variants: sectioning (split task) and voting (same task, multiple perspectives). Use when: subtasks are independent.
-
-4. **Orchestrator-Workers** -- Central LLM dynamically determines subtasks and delegates. Unlike parallelization, subtasks are not pre-defined. Use when: task complexity varies per input.
-
-5. **Evaluator-Optimizer** -- One LLM generates, another evaluates, loop until quality threshold met. **Directly maps to V2.0's prompt iteration loop.** Use when: clear evaluation criteria exist and iterative refinement adds measurable value.
-
-6. **Autonomous Agent** -- LLM operates in a loop with tool access, deciding next actions. Use when: open-ended tasks requiring adaptive behavior.
-
-**Key insight for V2.0:** The evaluator-optimizer pattern is exactly what the prompt iteration loop implements. The existing skill already uses orchestrator-workers (architect delegates to researchers/generators). V2.0 adds evaluator-optimizer on top.
-
-### OpenAI: Agents SDK Patterns (2025-2026)
-
-**Two multi-agent patterns:**
-
-1. **Handoff** -- Agent transfers control to another agent mid-conversation. The receiving agent takes over the thread. Use for: conversational routing.
-
-2. **Agent-as-Tool** -- Central agent calls other agents as tools for subtasks. Sub-agents do not take over the conversation; results flow back to the orchestrator. **This maps to Orq.ai's `call_sub_agent` pattern.**
-
-**Guardrails:** Run input validation in parallel with agent execution. Fail fast when checks do not pass. Implement as separate model instances (not same-call guardrails).
-
-### Google: A2A Protocol (v0.3, 2025-2026)
-
-**Relevance to Orq.ai:** Orq.ai's agent runtime is built on A2A Protocol concepts. Task states (`submitted`, `working`, `input_required`, `completed`, `failed`, `canceled`), message parts format, and task continuation via `task_id` are A2A patterns.
-
-**Key update:** A2A v0.3 brings a more stable interface. Protocol is framework-agnostic (works across ADK, LangGraph, CrewAI, etc.). Built on HTTP, SSE, and JSON-RPC.
-
-**Implication for V2.0:** Agent orchestration specs should reference A2A task lifecycle states. The `input_required` state maps to HITL (human-in-the-loop) approval gates in the iteration loop.
-
 ## Alternatives Considered
 
 | Recommended | Alternative | When to Use Alternative |
 |-------------|-------------|-------------------------|
-| Orq.ai MCP server (MCP-first) | Direct REST API calls via `fetch()` | Only if MCP server is unavailable or specific endpoints are not exposed as MCP tools. MCP-first is preferred because Claude Code natively understands MCP tool calls. |
-| `@orq-ai/node` SDK | Raw `fetch()` to REST endpoints | Only if SDK introduces breaking changes or version conflicts. SDK provides type safety, error handling, and retry logic. |
-| `@orq-ai/evaluatorq` | Custom experiment runner | Only if evaluatorq lacks needed features (e.g., custom metrics not expressible as evaluator functions). evaluatorq handles platform integration automatically. |
-| `@orq-ai/evaluators` (cosine similarity) | Custom LLM-as-judge evaluators | Use LLM-as-judge when semantic similarity is insufficient -- e.g., evaluating reasoning quality, instruction adherence, or tone. Cosine similarity works for factual output matching. |
-| `dotenv` for key management | Shell environment variables | If users already export `ORQ_API_KEY` in their shell profile. dotenv is only needed for `.env` file convenience. |
+| `@orq-ai/node@3` (v3 line) | `@orq-ai/node@4` (v4 latest) | Only if MCP server is not needed AND evaluatorq compatibility is resolved. Currently v4 breaks both MCP and evaluatorq. Revisit when evaluatorq updates its peer dep to support v4. |
+| MCP server via `@orq-ai/node@3` | Direct REST API via `fetch()` | Only when MCP server is unavailable or for operations not exposed via MCP (experiments, evaluator CRUD). MCP-first is preferred because Claude Code natively understands MCP tool calls. |
+| `@orq-ai/evaluatorq` | Custom experiment runner | Only if evaluatorq lacks needed features. evaluatorq handles platform integration (dataset sync, result upload) automatically. |
+| `@orq-ai/evaluators` (cosine similarity) | Custom LLM-as-judge evaluators | Use LLM-as-judge for semantic quality (reasoning, tone, instruction adherence). Cosine similarity only works for factual output matching against reference text. |
+| `@orq-ai/cli` | Running evaluatorq directly in scripts | CLI is convenient for CI/CD and file-based eval definitions. For MCP-driven workflows where Claude Code orchestrates experiments, direct SDK calls are simpler. |
+| Orq.ai docs MCP (`https://docs.orq.ai/mcp`) | Reading docs manually | The docs MCP server provides documentation search but NOT workspace operations. Useful for subagents that need to look up API details at runtime. Separate from the workspace MCP. |
 
 ## What NOT to Use
 
 | Avoid | Why | Use Instead |
 |-------|-----|-------------|
-| LangChain / LangGraph / CrewAI | Agent execution frameworks. V2.0 deploys to Orq.ai -- it does not execute agents locally. Adding these frameworks is the wrong abstraction. | Orq.ai MCP server + SDK for deployment; evaluatorq for testing |
-| Orq.ai Deployments API (`/v2/deployments`) | Deployments are single-call, no orchestration, no state. V2.0 targets the Agents API which supports multi-step, tools, memory, and task continuation. | Agents API (`/v2/agents`) |
-| Custom MCP server (building one) | The `@orq-ai/node` SDK already IS an MCP server. Building a wrapper adds complexity with no benefit. | `@orq-ai/node` as MCP server directly |
-| `@orq-ai/node` as the ONLY integration | MCP-first is better for Claude Code because tool calls are native. SDK should be fallback, not primary. | MCP server primary, SDK fallback |
-| OpenAI Agents SDK / Google ADK | These are agent execution runtimes for building agents that run locally. V2.0 deploys specs to Orq.ai's runtime. Their patterns are valuable as reference -- their code is not needed. | Reference patterns in skill templates; deploy to Orq.ai runtime |
-| Heavyweight test frameworks (Jest, Vitest) | Experiment execution is handled by evaluatorq, not a test runner. Test assertions are evaluator functions, not `expect()` calls. | `@orq-ai/evaluatorq` with custom evaluator functions |
+| `@orq-ai/node@4` (v4 latest) | V4 dropped the MCP server binary (`bin/mcp-server.js`). Also breaks evaluatorq peer dep (`^3.9.26`). Cannot use for MCP-first integration or experiment execution. | `@orq-ai/node@^3.14.45` |
+| LangChain / LangGraph / CrewAI | Agent execution frameworks. V2.0 deploys TO Orq.ai -- it does not execute agents locally. Wrong abstraction layer. | Orq.ai MCP server + SDK for deployment |
+| Orq.ai Deployments API (`/v2/deployments`) | Deployments are single-call, no orchestration, no state. V2.0 targets the Agents API with multi-step, tools, memory, and task continuation. | Agents API (`/v2/agents`) |
+| Custom MCP server wrapper | `@orq-ai/node@3` already IS the MCP server. Building a wrapper adds complexity with zero benefit. | `@orq-ai/node@3` MCP server directly |
+| Jest / Vitest for experiment testing | Experiment execution is handled by evaluatorq. Test assertions are evaluator functions, not `expect()` calls. Adding a test runner on top adds unnecessary indirection. | `@orq-ai/evaluatorq` with evaluator functions |
+| OpenAI Agents SDK / Google ADK | These are agent execution runtimes. V2.0 deploys specs to Orq.ai's runtime. Their patterns are reference knowledge, not runtime dependencies. | Reference patterns in skill templates |
 
 ## Stack Patterns by Variant
 
@@ -328,20 +166,25 @@ These patterns inform how the skill's reference materials and agent instructions
 - Because: some users only want spec generation without API integration
 
 **If user selects "deploy" install (core + deployment):**
-- Add `@orq-ai/node` dependency
-- Register Orq.ai MCP server
+- Add `@orq-ai/node@3` dependency
+- Register Orq.ai workspace MCP server
 - Enable `/orq-agent:deploy` skill
 - Because: deploys specs but does not test them
 
-**If user selects "full" install (core + deploy + test + iterate):**
-- Add `@orq-ai/node`, `@orq-ai/evaluatorq`, `@orq-ai/evaluators`
-- Register Orq.ai MCP server
-- Enable all V2.0 skills (deploy, test, iterate, guardrails)
+**If user selects "test" install (core + deploy + test):**
+- Add `@orq-ai/node@3`, `@orq-ai/evaluatorq`, `@orq-ai/evaluators`
+- Register Orq.ai workspace MCP server
+- Enable deploy + test skills
 - Requires both `ORQ_API_KEY` and `OPENAI_API_KEY`
+- Because: deploys and tests but does not auto-iterate
+
+**If user selects "full" install (core + deploy + test + iterate):**
+- Same deps as "test" tier plus `@orq-ai/cli` (optional)
+- All V2.0 skills enabled (deploy, test, iterate, guardrails)
 - Because: full autonomous pipeline
 
 **If MCP server is unavailable or broken:**
-- Fall back to SDK direct calls wrapped in bash scripts
+- Fall back to SDK direct calls wrapped in Node.js scripts
 - Subagents invoke `node bin/orq-deploy.js` instead of MCP tools
 - Because: API fallback ensures pipeline works without MCP
 
@@ -349,29 +192,54 @@ These patterns inform how the skill's reference materials and agent instructions
 
 | Package | Compatible With | Notes |
 |---------|-----------------|-------|
-| `@orq-ai/node@^3.2.8` | Node.js >= 20 | Required for MCP server mode. SDK auto-generated from OpenAPI spec, updates frequently. Pin to `^3.2` to avoid breaking changes. |
-| `@orq-ai/evaluatorq@^1.0.7` | `@orq-ai/node@^3.x` | Part of orqkit monorepo. Requires `ORQ_API_KEY` env var for platform dataset access. |
-| `@orq-ai/evaluators` | `@orq-ai/evaluatorq@^1.x` | Companion package. Cosine similarity evaluators require `OPENAI_API_KEY` for embeddings. |
+| `@orq-ai/node@^3.14.45` | Node.js >= 20, `@modelcontextprotocol/sdk@>=1.5.0 <1.10.0`, `zod@^3.25.0` | V3 is the ONLY version with MCP server binary. V4 dropped it. Pin to `@3` in npm install and MCP config. |
+| `@orq-ai/evaluatorq@^1.1.0` | `@orq-ai/node@^3.9.26` (peer dep) | **Cannot use with @orq-ai/node v4.** Peer dep locks to v3 line. Effect-based architecture (effect@^3.17.4). |
+| `@orq-ai/evaluators@^1.1.0` | `openai@^5.12.2` | Cosine similarity evaluators require OpenAI embeddings API. `OPENAI_API_KEY` env var required. |
+| `@orq-ai/cli@^1.1.0` | `@orq-ai/evaluatorq@^1.x`, `tsx@^4.7.0` | CLI wraps evaluatorq for file-based eval execution. Uses tsx for TypeScript execution. |
 | Orq.ai Agents API v2 | `@orq-ai/node@^3.x` | Agent versioning via `@version-number` tags. Orchestrator agents need `retrieve_agents` + `call_sub_agent` tools. |
-| Claude Code MCP (HTTP transport) | Claude Code v2.1+ | `claude mcp add --transport http` for remote MCP servers. Requires `--scope project` for project-local registration. |
-| A2A Protocol | v0.3 | Orq.ai agent runtime uses A2A task states. Specs should reference: `submitted`, `working`, `input_required`, `completed`, `failed`. |
+| Claude Code MCP | Stdio transport (npx) | MCP server runs as child process via npx. Use `--scope user` for global, `--scope project` for project-local. |
+
+## Critical Version Decision: Why v3, Not v4
+
+The `@orq-ai/node` package has two active version lines:
+
+| Aspect | v3 (^3.14.45) | v4 (4.4.9 latest) |
+|--------|---------------|-------------------|
+| MCP server binary | YES (`bin/mcp-server.js`) | NO (removed) |
+| `@modelcontextprotocol/sdk` dep | YES (`>=1.5.0 <1.10.0`) | NO |
+| evaluatorq peer dep satisfied | YES (`^3.9.26`) | NO |
+| evaluators compatible | YES (indirect via evaluatorq) | Unknown |
+| `zod` dep | `^3.25.0 \|\| ^4.0.0` | `^3.25.0 \|\| ^4.0.0` |
+| npm dist-tag | (not tagged) | `latest` |
+
+**Decision: Use `@orq-ai/node@^3.14.45` because:**
+1. MCP-first integration is the primary design goal -- v4 cannot do this
+2. evaluatorq's peer dep requires v3 -- using v4 causes install warnings/failures
+3. The v3 line is actively maintained (3.14.45 is recent, 200+ releases)
+4. When v4 adds MCP back (or evaluatorq supports v4), migration is straightforward
+
+**Risk:** V3 is not the `latest` dist tag. Must explicitly pin `@3` in install commands and MCP config to avoid accidentally pulling v4.
+
+## Two MCP Servers (Do Not Confuse)
+
+| Server | URL/Package | Purpose | What It Does |
+|--------|-------------|---------|--------------|
+| **Docs MCP** | `https://docs.orq.ai/mcp` | Documentation search | Searches Orq.ai docs, helps generate integration code. READ-ONLY. No workspace operations. |
+| **Workspace MCP** | `@orq-ai/node@3` (npx) | Platform operations | Full CRUD on agents, tools, datasets, prompts, memory. Requires API key. This is what V2.0 uses. |
+
+V2.0 needs the **Workspace MCP** for deployment and iteration. The Docs MCP is optional (useful for subagents that need to look up API details at runtime).
 
 ## Sources
 
-- [Orq.ai Agent API Documentation](https://docs.orq.ai/docs/agents/agent-api) -- Agent CRUD, invocation, orchestrator pattern, tool requirements. MEDIUM confidence (verified endpoints but not all method signatures).
-- [Orq.ai MCP Documentation](https://docs.orq.ai/docs/common-architecture/mcp) -- MCP server setup, capabilities overview. MEDIUM confidence (confirmed existence; exact tool list not fully enumerated).
-- [@orq-ai/node on npm](https://www.npmjs.com/package/@orq-ai/node) -- Version 3.2.8, TypeScript SDK, MCP server mode. HIGH confidence (npm verified).
-- [@orq-ai/evaluatorq on npm](https://www.npmjs.com/package/@orq-ai/evaluatorq) -- Version 1.0.7, experiment runner with jobs and evaluators. HIGH confidence (npm verified).
-- [@orq-ai/evaluators on npm](https://www.npmjs.com/package/@orq-ai/evaluators) -- Cosine similarity evaluators, requires OpenAI API key. MEDIUM confidence (version not pinned in search results).
-- [orq-ai/orq-node GitHub](https://github.com/orq-ai/orq-node) -- SDK source, 102+ methods, standalone functions, FUNCTIONS.md. HIGH confidence.
-- [orq-ai/orqkit GitHub](https://github.com/orq-ai/orqkit) -- Monorepo for evaluatorq and evaluators packages. MEDIUM confidence.
-- [Anthropic: Building Effective Agents](https://www.anthropic.com/research/building-effective-agents) -- Six composable patterns, evaluator-optimizer, guardrails. HIGH confidence (official Anthropic publication).
-- [Anthropic: Multi-Agent Research System](https://www.anthropic.com/engineering/multi-agent-research-system) -- Orchestrator-worker pattern in production. HIGH confidence.
-- [OpenAI Agents SDK](https://openai.github.io/openai-agents-python/) -- Handoff and agent-as-tool patterns, guardrails. HIGH confidence (official OpenAI docs).
-- [Google A2A Protocol](https://developers.googleblog.com/en/a2a-a-new-era-of-agent-interoperability/) -- A2A v0.3, task lifecycle states, framework-agnostic. HIGH confidence (official Google publication).
-- [Orq.ai Datasets Overview](https://docs.orq.ai/docs/datasets/overview) -- Dataset structure, experiment integration. MEDIUM confidence (overview only, not full endpoint reference).
-- [Orq.ai Evaluator Introduction](https://docs.orq.ai/docs/evaluator) -- Evaluator types, experiment integration. MEDIUM confidence.
-- [Claude Code MCP Docs](https://code.claude.com/docs/en/mcp) -- HTTP transport, scope options, header configuration. HIGH confidence.
+- [@orq-ai/node on npm](https://www.npmjs.com/package/@orq-ai/node) -- Version 4.4.9 latest, 3.14.45 latest v3. Verified: v3 has `bin/mcp-server.js`, v4 does not. HIGH confidence.
+- [@orq-ai/evaluatorq on npm](https://www.npmjs.com/package/@orq-ai/evaluatorq) -- Version 1.1.0. Peer dep: `@orq-ai/node@^3.9.26`. HIGH confidence.
+- [@orq-ai/evaluators on npm](https://www.npmjs.com/package/@orq-ai/evaluators) -- Version 1.1.0. Depends on `openai@^5.12.2`. HIGH confidence.
+- [@orq-ai/cli on npm](https://www.npmjs.com/package/@orq-ai/cli) -- Version 1.1.0. CLI for evaluatorq file discovery. HIGH confidence.
+- [Orq.ai MCP documentation](https://docs.orq.ai/docs/common-architecture/mcp) -- Confirms two MCP servers: docs server and workspace server. Workspace MCP setup via npx. MEDIUM confidence (URL structure changed, content verified via WebFetch).
+- [Orq.ai API docs](https://docs.orq.ai/reference/) -- Agent, tool, dataset, evaluator, experiment endpoints at `/v2/*`. MEDIUM confidence.
+- [Orq.ai experiments overview](https://docs.orq.ai/docs/experiments/overview) -- Experiment workflow: dataset + model + evaluators. HIGH confidence.
+- [Orq.ai evaluator types reference](orq-agent/references/orqai-evaluator-types.md) -- 41 evaluators: 19 function, 10 LLM, 12 RAGAS, 4 custom types. HIGH confidence (authored from verified docs).
+- [Claude Code MCP docs](https://code.claude.com/docs/en/mcp) -- `claude mcp add` syntax, scope options, stdio transport. HIGH confidence.
 
 ---
 *Stack research for: V2.0 Autonomous Orq.ai Pipeline -- additions to existing Claude Code skill*

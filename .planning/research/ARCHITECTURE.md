@@ -1,521 +1,495 @@
 # Architecture Research
 
-**Domain:** LLM agent design tooling / Claude Code skill — V2.0 Autonomous Pipeline Extension
-**Researched:** 2026-03-01
-**Confidence:** MEDIUM (Orq.ai API surface verified via docs; MCP-to-Orq.ai integration patterns less documented)
+**Domain:** LLM agent design tooling / Claude Code skill -- V2.0 Autonomous Pipeline Implementation
+**Researched:** 2026-03-01 (updated post-v0.3 foundation)
+**Confidence:** MEDIUM-HIGH (existing architecture well understood; Orq.ai MCP SDK tools need runtime validation)
 
-## System Overview — V2.0 Extension
+## System Overview -- V2.0 Extension
 
-V2.0 extends V1.0's spec-generation pipeline with three new stages (deploy, test, iterate) and modifies two existing components (install script, orchestrator). The core V1.0 subagents (architect, researcher, spec-generator, dataset-generator, orchestration-generator, readme-generator, tool-resolver) remain unchanged.
+V2.0 extends V1.0's spec-generation pipeline with three new operational stages (deploy, test, iterate). The v0.3 foundation already shipped: capability tiers, API key onboarding, MCP registration, command stubs with gates/fallbacks, API endpoint reference, evaluator type reference, and JSON audit templates. What remains is the **implementation inside the stubs** -- the actual deployer, tester, and iterator subagent logic, plus orchestrator wiring.
 
 ```
-┌─────────────────────────────────────────────────────────────────────────┐
-│                      User Layer (Claude Code CLI)                       │
-│  ┌────────────────────────────────────────────────────────────────────┐ │
-│  │  /orq-agent  (V1 entry point — extended with V2 stages)           │ │
-│  │  /orq-agent:deploy  /orq-agent:test  /orq-agent:iterate           │ │
-│  └──────────────────────────┬─────────────────────────────────────────┘ │
-├─────────────────────────────┼───────────────────────────────────────────┤
-│                    Orchestration Layer                                   │
-│  ┌──────────────────────────┴─────────────────────────────────────────┐ │
-│  │              Orchestrator Workflow (orq-agent.md) — MODIFIED        │ │
-│  │  V1 Stages (unchanged):                                            │ │
-│  │    Discussion → Architect → Tool Resolver → Research → Spec Gen    │ │
-│  │    → Post-Gen (Orchestration + Datasets + README)                  │ │
-│  │                                                                     │ │
-│  │  V2 Stages (NEW — appended after Post-Gen):                        │ │
-│  │    → Deploy → Test → Iterate (loop)                                │ │
-│  └──┬───────┬───────┬───────┬───────┬───────┬───────┬─────────────────┘ │
-├─────┼───────┼───────┼───────┼───────┼───────┼───────┼─────────────────  │
-│     │ V1 Subagent Layer (UNCHANGED)  │  V2 Subagent Layer (NEW)    │   │
-│  ┌──┴──────┐ ┌──┴──────┐ ┌──┴──────┐│ ┌──┴──────┐ ┌──┴──────┐     │   │
-│  │Architect│ │Research │ │Spec Gen ││ │Deployer │ │Tester   │     │   │
-│  │         │ │         │ │(per agt)││ │         │ │         │     │   │
-│  └─────────┘ └─────────┘ └─────────┘│ └────┬────┘ └────┬────┘     │   │
-│  ┌─────────┐ ┌─────────┐ ┌─────────┐│      │           │          │   │
-│  │Tool Res │ │Orch Gen │ │Dataset  ││ ┌────┴───────────┴────┐     │   │
-│  │         │ │         │ │Generator││ │  Iterator (loop)     │     │   │
-│  └─────────┘ └─────────┘ └─────────┘│ └─────────────────────┘     │   │
-├──────────────────────────────────────┼─────────────────────────────────┤
-│          Reference Layer (EXTENDED)  │  Integration Layer (NEW)        │
-│  ┌──────────┐  ┌──────────┐         │  ┌────────────────────────┐     │
-│  │Templates │  │Orq.ai Ref│         │  │ Orq.ai API Adapter     │     │
-│  │(V1 + V2) │  │(V1 + V2) │         │  │ (REST calls via Bash)  │     │
-│  └──────────┘  └──────────┘         │  ├────────────────────────┤     │
-│                                      │  │ Orq.ai MCP Server      │     │
-│                                      │  │ (registered via claude  │     │
-│                                      │  │  mcp add, used by       │     │
-│                                      │  │  subagents directly)    │     │
-│                                      │  └────────────────────────┘     │
-├─────────────────────────────────────────────────────────────────────────┤
-│                      Output Layer (Filesystem — EXTENDED)               │
-│  Agents/[swarm-name]/                                                   │
-│  ├── agents/*.md   ├── datasets/   ├── README.md     (V1: unchanged)  │
-│  ├── deploy-log.md ├── test-results.md               (V2: new)        │
-│  └── iterations/   └── audit-trail.md                (V2: new)        │
-└─────────────────────────────────────────────────────────────────────────┘
++-----------------------------------------------------------------------+
+|                      User Layer (Claude Code CLI)                      |
+|  +------------------------------------------------------------------+ |
+|  |  /orq-agent  (V1 entry point -- V2 stages appended post-summary) | |
+|  |  /orq-agent:deploy  /orq-agent:test  /orq-agent:iterate          | |
+|  +----------------------------+-------------------------------------+ |
++-------------------------------+---------------------------------------+
+|                    Orchestration Layer                                  |
+|  +----------------------------+-------------------------------------+ |
+|  |              Orchestrator Workflow (orq-agent.md) -- MODIFY       | |
+|  |  V1 Stages (unchanged):                                          | |
+|  |    Discussion > Architect > Tool Resolver > Research > Spec Gen   | |
+|  |    > Post-Gen (Orchestration + Datasets + README)                 | |
+|  |                                                                   | |
+|  |  V2 Stages (NEW -- appended after Step 6 Final Summary):         | |
+|  |    > Deploy (Step 7) > Test (Step 8) > Iterate loop (Step 9)     | |
+|  +--+-------+-------+-------+-------+-------+-------+--------------+ |
++-----+-------+-------+-------+-------+-------+-------+----------------+
+      | V1 Subagent Layer (UNCHANGED) |  V2 Subagent Layer (NEW)      |
+   +--+------+ +--+------+ +--+------+ +--+------+ +--+------+        |
+   |Architect| |Research | |Spec Gen | |Deployer | |Tester   |        |
+   |         | |         | |(per agt)| |         | |         |        |
+   +---------+ +---------+ +---------+ +----+----+ +----+----+        |
+   +---------+ +---------+ +---------+      |           |             |
+   |Tool Res | |Orch Gen | |Dataset  | +----+-----------+----+        |
+   |         | |         | |Generator| |  Iterator (loop)     |        |
+   +---------+ +---------+ +---------+ +----------------------+        |
++--------------------------+--------------------------------------------+
+|  Reference Layer         |  Integration Layer                         |
+|  (v0.3 COMPLETE)         |  (NEW -- core of V2.0 work)               |
+|  +-----------+ +-------+ |  +--------------------------------------+ |
+|  |Templates  | |Orq Ref| |  | Orq.ai Node SDK (MCP server)        | |
+|  |(V1 + V2)  | |(V1+V2)| |  | @orq-ai/node via npx MCP start      | |
+|  +-----------+ +-------+ |  | SDK methods exposed as MCP tools     | |
+|                          |  +------------------+-------------------+ |
+|                          |                     |                     |
+|                          |  +------------------+-------------------+ |
+|                          |  | REST API fallback (curl via Bash)    | |
+|                          |  | Used when MCP unavailable            | |
+|                          |  +--------------------------------------+ |
++-----------------------------------------------------------------------+
+|                      Output Layer (Filesystem -- EXTENDED)             |
+|  Agents/[swarm-name]/                                                 |
+|  +-- agents/*.md  +-- datasets/  +-- README.md       (V1: unchanged) |
+|  +-- deploy-log.json  +-- test-results.json          (V2: new)       |
+|  +-- iterations/  +-- iteration-log.json             (V2: new)       |
++-----------------------------------------------------------------------+
 ```
 
-## What Changes vs What Stays
+## What Already Exists (v0.3 Foundation -- SHIPPED)
 
-### UNCHANGED (V1.0 Components)
+These components are built and verified. V2.0 implementation fills in the stubs.
 
-| Component | Why Unchanged |
-|-----------|---------------|
-| `agents/architect.md` | Blueprint design has no dependency on deploy/test stages |
-| `agents/researcher.md` | Domain research is upstream of all new stages |
-| `agents/spec-generator.md` | Spec format is already Orq.ai API-compatible; deployer reads these as-is |
-| `agents/orchestration-generator.md` | Orchestration doc is a human reference, not consumed by deployer |
-| `agents/dataset-generator.md` | Datasets are already structured for Orq.ai experiments; tester reads these as-is |
-| `agents/readme-generator.md` | Human-facing doc, independent of automation |
-| `agents/tool-resolver.md` | Tool resolution is upstream of deployment |
-| `templates/agent-spec.md` | Template is already aligned with `/v2/agents` API fields |
-| `templates/orchestration.md` | No changes needed |
-| `templates/dataset.md` | Datasets already contain eval pairs; may need minor format extension for evaluatorq |
-| `references/orqai-agent-fields.md` | API field reference stays, may need version bump annotation |
-| `references/orqai-model-catalog.md` | Model catalog stays |
-| `references/orchestration-patterns.md` | Patterns stay |
-| `references/naming-conventions.md` | Naming stays |
-| `references/tool-catalog.md` | Tool catalog stays |
+| Component | Status | What It Does |
+|-----------|--------|-------------|
+| `install.sh` (340 lines) | COMPLETE | Tier selection (core/deploy/test/full), API key validation via `/v2/models`, env var storage in shell profile, MCP registration via `claude mcp add --transport http --scope user orqai-mcp`, config.json creation |
+| `.orq-agent/config.json` | COMPLETE | Stores tier, model_profile, model_overrides, installed_at, orqai_mcp_registered |
+| `commands/deploy.md` | STUB | Capability gate + MCP check + V1.0 fallback working. Step 3 (actual deploy logic) is placeholder |
+| `commands/test.md` | STUB | Capability gate + MCP check + V1.0 fallback working. Step 3 (actual test logic) is placeholder |
+| `commands/iterate.md` | STUB | Capability gate + MCP check + V1.0 fallback working. Step 3 (actual iterate logic) is placeholder |
+| `commands/set-profile.md` | COMPLETE | Model profile management (quality/balanced/budget), reads/writes config.json |
+| `references/orqai-api-endpoints.md` | COMPLETE | 8 API domains: agents, tools, datasets, evaluators, experiments, prompts, memory-stores, models |
+| `references/orqai-evaluator-types.md` | COMPLETE | 19 function + 10 LLM + 12 RAGAS evaluators (41 total), 4 custom types, selection guidance |
+| `references/agentic-patterns.md` | COMPLETE | 5 composable patterns, 5 context engineering patterns, Orq.ai mapping |
+| `templates/deploy-log.json` | COMPLETE | JSON template with deployment_id, agents array, tools array, verification block |
+| `templates/test-results.json` | COMPLETE | JSON template with evaluators, per-agent scores (median/variance/CI), pass/fail |
+| `templates/iteration-log.json` | COMPLETE | JSON template with iteration number, diagnosis, proposed_changes, approval, scores before/after |
 
-### MODIFIED (V1.0 Components Requiring Changes)
+## What Needs Building (V2.0 Implementation)
+
+### NEW Components
+
+| Component | Purpose | Dependencies |
+|-----------|---------|-------------|
+| `agents/deployer.md` | Subagent prompt: parse spec markdown, call Orq.ai API to create/update agents and tools, write deploy-log.json | Reads: agent specs, TOOLS.md, API endpoints ref. Uses: MCP tools or curl |
+| `agents/tester.md` | Subagent prompt: upload datasets, create evaluators, run experiments, present results in test-results.json | Reads: datasets, deploy-log.json, evaluator types ref. Uses: MCP tools or curl |
+| `agents/iterator.md` | Subagent prompt: analyze test results, propose prompt changes, apply after approval, log iterations | Reads: test-results.json, agent specs. Re-triggers: deployer + tester |
+
+### MODIFIED Components
 
 | Component | What Changes | Why |
 |-----------|-------------|-----|
-| `commands/orq-agent.md` (orchestrator) | Add Steps 7-9 (Deploy, Test, Iterate) after current Step 6 (Final Summary). Add `--mode` flag parsing for `core/deploy/test/full`. Add MCP availability detection. | New stages must be wired into the existing pipeline flow |
-| `commands/help.md` | Add new commands and modes to help output | Users need to discover V2 capabilities |
-| `commands/update.md` | Add MCP re-registration check on update | MCP server config may need refresh after updates |
-| `install.sh` | Add capability selection prompt, API key collection, MCP server registration via `claude mcp add` | Modular install is a V2.0 requirement |
-| `SKILL.md` | Add new agents, commands, and templates to the index | Skill index must reflect V2 additions |
+| `commands/deploy.md` | Replace Step 3 stub with deployer subagent spawn logic | Currently says "Implementation coming in Phase 6" |
+| `commands/test.md` | Replace Step 3 stub with tester subagent spawn logic | Currently says "Implementation coming in Phase 7" |
+| `commands/iterate.md` | Replace Step 3 stub with iterator subagent spawn logic | Currently says "Implementation coming in Phase 8" |
+| `commands/orq-agent.md` | Add Steps 7-9 after current Step 6 (deploy/test/iterate), add capability-gated stage execution | V2 stages must be wired into the full pipeline for end-to-end runs |
+| `SKILL.md` | Add deployer.md, tester.md, iterator.md to agent index | Skill index must reflect new subagents |
+| `commands/help.md` | Mention V2 capabilities in help output | User discovery |
 
-### NEW (V2.0 Components)
+### UNCHANGED
 
-| Component | Purpose | Location |
-|-----------|---------|----------|
-| `agents/deployer.md` | Subagent: reads agent specs, calls Orq.ai API to create/update agents | `orq-agent/agents/deployer.md` |
-| `agents/tester.md` | Subagent: uploads datasets, creates evaluators, runs experiments, presents results | `orq-agent/agents/tester.md` |
-| `agents/iterator.md` | Subagent: analyzes test results, proposes prompt changes, applies approved changes | `orq-agent/agents/iterator.md` |
-| `commands/deploy.md` | Standalone deploy command for existing spec directories | `orq-agent/commands/deploy.md` |
-| `commands/test.md` | Standalone test command for deployed agents | `orq-agent/commands/test.md` |
-| `commands/iterate.md` | Standalone iterate command for prompt improvement | `orq-agent/commands/iterate.md` |
-| `references/orqai-api-endpoints.md` | API endpoint reference for deployer/tester (paths, methods, request shapes) | `orq-agent/references/orqai-api-endpoints.md` |
-| `references/orqai-evaluator-types.md` | Evaluator type reference for tester (6 types, config shapes) | `orq-agent/references/orqai-evaluator-types.md` |
-| `templates/deploy-log.md` | Template for deployment audit trail | `orq-agent/templates/deploy-log.md` |
-| `templates/test-results.md` | Template for test result presentation | `orq-agent/templates/test-results.md` |
-| `templates/iteration-log.md` | Template for iteration audit trail | `orq-agent/templates/iteration-log.md` |
-
-## Recommended Project Structure (V2.0)
-
-```
-orq-agent/
-├── SKILL.md                              # MODIFIED — add V2 index entries
-├── commands/
-│   ├── orq-agent.md                      # MODIFIED — add V2 stages + mode flag
-│   ├── prompt.md                         # UNCHANGED
-│   ├── architect.md                      # UNCHANGED
-│   ├── tools.md                          # UNCHANGED
-│   ├── research.md                       # UNCHANGED
-│   ├── datasets.md                       # UNCHANGED
-│   ├── deploy.md                         # NEW — standalone deploy
-│   ├── test.md                           # NEW — standalone test
-│   ├── iterate.md                        # NEW — standalone iterate
-│   ├── help.md                           # MODIFIED
-│   └── update.md                         # MODIFIED
-├── agents/
-│   ├── architect.md                      # UNCHANGED
-│   ├── tool-resolver.md                  # UNCHANGED
-│   ├── researcher.md                     # UNCHANGED
-│   ├── spec-generator.md                 # UNCHANGED
-│   ├── orchestration-generator.md        # UNCHANGED
-│   ├── dataset-generator.md              # UNCHANGED
-│   ├── readme-generator.md              # UNCHANGED
-│   ├── deployer.md                       # NEW
-│   ├── tester.md                         # NEW
-│   └── iterator.md                       # NEW
-├── templates/
-│   ├── agent-spec.md                     # UNCHANGED
-│   ├── orchestration.md                  # UNCHANGED
-│   ├── dataset.md                        # UNCHANGED (or minor eval format extension)
-│   ├── readme.md                         # UNCHANGED
-│   ├── tools.md                          # UNCHANGED
-│   ├── deploy-log.md                     # NEW
-│   ├── test-results.md                   # NEW
-│   └── iteration-log.md                  # NEW
-├── references/
-│   ├── orqai-agent-fields.md             # UNCHANGED
-│   ├── orqai-model-catalog.md            # UNCHANGED
-│   ├── orchestration-patterns.md         # UNCHANGED
-│   ├── naming-conventions.md             # UNCHANGED
-│   ├── tool-catalog.md                   # UNCHANGED
-│   ├── orqai-api-endpoints.md            # NEW — deploy/test API paths
-│   └── orqai-evaluator-types.md          # NEW — evaluator types + config
-└── install.sh                            # MODIFIED — modular install + MCP
-```
-
-### Structure Rationale
-
-- **No new directories.** V2 components follow V1 conventions (agents in `agents/`, commands in `commands/`, etc.). This means no structural migration for existing users.
-- **New subagents parallel existing ones.** Deployer, tester, and iterator follow the same pattern: markdown prompt file, spawned via Task tool, reads references via `<files_to_read>`, returns structured result.
-- **New references are API-surface docs.** V1 references describe Orq.ai's agent configuration surface. V2 references describe Orq.ai's operational API surface (endpoints for CRUD, experiments, evaluators).
+All V1 subagents (architect, researcher, spec-generator, orchestration-generator, dataset-generator, readme-generator, tool-resolver), all V1 references, all V1 templates.
 
 ## Architectural Patterns
 
-### Pattern 1: MCP-First with API Fallback
+### Pattern 1: MCP-SDK-First with REST Fallback
 
-**What:** Subagents attempt operations via MCP tools first. If MCP is unavailable (not registered, server down, or operation not supported), fall back to REST API calls via Bash `curl`.
+**What:** The Orq.ai MCP server is actually the `@orq-ai/node` SDK with its methods exposed as MCP tools. When registered via `claude mcp add`, Claude Code can call SDK methods as native tool calls. When MCP is unavailable, subagents fall back to REST API calls via Bash `curl`.
 
-**When to use:** All V2 stages that interact with Orq.ai (deploy, test, iterate).
+**Key finding:** The Orq.ai MCP server is NOT a docs-only server. The `@orq-ai/node` SDK provides an installable MCP server where SDK methods for agents, datasets, evaluators, experiments, and tools are exposed as callable tools. This means MCP-first is a viable primary path.
 
-**Trade-offs:** MCP is the cleanest integration (native tool calls in Claude Code), but the Orq.ai MCP server currently focuses on docs access rather than full CRUD operations. The REST API via `curl` in Bash is always available as a fallback. This dual-path adds complexity to each subagent but ensures the pipeline works regardless of MCP server maturity.
+**When to use:** All V2 stages (deploy, test, iterate).
+
+**Trade-offs:**
+- MCP path: Cleaner (native tool calls), handles auth automatically (env var passed at registration), returns structured data. But requires the MCP server to be registered and running.
+- REST path: Always available, no MCP dependency. But requires manual curl construction, JSON parsing from bash, and explicit auth header management.
+
+**Confidence:** MEDIUM. The MCP server registration was validated in v0.3 install (`claude mcp add --transport http --scope user orqai-mcp`). SDK-as-MCP tool exposure is documented on the orq-ai/orq-node GitHub. However, the exact tool names and their parameter signatures need runtime validation -- this is the primary research gap.
+
+**Implementation pattern for each subagent:**
+```
+1. Attempt MCP tool call (e.g., create_agent, list_agents)
+   - If succeeds: use response, continue
+   - If fails (tool not found, error): fall to step 2
+2. Fall back to REST API via Bash curl
+   - Read ORQ_API_KEY from environment
+   - Construct curl with proper headers and JSON body
+   - Parse JSON response
+3. Record which path was used in audit log
+```
+
+**Subagent prompt pattern:**
+```markdown
+## Integration Strategy
+
+Try MCP first. If any MCP operation fails or is unavailable, use the REST API fallback.
+
+### MCP Path (preferred)
+Use the Orq.ai MCP tools directly:
+- `mcp__orqai-mcp__[tool_name]` with appropriate parameters
+
+### REST Fallback
+If MCP tools are not available, use Bash curl:
+- Base URL: https://api.orq.ai/v2/
+- Auth: Authorization: Bearer $ORQ_API_KEY
+- Reference: orq-agent/references/orqai-api-endpoints.md
+```
+
+### Pattern 2: Spec-as-Deployment-Manifest
+
+**What:** The deployer reads V1's markdown agent specs and extracts field values to construct API requests. No separate JSON manifest is generated.
+
+**Why it works:** The V1 spec-generator already produces output aligned with `/v2/agents` API fields. Field names match: `key`, `role`, `description`, `model`, `instructions`, `settings.tools`, `settings.max_iterations`, `settings.max_execution_time`. The deployer's job is extraction and mapping.
 
 **Implementation:**
 ```
-Deployer subagent logic:
-  1. Check: Is `orqai` MCP server registered? (Bash: claude mcp list)
-  2. If YES: Attempt agent creation via MCP tool call
-     - If MCP operation succeeds → record in deploy-log
-     - If MCP operation fails → fall through to API
-  3. If NO or fallback: Use Bash curl to POST /v2/agents
-     - Read ORQ_API_KEY from environment or config
-     - Parse spec markdown → extract JSON-compatible fields
-     - POST to https://api.orq.ai/v2/agents
-     - Record result in deploy-log
+Agent Spec (.md)  -->  Deployer Subagent  -->  Orq.ai API
++------------------+    +----------------+     POST /v2/agents
+| Key: support-agt |    | Extract fields |     { "key": "...",
+| Model: anthro/.. | -> | Build JSON     | ->    "model": "...",
+| Instructions:... |    | POST or PATCH  |       "instructions":...
+| Tools: [...]     |    | Log result     |       "settings":{...} }
++------------------+    +----------------+
 ```
 
-**MEDIUM confidence.** The Orq.ai MCP server at `docs.orq.ai/mcp` appears to be a docs-access server (read documentation), not a full platform CRUD server. The REST API (`/v2/agents`, `/v2/tools`, etc.) is well-documented and the more reliable path for V2.0. MCP-first remains the right long-term architecture because Orq.ai is likely to expand their MCP server capabilities, but **V2.0 should treat REST API as the primary path and MCP as an optional enhancement**.
-
-### Pattern 2: Spec-as-Source-of-Truth for Deployment
-
-**What:** The deployer reads the existing V1 agent spec markdown files (e.g., `agents/support-triage-agent.md`) and extracts field values to construct API requests. The spec IS the deployment manifest.
-
-**When to use:** Every deployment operation.
-
-**Trade-offs:** Avoids introducing a separate JSON manifest format. Non-technical users can still read and edit the markdown. The deployer needs a parsing layer to extract structured data from markdown, but the spec template is highly structured (tables, code blocks) making this reliable.
-
-**Why this matters:** The V1 spec-generator already produces output in a format that mirrors the `/v2/agents` API request body. Field names match (`key`, `role`, `description`, `model`, `instructions`, `settings`). The deployer's job is extraction and mapping, not transformation.
-
-```
-V1 Agent Spec (.md)          →  Deployer Subagent  →  Orq.ai API
-┌──────────────────┐            ┌───────────────┐      POST /v2/agents
-│ Key: support-agent│  parse →  │ Extract fields│  →  { "key": "...",
-│ Model: anthro/... │           │ Build JSON    │      "model": "...",
-│ Instructions: ... │           │ POST to API   │      "instructions": "..."
-│ Tools: [...]      │           │ Handle errors │      "settings": {...}  }
-└──────────────────┘            └───────────────┘
-```
+**Parsing approach:** The deployer subagent (a Claude prompt) can read the markdown and extract structured data using its LLM capabilities. No regex parsing needed -- the LLM reads the spec and constructs the API payload. This is why the deployer is a subagent prompt, not a script.
 
 ### Pattern 3: Idempotent Deploy (Create-or-Update)
 
-**What:** The deployer checks if an agent with the given key already exists in Orq.ai. If yes, update it (creating a new version). If no, create it. This makes `deploy` safe to re-run.
-
-**When to use:** Every deployment.
-
-**Trade-offs:** Requires a GET-before-POST pattern which adds one API call per agent. But it prevents duplicate agent creation and enables the iterate loop (change spec, re-deploy, re-test).
+**What:** Deployer checks if an agent with the given key exists. If yes, PATCH to update. If no, POST to create. Safe to re-run.
 
 **Implementation:**
 ```
 For each agent spec:
-  1. GET /v2/agents/{agent_key}
-     - 200: Agent exists → PUT /v2/agents/{agent_key} (update, new version)
-     - 404: Agent not found → POST /v2/agents (create)
-  2. Record version number from response
-  3. Write to deploy-log.md: agent_key, version, timestamp, status
+  1. GET /v2/agents (list, filter by key) or attempt GET by key
+     - Found: PATCH /v2/agents/{id} (update)
+     - Not found: POST /v2/agents (create)
+  2. For multi-agent swarms: deploy sub-agents FIRST, orchestrator LAST
+     (orchestrator needs sub-agent IDs for team_of_agents)
+  3. Record in deploy-log.json: agent_key, orqai_id, version, status
 ```
 
-### Pattern 4: Dataset-Driven Testing via Evaluatorq
+**Deployment order for multi-agent swarms:**
+1. Deploy all sub-agents (leaf nodes) -- can be parallel
+2. Collect sub-agent IDs from responses
+3. Deploy orchestrator agent with `team_of_agents` referencing sub-agent keys
+4. Verify all agents exist and are connected
 
-**What:** The tester subagent takes V1's generated datasets, uploads them to Orq.ai, creates evaluators, runs experiments against deployed agents, and presents results. Uses the `evaluatorq` SDK pattern (Node.js `@orq-ai/evaluatorq` or Python `evaluatorq`).
+### Pattern 4: Dataset-Driven Automated Testing
 
-**When to use:** After successful deployment.
+**What:** The tester uploads V1's generated datasets to Orq.ai, creates evaluators, runs experiments, and presents results.
 
-**Trade-offs:** Evaluatorq is the official testing framework. It supports Orq agents, deployments, and third-party frameworks. The SDK approach (running evaluatorq from Bash) is more reliable than raw API calls for experiment orchestration. However, it requires Node.js or Python to be installed (Node.js is already a prerequisite from V1 install).
-
-**Implementation:**
+**Flow:**
 ```
 Tester subagent logic:
   1. Read dataset files from Agents/[swarm]/datasets/
-  2. Upload dataset to Orq.ai (API: POST /v2/datasets or use existing)
-  3. Create evaluators matching spec's Evaluators section
-     - LLM-as-Judge, JSON Schema, etc. per agent
-  4. Run experiment via evaluatorq SDK:
-     - Target: deployed agent key + version
-     - Dataset: uploaded dataset ID
-     - Evaluators: created evaluator IDs
-  5. Poll for results / stream results
-  6. Present results in test-results.md using template
-  7. Return structured result to orchestrator with pass/fail per agent
+     - Parse test cases (input/expected output pairs)
+     - Parse adversarial cases (edge case inputs)
+  2. Create or find dataset in Orq.ai
+     - POST /v2/datasets (create dataset)
+     - POST /v2/datasets/{id}/rows (add rows from parsed data)
+  3. Select evaluators per agent based on domain
+     - Use references/orqai-evaluator-types.md selection guidance
+     - Structural: json_validity, regex_match for format-constrained agents
+     - Semantic: relevance, coherence, instruction_following for all agents
+     - Domain: custom LLM evaluator for domain-specific criteria
+  4. Create experiment
+     - POST /v2/experiments (link agent, dataset, evaluators)
+     - POST /v2/experiments/{id}/run
+  5. Poll for results
+     - GET /v2/experiments/{id}/results
+  6. Write test-results.json using template
+  7. Return structured result (pass/fail per agent, scores, worst cases)
 ```
+
+**Evaluator selection heuristic (for the tester subagent prompt):**
+
+| Agent Type | Recommended Evaluators |
+|-----------|----------------------|
+| Any agent | `instruction_following`, `relevance` (baseline quality) |
+| Customer-facing | + `coherence`, `fluency`, `helpfulness` |
+| Data/structured output | + `json_validity`, `json_schema` |
+| RAG/knowledge | + RAGAS: `faithfulness`, `context_precision` |
+| Safety-critical | + `toxicity`, `harmfulness` |
+| Multi-agent orchestrator | Custom Python or LLM evaluator for handoff correctness |
 
 ### Pattern 5: Human-in-the-Loop Iteration
 
-**What:** The iterator subagent analyzes test results, identifies underperforming areas, proposes specific prompt changes, and waits for user approval before applying. Each iteration is: analyze → propose → approve → update spec → re-deploy → re-test.
+**What:** The iterator analyzes test results, proposes specific prompt changes per underperforming agent, and requires explicit user approval before applying.
 
-**When to use:** When test results show agents below quality thresholds (e.g., evaluator score < 0.8).
-
-**Trade-offs:** The HITL approval gate prevents autonomous runaway iteration but adds latency. This is a deliberate design choice for a 5-15 user non-technical audience -- they need to understand and approve every change. The loop naturally terminates when all agents pass thresholds or after a configurable max iterations (default: 3).
-
+**Iteration cycle:**
 ```
-Iterate loop:
-  1. Iterator reads test-results.md
-  2. Identifies agents below threshold
-  3. Proposes changes:
-     ┌──────────────────────────────────────────────┐
-     │ PROPOSED CHANGES                              │
-     │                                                │
-     │ Agent: support-triage-agent                   │
-     │ Score: 0.62 (threshold: 0.80)                 │
-     │                                                │
-     │ Change 1: Add edge case example for           │
-     │   multi-language inputs to <examples>          │
-     │ Change 2: Strengthen constraint about PII      │
-     │   handling in <constraints>                    │
-     │                                                │
-     │ → "approve" to apply, describe changes to edit │
-     └──────────────────────────────────────────────┘
-  4. On approval:
-     - Update agent spec .md file on disk
-     - Re-deploy (deployer subagent)
-     - Re-test (tester subagent)
-     - Present new results
-  5. Loop until all pass or max iterations reached
-```
-
-### Pattern 6: Modular Install with Capability Tiers
-
-**What:** The install script presents capability tiers and only installs relevant V2 components based on selection. API key and MCP registration happen only when V2 features are selected.
-
-**When to use:** Every install and update.
-
-**Tiers:**
-```
-core   → V1 only (spec generation). No API key needed.
-deploy → core + deployer. Requires API key.
-test   → core + deploy + tester. Requires API key.
-full   → core + deploy + test + iterate. Requires API key.
+1. Read test-results.json
+2. Identify agents below quality threshold (default: 0.8 on primary evaluator)
+3. For each failing agent:
+   a. Read agent spec
+   b. Correlate low scores with prompt sections:
+      - Low instruction_following -> review <constraints> and <instructions>
+      - Low relevance -> review <role> and <context>
+      - Low json_validity -> review <output_format>
+      - Low toxicity score -> strengthen <guardrails>
+   c. Propose specific changes with reasoning
+4. Present changes to user:
+   +-----------------------------------------------+
+   | PROPOSED CHANGES                               |
+   | Agent: support-triage-agent                    |
+   | Score: 0.62 / 0.80 threshold                   |
+   |                                                 |
+   | Change 1: Add XML example for multi-language   |
+   |   edge case in <examples> section               |
+   | Change 2: Add explicit PII rejection rule in   |
+   |   <constraints> section                         |
+   |                                                 |
+   | > "approve" to apply                            |
+   | > Describe modifications to edit                |
+   +-----------------------------------------------+
+5. On approval:
+   a. Update agent spec .md on disk
+   b. Re-deploy changed agent (deployer subagent)
+   c. Re-test changed agent (tester subagent)
+   d. Present new results
+   e. Log iteration in iteration-log.json
+6. Loop until: all pass threshold OR max iterations (3) OR user stops
 ```
 
-**Implementation:**
-```bash
-# Install script flow:
-1. Prerequisite checks (Node.js, Claude Code)
-2. Download and install V1 core files (always)
-3. Prompt: "Select capability level: [core/deploy/test/full]"
-4. If deploy+:
-   a. Prompt for Orq.ai API key
-   b. Store key in ~/.config/orq-agent/config (not in skill directory)
-   c. Register MCP server: claude mcp add orqai -- npx -y mcp-remote https://docs.orq.ai/mcp
-   d. Install V2 agent files (deployer.md, etc.)
-   e. Install V2 reference files (api-endpoints.md, etc.)
-   f. Install V2 template files (deploy-log.md, etc.)
-5. Verify installation
+**Stopping conditions (from iteration-log.json template):**
+- `max_iterations` -- default 3 iterations per agent
+- `max_api_calls` -- budget guard (prevents runaway costs)
+- `timeout` -- wall-clock time limit
+- `min_improvement` -- if improvement < 5% between iterations, stop
+- `success` -- all agents above threshold
+
+### Pattern 6: Audit Trail as First-Class Output
+
+**What:** Every V2 operation writes structured JSON logs to the output directory. These serve as both debugging tools and compliance artifacts.
+
+**Audit files in output directory:**
+```
+Agents/[swarm-name]/
+  +-- deploy-log.json       # Which agents deployed, when, versions, status
+  +-- test-results.json     # Evaluator scores per agent, pass/fail, worst cases
+  +-- iteration-log.json    # All iterations: diagnosis, proposals, approvals, score deltas
 ```
 
-## Data Flow — V2 Extension
+**Why JSON, not markdown:** These are machine-readable artifacts that the iterator needs to parse. The tester writes test-results.json and the iterator reads it. Markdown would require LLM parsing of its own output, introducing potential errors. JSON-to-JSON is deterministic.
+
+**Why alongside existing markdown output:** The V1 markdown output (agent specs, datasets, README) is human-readable and stays. The V2 JSON output is machine-readable for the automation loop. Both coexist.
+
+## Data Flow -- V2 Extension
 
 ### Extended Pipeline Flow
 
 ```
 V1 Pipeline (UNCHANGED)
-    │
-    ▼
+    |
+    v
 Step 6: Final Summary (V1 endpoint)
-    │
-    ▼ (NEW — V2 stages, only if mode >= deploy)
-Step 7: Deploy
-    │ Reads: Agents/[swarm]/agents/*.md (all agent specs)
-    │ Reads: Agents/[swarm]/TOOLS.md (tool configurations)
-    │ Calls: Orq.ai API POST/PUT /v2/agents per agent
-    │ Calls: Orq.ai API POST /v2/tools per custom tool
-    │ Writes: Agents/[swarm]/deploy-log.md
-    │ Returns: deployed agent keys + versions
-    │
-    ▼ (only if mode >= test)
-Step 8: Test
-    │ Reads: Agents/[swarm]/datasets/*.md (test data)
-    │ Reads: Agents/[swarm]/agents/*.md (evaluator config from specs)
-    │ Calls: Orq.ai API for dataset upload, evaluator creation
-    │ Calls: evaluatorq SDK for experiment execution
-    │ Writes: Agents/[swarm]/test-results.md
-    │ Returns: pass/fail per agent + scores
-    │
-    ▼ (only if mode == full AND any agent below threshold)
-Step 9: Iterate (loop)
-    │ Reads: Agents/[swarm]/test-results.md
-    │ Reads: Agents/[swarm]/agents/[failing-agent].md
-    │ Proposes: prompt changes (user approves)
-    │ Modifies: Agents/[swarm]/agents/[agent].md on disk
-    │ Re-runs: Step 7 (deploy) + Step 8 (test) for changed agents only
-    │ Writes: Agents/[swarm]/iterations/iteration-N.md
-    │ Writes: Agents/[swarm]/audit-trail.md (append)
-    │ Loop until: all pass OR max iterations (default 3)
-    │
-    ▼
+    |
+    v  (NEW -- V2 stages, gated by capability tier from config.json)
+Step 7: Deploy (if tier >= deploy)
+    | Reads: Agents/[swarm]/agents/*.md, TOOLS.md
+    | Uses: MCP tools or REST API
+    | Writes: Agents/[swarm]/deploy-log.json
+    | Returns: deployed agent keys + Orq.ai IDs
+    |
+    v  (if tier >= test)
+Step 8: Test (if tier >= test)
+    | Reads: Agents/[swarm]/datasets/*.md, deploy-log.json
+    | Uses: MCP tools or REST API (datasets, evaluators, experiments)
+    | Writes: Agents/[swarm]/test-results.json
+    | Returns: pass/fail per agent + scores
+    |
+    v  (if tier == full AND any agent below threshold)
+Step 9: Iterate (if tier == full)
+    | Reads: test-results.json, failing agent specs
+    | Proposes: changes per agent (HITL approval gate)
+    | On approval: modifies spec .md -> re-deploy -> re-test
+    | Writes: Agents/[swarm]/iteration-log.json (append per iteration)
+    | Loop until: all pass OR max iterations (3) OR user stops
+    |
+    v
 Step 10: Final V2 Summary
-    │ Extends Step 6 with deployment status, test scores, iterations
-    │ Updates: pipeline-run.json with V2 stage data
+    | Extends Step 6 with: deployment URLs, test scores, iteration count
+    | Updates: pipeline-run.json with V2 stage data
 ```
 
-### Key V2 Data Flows
+### Key Data Flows
 
-1. **Spec-to-API mapping.** The deployer extracts structured data from V1's markdown specs. The spec template was designed with Orq.ai API field alignment, so this is a parse-and-map operation, not a transform. Key fields: `key`, `model`, `instructions` (the full XML-tagged prompt), `settings.tools` (JSON blocks), `settings.max_iterations`, `settings.max_execution_time`.
+1. **Spec-to-API mapping (deploy).** Deployer LLM reads markdown spec, extracts fields into JSON, POSTs to Orq.ai. The spec template's structure mirrors the API request body by design. No intermediate format.
 
-2. **Dataset-to-experiment mapping.** V1's dataset generator produces test inputs and eval pairs. The tester maps these to Orq.ai's experiment format: each test input becomes an experiment row, each eval pair provides the expected output for evaluator comparison. The adversarial cases (30%+ of dataset) specifically test guardrails.
+2. **Dataset-to-experiment mapping (test).** V1 datasets contain input/expected-output pairs. Tester parses these, uploads as dataset rows, selects evaluators per agent type, creates experiment linking agent + dataset + evaluators, runs experiment, reads results.
 
-3. **Test-results-to-iteration feedback.** The iterator reads structured test results (per-agent scores, failing test cases, evaluator feedback) and correlates failures with specific prompt sections. For example, a low score on edge cases maps to the `<examples>` section; a low score on format compliance maps to `<output_format>`.
+3. **Results-to-changes mapping (iterate).** Iterator reads structured test results (JSON), correlates low evaluator scores with prompt sections (using section-to-evaluator mapping heuristic), proposes targeted changes. Changes are surgical: modify specific XML-tagged sections, not rewrite entire prompts.
 
-4. **Iteration audit trail.** Every change proposal, approval, and result is logged. The `iterations/` directory contains per-iteration snapshots. The `audit-trail.md` is an append-only log of all changes across iterations.
+4. **Audit trail accumulation.** deploy-log.json is written once (or overwritten on re-deploy). test-results.json is written per test run. iteration-log.json accumulates entries across iterations.
 
-### API Key and Authentication Flow
+### Authentication Flow
 
 ```
 Install time:
-  User provides API key → stored in ~/.config/orq-agent/config
+  API key -> validated against /v2/models -> stored in shell profile export
+  MCP server -> registered with key as env var
 
-Runtime:
-  Orchestrator reads config → passes key as env var to subagents
-  Subagents use key in Bash curl -H "Authorization: Bearer $ORQ_API_KEY"
-  Key NEVER written to output files (deploy-log, test-results, etc.)
+Runtime (MCP path):
+  MCP server has API key from registration env var
+  Subagents call MCP tools -> auth handled by MCP server
+
+Runtime (REST fallback):
+  Subagents read $ORQ_API_KEY from environment
+  Construct: curl -H "Authorization: Bearer $ORQ_API_KEY"
+  Key NEVER written to output files
 ```
 
 ## Integration Points
 
 ### External Services
 
-| Service | Integration Pattern | Notes |
-|---------|---------------------|-------|
-| **Orq.ai REST API** (`api.orq.ai`) | Bash `curl` from deployer/tester subagents. Bearer token auth. | Primary integration path. Well-documented. Supports agents, tools, datasets, experiments, evaluators, memory stores |
-| **Orq.ai MCP Server** (`docs.orq.ai/mcp`) | Registered via `claude mcp add`. Accessed natively by Claude Code. | Currently docs-access focused. Monitor for CRUD expansion. Optional enhancement, not primary path |
-| **evaluatorq SDK** (`@orq-ai/evaluatorq`) | Bash `npx evaluatorq` or Node.js script from tester subagent | Official evaluation framework. Supports Orq agents + third-party. Requires Node.js (already V1 prereq) |
-| **Orq.ai Studio** (GUI) | V1 copy-paste path remains for users who prefer manual setup | V2 automates what V1 required manual Studio work for |
+| Service | Integration Pattern | Status | Notes |
+|---------|---------------------|--------|-------|
+| **Orq.ai Node SDK (MCP)** | `@orq-ai/node` MCP server registered as `orqai-mcp`. SDK methods exposed as MCP tools. | v0.3 registration working | PRIMARY path. Tool names need runtime validation. |
+| **Orq.ai REST API** | Bash `curl` with Bearer token auth. Base: `https://api.orq.ai/v2/` | Reference complete | FALLBACK path. All endpoints documented in orqai-api-endpoints.md. |
+| **Orq.ai Studio** (GUI) | V1 copy-paste fallback for users without API key or MCP | v0.3 fallback working | V1.0 compatibility preserved in all command stubs. |
 
-### Internal Boundaries (V2 Additions)
+### Internal Component Communication
 
-| Boundary | Communication | Notes |
-|----------|---------------|-------|
-| Orchestrator → Deployer | Task() spawn with spec file paths + API key env var | Deployer returns structured deploy result (keys, versions, errors) |
-| Orchestrator → Tester | Task() spawn with dataset paths + deployed agent keys | Tester returns structured test results (scores, pass/fail) |
-| Orchestrator → Iterator | Task() spawn with test results path + spec paths | Iterator returns proposed changes, waits for HITL approval |
-| Deployer → Orq.ai API | Bash curl. POST/PUT /v2/agents, POST /v2/tools | Subagent constructs curl commands, parses JSON responses |
-| Tester → evaluatorq | Bash npx. Runs evaluatorq with config | Alternative: direct API calls if evaluatorq unavailable |
-| Iterator → Deployer | Orchestrator re-spawns deployer for changed agents only | Not direct subagent-to-subagent; orchestrator mediates |
+| From | To | Via | Data |
+|------|----|-----|------|
+| Orchestrator | Deployer | Task() spawn | Spec file paths, TOOLS.md path, output dir |
+| Orchestrator | Tester | Task() spawn | Dataset paths, deploy-log.json path, output dir |
+| Orchestrator | Iterator | Task() spawn | test-results.json path, failing agent spec paths |
+| Iterator | Deployer (via Orchestrator) | Orchestrator re-spawns deployer | Changed agent spec path only |
+| Iterator | Tester (via Orchestrator) | Orchestrator re-spawns tester | Changed agent key, existing dataset |
+| Deployer | Orq.ai | MCP tool call or REST curl | Agent JSON payload, tool configs |
+| Tester | Orq.ai | MCP tool call or REST curl | Dataset rows, evaluator config, experiment run |
 
-### MCP Server Boundary
+**Critical:** Iterator does NOT directly call deployer or tester. The orchestrator mediates all re-deployment and re-testing during iteration. This keeps subagent boundaries clean and preserves audit trail.
 
-The Orq.ai MCP server integration has two distinct concerns:
+### MCP Tool Boundary
 
-1. **Skill-level MCP (V2 install registers it).** This makes Orq.ai docs and potentially platform data available as tools to Claude Code during the pipeline run. Registered with `claude mcp add orqai -- npx -y mcp-remote https://docs.orq.ai/mcp`.
+Two distinct MCP concerns (unchanged from initial research):
 
-2. **Agent-level MCP (V1 spec generator already handles it).** Agent specs can include MCP tool configurations for the agents being designed. This is unchanged from V1 -- the tool-resolver and spec-generator already handle MCP tool recommendations.
+1. **Skill-level MCP (V2 operational tools).** The `orqai-mcp` server registered during install provides SDK methods as tools to Claude Code. Deployer/tester/iterator subagents use these tools to interact with the Orq.ai platform.
 
-These are separate concerns. (1) is about the skill's own integration with Orq.ai. (2) is about the agents the skill designs.
+2. **Agent-level MCP (V1 spec output).** Agent specs can include MCP tool configs for the designed agents. This is V1 functionality handled by the tool-resolver. Completely separate concern.
 
 ## Anti-Patterns
 
-### Anti-Pattern 1: Generating a Separate JSON Deployment Manifest
+### Anti-Pattern 1: Separate JSON Deployment Manifest
 
-**What people do:** Create a separate JSON file (e.g., `deploy.json`) from the markdown spec, then deploy from that JSON.
-**Why it's wrong:** Two sources of truth. Spec and manifest drift apart. Users edit the markdown, forget to regenerate JSON, deploy stale config.
-**Do this instead:** Parse the markdown spec directly at deploy time. The spec IS the manifest. One source of truth.
+**What people do:** Generate a separate `deploy.json` from the markdown spec.
+**Why it's wrong:** Two sources of truth. They drift. Users edit markdown, forget JSON, deploy stale config.
+**Do this instead:** The deployer subagent (an LLM) reads the markdown directly and constructs the API payload. One source of truth.
 
-### Anti-Pattern 2: Storing API Keys in the Skill Directory
+### Anti-Pattern 2: Autonomous Iteration Without User Approval
 
-**What people do:** Save the Orq.ai API key in a config file inside `~/.claude/skills/orq-agent/`.
-**Why it's wrong:** The skill directory gets overwritten on every update (`install.sh` does clean install). Key gets deleted. Also, the skill directory might be backed up or shared.
-**Do this instead:** Store credentials in `~/.config/orq-agent/config` (XDG-style), separate from the skill installation. Install script checks for existing config and preserves it.
+**What people do:** Let the iterate loop run fully autonomously.
+**Why it's wrong:** For 5-15 non-technical users, unexpected prompt changes are dangerous. Users need to understand and approve every change.
+**Do this instead:** Every iteration has an approval gate. Iterator proposes changes with reasoning. User approves or edits. Matches V1's Blueprint Review checkpoint pattern.
 
-### Anti-Pattern 3: Autonomous Iteration Without Approval
+### Anti-Pattern 3: Deploying Orchestrator Before Sub-Agents
 
-**What people do:** Let the iterate loop run automatically: change prompts, re-deploy, re-test without human checkpoint.
-**Why it's wrong:** For a non-technical audience of 5-15 users, unexpected changes are dangerous. Prompt changes affect agent behavior in production. Users need to understand what changed and why.
-**Do this instead:** Every iteration requires explicit user approval. The iterator PROPOSES changes and explains rationale. User says "approved" or provides feedback. This mirrors V1's Blueprint Review checkpoint pattern.
+**What people do:** Deploy all agents in parallel including the orchestrator.
+**Why it's wrong:** The orchestrator's `team_of_agents` needs sub-agent keys. If sub-agents don't exist yet, the orchestrator config is invalid.
+**Do this instead:** Deploy in dependency order -- sub-agents first, orchestrator last. Verify sub-agents exist before orchestrator deployment.
 
-### Anti-Pattern 4: Running All V2 Stages by Default
+### Anti-Pattern 4: Rewriting Entire Prompts During Iteration
 
-**What people do:** Always run deploy + test + iterate after spec generation.
-**Why it's wrong:** Many users just want specs (V1 behavior). Requiring an API key and Orq.ai account for basic spec generation breaks V1 users. Deploy/test stages add significant time and require active Orq.ai infrastructure.
-**Do this instead:** Mode flags with `core` as default. V1 behavior is preserved unless user explicitly opts into V2 stages. The `--mode` flag (or install-time capability selection) controls which stages run.
+**What people do:** When test scores are low, regenerate the entire agent prompt from scratch.
+**Why it's wrong:** Loses the context engineering work from V1 (XML tags, examples, constraints). May introduce regressions in areas that were already passing.
+**Do this instead:** Surgical changes to specific XML-tagged sections. Low `instruction_following` -> modify `<constraints>`. Low format compliance -> modify `<output_format>`. Preserve everything else.
 
-### Anti-Pattern 5: Deploying Multi-Agent Orchestration as Separate Agents Without Wiring
+### Anti-Pattern 5: Ignoring MCP and Going Straight to curl
 
-**What people do:** Deploy each agent independently and assume Orq.ai will wire them together.
-**Why it's wrong:** Orq.ai's multi-agent orchestration requires explicit `team_of_agents` configuration on the orchestrator agent, with `retrieve_agents` and `call_sub_agent` tools. Deploying agents without the orchestrator config creates disconnected agents.
-**Do this instead:** The deployer must deploy agents in dependency order: sub-agents first, orchestrator last. The orchestrator agent's `team_of_agents` array must reference the deployed sub-agent keys. Verify each sub-agent exists before deploying the orchestrator.
+**What people do:** Skip MCP entirely and build all integration via Bash curl.
+**Why it's wrong:** MCP is already registered during install. SDK-as-MCP provides type-safe, authenticated tool calls natively in Claude Code. Curl requires manual JSON construction and auth header management, which is error-prone in an LLM subagent context.
+**Do this instead:** MCP-first with curl fallback. The MCP path is cleaner when available. The curl path ensures robustness when MCP fails.
 
 ## Scaling Considerations
 
 | Scale | Architecture Adjustments |
 |-------|--------------------------|
-| 1-3 agent swarms | Deploy sequentially. Test each agent individually. Iterate is straightforward. Full pipeline in 5-10 minutes. |
-| 4-8 agent swarms | Deploy in parallel (multiple curl calls). Test agents in parallel experiments. Iterate only failing agents. 10-20 minutes total. |
-| 9+ agent swarms | Batch deployments (groups of 5). Stagger experiments to avoid API rate limits. Consider deploying and testing in phases rather than all-at-once. |
+| 1-3 agents | Deploy sequentially. Test each individually. Full pipeline in 5-10 minutes. Default approach. |
+| 4-8 agents | Deploy sub-agents in parallel, orchestrator last. Test agents in parallel experiments. Iterate only failing agents. 10-20 minutes. |
+| 9+ agents | Batch deployments (groups of 5). Stagger experiments for API rate limits. Deploy and test in waves rather than all-at-once. |
 
-### Scaling Priorities
+### First Bottleneck: API Rate Limits
 
-1. **First bottleneck: API rate limits.** Orq.ai API likely has rate limits on agent creation and experiment execution. The deployer should implement retry-with-backoff. Start sequential, parallelize only after confirming rate limits.
-2. **Second bottleneck: Experiment execution time.** Each experiment involves running the agent against a full dataset. For large datasets or complex agents, this can take minutes per agent. The tester should run experiments in parallel where possible and stream results.
+Orq.ai API likely has rate limits on creation endpoints. Deployer should implement retry-with-backoff and sequential deployment as default, with parallelism as an optimization for larger swarms.
 
-## Build Order (V2.0 Dependencies)
+### Second Bottleneck: Experiment Duration
+
+Each experiment runs the agent against a dataset. For large datasets or complex agents, this takes minutes. Tester should start experiments and poll for results rather than blocking.
+
+## Build Order (V2.0 Implementation Phases)
+
+The dependency chain is strictly linear for the subagents: deploy must work before test can run, test must produce results before iterate can analyze them. Standalone commands should be testable before orchestrator integration.
 
 ```
-Phase 1: Research & References (no code dependencies)
-    │  Update agentic framework research in existing references
-    │  Create orqai-api-endpoints.md (API paths, methods, request shapes)
-    │  Create orqai-evaluator-types.md (6 evaluator types, config)
-    │  Create V2 templates (deploy-log.md, test-results.md, iteration-log.md)
-    │
-Phase 2: Deployer Subagent (depends on: API reference, V1 spec format)
-    │  agents/deployer.md — spec parsing + API calls + idempotent create/update
-    │  commands/deploy.md — standalone deploy command
-    │  Test with: manually deploy one existing V1 spec to Orq.ai
-    │
-Phase 3: Tester Subagent (depends on: deployer working, evaluator reference)
-    │  agents/tester.md — dataset upload + evaluator creation + experiment run
-    │  commands/test.md — standalone test command
-    │  Test with: run evaluatorq against a deployed agent from Phase 2
-    │
-Phase 4: Iterator Subagent (depends on: tester producing results)
-    │  agents/iterator.md — result analysis + change proposal + HITL approval
-    │  commands/iterate.md — standalone iterate command
-    │  Test with: propose changes to a low-scoring agent, re-deploy, re-test
-    │
-Phase 5: Install Script Modification (depends on: all V2 subagents exist)
-    │  Modular capability selection (core/deploy/test/full)
-    │  API key collection + secure storage
-    │  MCP server registration
-    │  Test with: fresh install with each capability tier
-    │
-Phase 6: Orchestrator Integration (depends on: all V2 subagents + install)
-    │  Add Steps 7-9 to commands/orq-agent.md
-    │  Add --mode flag parsing
-    │  Add MCP availability detection
-    │  Wire V2 subagents into pipeline
-    │  Test with: full end-to-end run (brief → spec → deploy → test → iterate)
-    │
-Phase 7: Polish & Documentation
-    │  Update SKILL.md index
-    │  Update help.md
-    │  Update README for GitHub
-    │  Audit trail verification
-    │  Edge case handling (API failures, partial deploys, etc.)
+Phase 1: Deployer Subagent
+    |  CREATE: agents/deployer.md (subagent prompt)
+    |  MODIFY: commands/deploy.md (replace Step 3 stub)
+    |  Depends on: API endpoints ref (exists), V1 spec format (exists)
+    |  Validate: deploy one V1-generated spec to Orq.ai via /orq-agent:deploy
+    |
+Phase 2: Tester Subagent
+    |  CREATE: agents/tester.md (subagent prompt)
+    |  MODIFY: commands/test.md (replace Step 3 stub)
+    |  Depends on: deployer working, evaluator types ref (exists)
+    |  Validate: run tests against a deployed agent via /orq-agent:test
+    |
+Phase 3: Iterator Subagent
+    |  CREATE: agents/iterator.md (subagent prompt)
+    |  MODIFY: commands/iterate.md (replace Step 3 stub)
+    |  Depends on: tester producing results
+    |  Validate: propose changes for low-scoring agent via /orq-agent:iterate
+    |
+Phase 4: Orchestrator Integration
+    |  MODIFY: commands/orq-agent.md (add Steps 7-9)
+    |  Add capability-gated V2 stage execution after Step 6
+    |  Wire deployer/tester/iterator into pipeline
+    |  Validate: end-to-end run from brief to iterated deployment
+    |
+Phase 5: Polish
+    |  MODIFY: SKILL.md (add new subagents to index)
+    |  MODIFY: commands/help.md (V2 capability discovery)
+    |  Fix known gap: add agentic-patterns.md to spec-generator files_to_read
+    |  Edge case handling, error recovery paths
 ```
 
-**Critical path:** API Reference → Deployer → Tester → Iterator → Orchestrator Integration. Each V2 stage depends on the previous stage's output being available. The install script modification can happen in parallel with Phase 3-4 since it is structurally independent.
+**Critical path:** Deployer > Tester > Iterator > Orchestrator Integration. Each depends on the previous.
 
-**Why standalone commands before orchestrator integration:** Each V2 subagent should be testable independently (`/orq-agent:deploy`, `/orq-agent:test`, `/orq-agent:iterate`) before being wired into the full pipeline. This mirrors V1's development where standalone commands (`/orq-agent:architect`, `/orq-agent:research`, etc.) were built and tested before the orchestrator was assembled.
+**Why standalone commands first:** Each V2 subagent should be independently testable via its slash command (`/orq-agent:deploy`, `/orq-agent:test`, `/orq-agent:iterate`) before being wired into the orchestrator pipeline. This mirrors V1's development pattern.
+
+## Known Research Gaps
+
+| Gap | Impact | Mitigation |
+|-----|--------|------------|
+| Exact MCP tool names from `@orq-ai/node` SDK | Cannot write precise MCP tool calls in subagent prompts without knowing tool names | Phase 1 research task: call `claude mcp list-tools orqai-mcp` or inspect SDK source to enumerate available tools |
+| Experiment API request/response schema | tester.md needs to know how to link agent + dataset + evaluators in an experiment | Fetch from `https://docs.orq.ai/reference/` at runtime, or validate via test API call |
+| Rate limits on Orq.ai API endpoints | Could affect parallel deployment strategy | Start sequential, add backoff. Detect from 429 responses. |
+| Agent lookup by key (vs by ID) | Deployer's idempotent create-or-update needs to find existing agents by key | May need to GET /v2/agents (list all) and filter, rather than GET by key directly |
 
 ## Sources
 
-- [Orq.ai Agent API Documentation](https://docs.orq.ai/docs/agents/agent-api) -- Agent CRUD endpoints, versioning, invocation
-- [Orq.ai Evaluator Introduction](https://docs.orq.ai/docs/evaluator) -- 6 evaluator types, experiment integration
-- [Orq.ai Experiments Platform](https://orq.ai/platform/experiment) -- SDK-driven experiment execution
-- [Orq.ai Deployment Documentation](https://docs.orq.ai/docs/deployment) -- Deployment vs Agent distinction
-- [Orq.ai Release 4.1 Changelog](https://docs.orq.ai/changelog/release-4-1) -- evaluatorq SDK, experiment improvements
-- [Orq.ai MCP Documentation](https://docs.orq.ai/docs/common-architecture/mcp) -- MCP server setup
-- [orq-ai/orq-python GitHub](https://github.com/orq-ai/orq-python) -- Python SDK for platform operations
-- [orq-ai/orqkit GitHub](https://github.com/orq-ai/orqkit) -- evaluatorq open-source framework
-- [orq-ai/orq-node GitHub](https://github.com/orq-ai/orq-node) -- Node.js SDK
-- [Orq.ai PyPI Package](https://pypi.org/project/orq-ai-sdk/) -- Python SDK installation
+- [Orq.ai Node SDK / MCP Server](https://github.com/orq-ai/orq-node) -- SDK methods exposed as MCP tools, installation instructions
+- [Orq.ai Evaluator Library](https://docs.orq.ai/docs/evaluators/library) -- Evaluator types and integration
+- [Orq.ai Agent Evaluation Guide](https://orq.ai/blog/agent-evaluation) -- Evaluation patterns and best practices
+- [Orq.ai Experiment Platform](https://orq.ai/platform/experiment) -- Experiment workflow overview
+- [Orq.ai Agent Runtime](https://orq.ai/platform/agent-runtime) -- Agent deployment and execution
+- [Orq.ai Platform Overview](https://orq.ai/platform/overview) -- Platform capabilities (300+ models, guardrails, tracing)
 
 ---
-*Architecture research for: Orq Agent Designer V2.0 Autonomous Pipeline*
-*Researched: 2026-03-01*
+*Architecture research for: Orq Agent Designer V2.0 Autonomous Pipeline Implementation*
+*Researched: 2026-03-01 (post-v0.3 foundation)*

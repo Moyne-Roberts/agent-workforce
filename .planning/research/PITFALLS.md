@@ -10,7 +10,34 @@
 
 ## Critical Pitfalls
 
-### Pitfall 1: Runaway Autonomous Loops (The "Infinite Iteration" Trap)
+### Pitfall 1: Evaluator-as-Guardrail Only Works on Deployments, Not Agents (The "Wrong API Surface" Trap)
+
+**What goes wrong:**
+The V2.0 roadmap includes "guardrails and hardening via evaluator-based quality gates." Research confirms that Orq.ai's evaluator-as-guardrail feature -- where evaluators block payloads that fail a score threshold -- is only available on **Deployments**, not on the **Agents API** (`/v2/agents`). The project explicitly targets the Agents API and has Deployments listed as out of scope. This means the core mechanism planned for guardrails does not exist on the chosen API surface. Building toward evaluator-as-guardrail attachment on Agents will hit a wall when the API simply does not support it.
+
+Orq.ai documentation states: "Within a Deployment, you can use your LLM Evaluator as a Guardrail, effectively permitting a validation on input and output for a deployment generation." No equivalent language exists for the Agents API. The Agent API docs describe tools, memory, knowledge bases, and sub-agents but make no mention of evaluator attachment or guardrail configuration.
+
+**Why it happens:**
+The term "guardrails" in the project context was assumed to map to Orq.ai's native guardrail feature. Orq.ai markets guardrails prominently (blog posts, platform pages), but the feature is scoped to their Deployments product, which is a simpler single-call pattern. The Agents API is a different product surface with different capabilities. This distinction is easy to miss because both are part of the same platform and share evaluator types.
+
+**How to avoid:**
+- **Validate the API surface early.** Before building the guardrails phase, confirm via hands-on testing whether evaluators can be attached to Agents. If not, redesign the guardrails approach.
+- **Plan for application-layer guardrails.** If Orq.ai does not support evaluator-as-guardrail on Agents, implement guardrails at the skill level: run evaluators via the Experiments API against agent output, and block/flag results that fail thresholds. This is more work but fully within the skill's control.
+- **Consider a hybrid approach.** For agents that can be wrapped in a Deployment for production use, use Orq.ai's native guardrails on the Deployment layer while using the Agents API for development and testing.
+- **Do not assume Orq.ai will add this feature.** Building on an anticipated API addition is a recipe for indefinite blockers.
+
+**Warning signs:**
+- No `guardrails` or `evaluators` field in the Agent create/update API response schema
+- Guardrail configuration docs only reference Deployments
+- Orq.ai MCP server has no tool for attaching evaluators to agents
+- The skill's guardrail feature requires a fundamentally different architecture than planned
+
+**Phase to address:**
+Phase 4 (Guardrails) -- but must be validated in Phase 1 (API surface validation). If confirmed that Agents API lacks guardrail support, the guardrails phase needs redesign before implementation begins. This is the highest-priority item to validate early.
+
+---
+
+### Pitfall 2: Runaway Autonomous Loops (The "Infinite Iteration" Trap)
 
 **What goes wrong:**
 The prompt iteration loop (analyze results -> propose changes -> update -> re-test) runs without adequate stopping conditions. Claude Code autonomously deploys a prompt change, runs an experiment, sees a marginal score improvement, proposes another tweak, deploys again, runs another experiment -- endlessly. Each cycle costs API tokens on both the Claude side (reasoning) and Orq.ai side (experiment execution). A single runaway session can burn through significant API budget before anyone notices. Research shows that without rate limiting, a single agent stuck in a retry loop can generate over 1,000 API calls per minute.
@@ -37,7 +64,7 @@ Phase 3 (Prompt Iteration Loop) -- the iteration controller must be built with h
 
 ---
 
-### Pitfall 2: MCP Server State Desync (The "Ghost Deployment" Problem)
+### Pitfall 3: MCP Server State Desync (The "Ghost Deployment" Problem)
 
 **What goes wrong:**
 The skill deploys an agent to Orq.ai via MCP, but the local state (audit trail, spec files) and Orq.ai's actual state diverge. Common scenarios: (1) MCP call succeeds but the local write fails -- Orq.ai has the agent, local files say it was not deployed. (2) MCP call fails partway -- Orq.ai created the agent but did not apply all settings. (3) User manually edits the agent in Orq.ai Studio after autonomous deployment -- local specs are now stale. (4) Agent versioning in Orq.ai creates a new version when the skill expected to update in-place. The result: the skill operates on stale assumptions about what is deployed, leading to experiments running against wrong configurations or prompt iterations applied to the wrong version.
@@ -64,7 +91,7 @@ Phase 2 (Autonomous Deployment) -- the deploy-verify-record pattern must be the 
 
 ---
 
-### Pitfall 3: Prompt Overfitting to Evaluation Dataset (The "Teaching to the Test" Trap)
+### Pitfall 4: Prompt Overfitting to Evaluation Dataset (The "Teaching to the Test" Trap)
 
 **What goes wrong:**
 The automated prompt iteration loop optimizes prompts against a fixed evaluation dataset. After 3-5 iterations, the prompt scores 95% on the eval set but performs worse on real-world inputs. The prompt has learned the quirks of the test data (specific phrasings, consistent input lengths, predictable domains) rather than developing genuine capability. Research confirms this is a real and documented risk: "repeatedly optimizing against the same test cases improves scores without improving real-world performance."
@@ -76,7 +103,7 @@ The iteration loop uses the same dataset for every evaluation cycle. The LLM doi
 - Split datasets into train/test/holdout: use the training set for iteration, the test set for progress measurement, and the holdout set (never seen during iteration) for final validation. The holdout set must never be used during iteration.
 - Require a minimum dataset size of 30 examples before allowing automated iteration. Below this threshold, show results but do not auto-iterate.
 - After every iteration cycle, run a "generalization check": test the new prompt against 5 randomly generated novel inputs (not from the dataset) and flag if performance drops.
-- Cap iteration count (see Pitfall 1) -- fewer iterations means less opportunity to overfit.
+- Cap iteration count (see Pitfall 2) -- fewer iterations means less opportunity to overfit.
 - Use semantic evaluators (LLM-as-judge) rather than exact-match evaluators for iteration feedback. Orq.ai supports LLM-as-judge evaluators natively.
 - Periodically refresh the evaluation dataset with new examples to prevent the prompt from memorizing patterns.
 
@@ -92,7 +119,7 @@ Phase 3 (Prompt Iteration) and Phase 2.5 (Automated Testing) -- dataset splittin
 
 ---
 
-### Pitfall 4: API Key Exposure in Audit Trails and Skill Files
+### Pitfall 5: API Key Exposure in Audit Trails and Skill Files
 
 **What goes wrong:**
 The Orq.ai API key ends up committed to git, logged in audit trail markdown files, displayed in Claude Code output, or hardcoded in skill configuration. Since V2.0 introduces API key onboarding as part of modular install, the key flows through multiple touchpoints: user input, configuration storage, MCP server config, API fallback calls, and audit logs. Any one of these can leak the key. With 5-15 users at Moyne Roberts, a single leaked key exposes the entire Orq.ai workspace.
@@ -120,7 +147,7 @@ Phase 1 (Modular Install / API Key Onboarding) -- the key management pattern mus
 
 ---
 
-### Pitfall 5: Non-Deterministic LLM Output Breaking Automated Evaluation
+### Pitfall 6: Non-Deterministic LLM Output Breaking Automated Evaluation
 
 **What goes wrong:**
 The automated testing pipeline runs an experiment, gets results, compares them against expected outputs, and reports a score. The next day, the same experiment with the same prompt and same dataset produces different scores -- sometimes significantly different. The prompt iteration loop proposes a change based on results that are not reproducible. Teams waste time "fixing" prompts based on noise rather than signal. Even with temperature=0, LLM outputs can vary across runs due to hardware numerics, batching, and model updates.
@@ -147,7 +174,7 @@ Phase 2.5 (Automated Testing) -- the evaluation harness must be designed for sta
 
 ---
 
-### Pitfall 6: Modular Install Creates Broken Partial States
+### Pitfall 7: Modular Install Creates Broken Partial States
 
 **What goes wrong:**
 V2.0 introduces capability selection (core/deploy/test/full). A user installs "core+test" without "deploy". Later, the prompt iteration loop (which requires both deploy and test) silently fails or produces confusing errors because it cannot deploy the iterated prompt. Or: a user installs "deploy" but not "test" and tries to use the iteration loop, which needs both. The combinatorial explosion of capability states (core, core+deploy, core+test, core+deploy+test) creates edge cases where features reference capabilities that are not installed.
@@ -174,7 +201,7 @@ Phase 1 (Modular Install) -- the capability hierarchy and dependency model must 
 
 ---
 
-### Pitfall 7: User Loses Oversight of Autonomous Operations
+### Pitfall 8: User Loses Oversight of Autonomous Operations
 
 **What goes wrong:**
 The pipeline deploys agents, runs experiments, iterates prompts, and updates configurations -- and the user cannot tell what happened, what changed, or why. The audit trail exists but is a wall of technical detail that non-technical users cannot parse. Or worse: the pipeline makes a change that the user did not approve because the approval checkpoint was too permissive ("approve all iterations" rather than "approve each iteration"). The user discovers their production agents have been modified in ways they do not understand.
@@ -203,7 +230,7 @@ Phase 2-3 (Deployment + Iteration) -- user oversight must be designed into every
 
 ---
 
-### Pitfall 8: Orq.ai MCP Server Availability and Fallback Chaos
+### Pitfall 9: Orq.ai MCP Server Availability and Fallback Chaos
 
 **What goes wrong:**
 The skill is designed as "MCP-first with API fallback." In practice, the MCP server may be unavailable (not installed, misconfigured, Orq.ai updates break it, version mismatch), and the fallback to direct API calls introduces a completely different code path. Now there are two ways to do everything -- MCP and API -- and they have subtly different behaviors, error modes, and response formats. Bug reports become impossible to reproduce because "it depends on whether MCP was available." The fallback path gets less testing because developers always have MCP configured.
@@ -240,17 +267,21 @@ Phase 2 (Autonomous Deployment) -- the adapter abstraction must be the first thi
 | Skipping the adapter layer (calling MCP/API directly) | Faster initial development | Every feature has two code paths, doubled testing burden, inconsistent error handling | Only if committing to one path permanently (no fallback) |
 | "Approve all" batch approval mode | Faster autonomous iteration, less user friction | Users lose oversight, unexpected changes in production, trust erosion | Never in V2.0 initial release; consider for V2.1 after trust is established |
 | Storing experiment results only in Orq.ai (no local copy) | Simpler architecture, no state sync | Audit trail incomplete, cannot debug offline, Orq.ai becomes single point of failure for history | Never -- always write local audit files as the system of record |
+| Building guardrails assuming Agents API support | Faster implementation, less architecture work | Complete rework when Agents API lacks guardrail attachment; wasted phase | Never -- validate API surface before building |
 
 ## Integration Gotchas
 
 | Integration | Common Mistake | Correct Approach |
 |-------------|----------------|------------------|
+| Orq.ai Agents vs Deployments | Assuming evaluator-as-guardrail works on Agents API | Guardrails are Deployments-only; for Agents, implement application-layer guardrails (run evaluator post-execution, gate on results) |
 | Orq.ai MCP Server | Assuming MCP server is always available and configured | Detect at session start, fall back gracefully, log which path is active |
 | Orq.ai MCP Server | Not handling JSON-RPC error format (different from HTTP errors) | Build adapter that normalizes errors from both MCP (JSON-RPC) and API (HTTP status) into a common error type |
+| Orq.ai MCP Server | Assuming MCP CRUD coverage matches REST API coverage | MCP server may not expose all REST API operations; validate each required operation exists before depending on MCP for it |
 | Orq.ai Datasets API | Sending > 5,000 datapoints in a single request | Batch uploads to max 5,000 datapoints per request; implement chunking for larger datasets |
 | Orq.ai Evaluators | Assuming evaluators exist globally -- they are being migrated to project scope | Always create evaluators within a project context; check for the project-scoping migration |
 | Orq.ai Experiments | Polling for experiment completion without backoff | Use exponential backoff when polling experiment status; experiments can take minutes to complete |
 | Orq.ai Agent Versioning | Updating an agent and expecting in-place modification | Orq.ai creates new versions when parameters differ on the same key; track version numbers explicitly |
+| Orq.ai Evaluator SDK | Assuming evaluator creation API matches documentation exactly | Evaluator SDK behavior needs hands-on validation; test each evaluator type (LLM, Python, HTTP, JSON) with actual API calls before building automation around them |
 | Claude Code MCP Config | Storing API key directly in `.mcp.json` or `claude_desktop_config.json` | Reference environment variable in config; instruct user to set in shell profile |
 | Claude Code Permissions | Assuming Claude Code will auto-approve MCP tool calls | Claude Code requires user permission for tool calls; design for the approval flow, not around it |
 
@@ -281,15 +312,19 @@ Phase 2 (Autonomous Deployment) -- the adapter abstraction must be the first thi
 | Prompt diffs shown as raw text without highlighting | Users cannot see what actually changed between iterations | Show side-by-side or inline diff with additions/removals clearly marked |
 | Capability install requires re-running full install script | Users lose existing config or customization when upgrading capabilities | Additive install: `/orq-agent:install --add deploy` adds capability without touching existing setup |
 | No "undo" for autonomous operations | User approves a change, regrets it, cannot revert | Every deployment creates a rollback point; `/orq-agent:rollback` restores previous version |
+| Guardrails described in Orq.ai terms users do not understand | Non-technical users confused by "evaluator thresholds" and "score gates" | Present guardrails as "safety checks": "Before your agent responds to customers, it will be checked for [harmful content / off-topic responses / etc.]" |
 
 ## "Looks Done But Isn't" Checklist
 
+- [ ] **Guardrails API surface:** Often assumed to work on Agents -- verify evaluator-as-guardrail attachment exists on `/v2/agents` (not just Deployments). If missing, confirm application-layer guardrail approach is implemented instead
 - [ ] **Deployment:** Often missing verify-after-deploy -- verify the skill reads back deployed state from Orq.ai after every write operation
 - [ ] **Iteration loop:** Often missing stopping conditions -- verify hard caps exist for iteration count, budget, wall-clock time, and diminishing returns
 - [ ] **Evaluation:** Often using single-run scores -- verify every automated evaluation uses median of 3+ runs
 - [ ] **Dataset splitting:** Often using full dataset for both iteration and validation -- verify train/test/holdout split is enforced
 - [ ] **API key onboarding:** Often stores key in a file -- verify key is stored as environment variable only, never written to any tracked file
 - [ ] **MCP fallback:** Often untested -- verify the API fallback path has equal test coverage to the MCP primary path
+- [ ] **MCP CRUD coverage:** Often assumed complete -- verify each required MCP operation (create/read/update/delete for agents, datasets, evaluators, experiments) actually exists in the MCP server before building features that depend on it
+- [ ] **Evaluator SDK:** Often assumed to match docs -- verify each custom evaluator type (LLM, Python, HTTP, JSON) can be created and configured via the API with actual test calls
 - [ ] **Capability checks:** Often fail silently -- verify every command checks its required capabilities at startup and errors explicitly
 - [ ] **Audit trail:** Often only technical -- verify a user-facing summary exists alongside the technical log
 - [ ] **Approval flow:** Often allows batch approval -- verify per-iteration approval is the only option in V2.0
@@ -299,6 +334,7 @@ Phase 2 (Autonomous Deployment) -- the adapter abstraction must be the first thi
 
 | Pitfall | Recovery Cost | Recovery Steps |
 |---------|---------------|----------------|
+| Guardrails built for wrong API surface | HIGH | Redesign guardrails as application-layer checks; refactor from "attach evaluator to agent" to "run evaluator after agent execution and gate on result"; may require rethinking the entire guardrails phase |
 | Runaway iteration loop | LOW-MEDIUM | Kill the session; review audit trail for changes made; rollback any deployed changes to last known-good version; add/tighten iteration limits |
 | MCP state desync | MEDIUM | Run sync command to reconcile local vs Orq.ai state; manually verify each deployed agent; update local audit trail to match reality |
 | Prompt overfitting | MEDIUM | Revert to pre-iteration prompt; create new holdout dataset with real-world examples; re-iterate with proper train/test split; may need to discard multiple iterations of "improvement" |
@@ -312,6 +348,7 @@ Phase 2 (Autonomous Deployment) -- the adapter abstraction must be the first thi
 
 | Pitfall | Prevention Phase | Verification |
 |---------|------------------|--------------|
+| Guardrails wrong API surface | Phase 1: API Validation (validate early) + Phase 4: Guardrails (implement correctly) | Verify: hands-on test confirms whether `/v2/agents` supports evaluator attachment; if not, application-layer guardrail design documented before Phase 4 begins |
 | Runaway autonomous loops | Phase 3: Prompt Iteration | Verify: iteration loop has hard caps on count (3), budget (50 calls), time (10 min), and diminishing returns (5%) |
 | MCP state desync | Phase 2: Autonomous Deployment | Verify: every deploy operation includes a read-back verification step; version numbers tracked in audit trail |
 | Prompt overfitting | Phase 2.5 + 3: Testing + Iteration | Verify: datasets are split into train/test/holdout; holdout never used during iteration; iteration loop respects split |
@@ -323,12 +360,15 @@ Phase 2 (Autonomous Deployment) -- the adapter abstraction must be the first thi
 
 ## Sources
 
-- [Orq.ai Blog: API Rate Limiting](https://orq.ai/blog/api-rate-limit) -- Leaky bucket rate limiting approach
-- [Orq.ai Blog: LLM Guardrails](https://orq.ai/blog/llm-guardrails) -- Platform guardrail capabilities
-- [Orq.ai Blog: Model vs Data Drift](https://orq.ai/blog/model-vs-data-drift) -- Drift monitoring guidance
-- [Orq.ai Docs: Evaluator Introduction](https://docs.orq.ai/docs/evaluator) -- Evaluator types and project-scoping migration
+- [Orq.ai Docs: Evaluator Introduction](https://docs.orq.ai/docs/evaluator) -- Evaluator types, project-scoping migration, and guardrail scope (Deployments only)
+- [Orq.ai Docs: Creating Evaluators](https://docs.orq.ai/docs/evaluators/creating) -- Evaluator creation and guardrail attachment to Deployments
+- [Orq.ai Docs: Agent API](https://docs.orq.ai/docs/agents/agent-api) -- Agent API capabilities (no guardrail attachment documented)
+- [Orq.ai Changelog: HTTP and JSON Evaluators](https://docs.orq.ai/changelog/http-and-json-evals) -- Evaluator guardrail types for Deployments
 - [Orq.ai Docs: Datasets Overview](https://docs.orq.ai/docs/datasets/overview) -- Dataset format and 5,000 datapoint limit
 - [Orq.ai Platform: Evaluation](https://orq.ai/platform/evaluation) -- Experiment and evaluation capabilities
+- [Orq.ai Blog: API Rate Limiting](https://orq.ai/blog/api-rate-limit) -- Leaky bucket rate limiting approach
+- [Orq.ai Blog: LLM Guardrails](https://orq.ai/blog/llm-guardrails) -- Platform guardrail capabilities (marketing vs actual API surface)
+- [Orq.ai Blog: Model vs Data Drift](https://orq.ai/blog/model-vs-data-drift) -- Drift monitoring guidance
 - [Fast.io: MCP Server Rate Limiting](https://fast.io/resources/mcp-server-rate-limiting/) -- 1,000 calls/minute runaway agent scenario
 - [Stainless: Error Handling and Debugging MCP Servers](https://www.stainless.com/mcp/error-handling-and-debugging-mcp-servers) -- MCP error patterns and JSON-RPC debugging
 - [Claude Code Docs: MCP Integration](https://code.claude.com/docs/en/mcp) -- MCP server configuration in Claude Code
