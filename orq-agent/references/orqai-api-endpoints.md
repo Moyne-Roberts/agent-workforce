@@ -91,6 +91,16 @@ Supports 4 custom evaluator types: LLM, Python, HTTP, JSON.
 |--------|------|-------------|
 | GET | `/v2/models` | List available models (used for API key validation) |
 
+## SDK Method Mapping
+
+Key SDK methods used by subagents and their REST API equivalents. Use these when the `@orq-ai/node` SDK is unavailable or for manual debugging.
+
+| SDK Method | REST Equivalent | Used By |
+|------------|----------------|---------|
+| `client.agents.responses.create({ agent_id, messages })` | `POST /v2/agents/{agent_id}/execute` with `{ messages: [...] }` body | tester.md (Step 7.1) |
+| `client.datasets.create({ name, ... })` | `POST /v2/datasets` | tester.md (Step 5) |
+| `client.datasets.addRows({ dataset_id, rows })` | `POST /v2/datasets/{dataset_id}/rows` | tester.md (Step 5) |
+
 ## Usage Notes
 
 - **Pagination:** List endpoints support `limit` and `offset` query parameters.

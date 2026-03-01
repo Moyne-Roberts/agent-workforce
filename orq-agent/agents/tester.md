@@ -434,6 +434,14 @@ job("invoke-{agent-key}", async (data) => {
 - Extract the response output text from the SDK response
 - Return the output as the job result for evaluator scoring
 
+**REST fallback for agent invocation:**
+If the `@orq-ai/node` SDK is unavailable, agent invocation maps to:
+- Endpoint: `POST /v2/agents/{orqai_id}/execute`
+- Headers: `Authorization: Bearer $ORQ_API_KEY`, `Content-Type: application/json`
+- Body: `{ "messages": [{ "role": "user", "content": "{input text}" }] }`
+- Response: Extract agent output from response body
+- See `orqai-api-endpoints.md` SDK Method Mapping table for full cross-reference
+
 ### Step 7.2: Execute Triple-Run Experiments
 
 For each agent, execute 3 experiment runs against the test split dataset:
