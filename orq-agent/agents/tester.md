@@ -22,8 +22,8 @@ Your job:
 - Upload transformed datasets to Orq.ai via `@orq-ai/node` SDK
 - Infer agent role (structural/conversational/hybrid) from spec content
 - Select appropriate evaluators based on role with category overlays for adversarial examples
-- Execute experiments 3x per agent and aggregate results (Phase 7 stub -- fully specified in Plan 02)
-- Produce structured test results (Phase 8 stub -- fully specified in Plan 02)
+- Execute experiments 3x per agent via evaluatorq SDK and aggregate results
+- Produce structured test results in three channels: JSON, markdown, and terminal summary
 - Report progress per phase and return a structured result object
 
 ## MCP-First / REST-Fallback Pattern (LOCKED -- inherited from deployer)
@@ -411,35 +411,275 @@ Agent {agent-key}:
 
 ---
 
-## Phase 7: Execute Experiments (Stub -- Plan 02)
+## Phase 7: Execute Experiments (3x per Agent)
 
-**This phase will be fully specified in Plan 02.** Placeholder for experiment execution.
+Run experiments using `@orq-ai/evaluatorq` SDK. Execute 3 runs per agent against the test split dataset, collecting per-evaluator scores for each run. Individual agent failures do not block testing of remaining agents.
 
-Pipeline summary (to be implemented):
-- Execute experiments 3 times per agent using the test split dataset
-- Use the evaluatorq SDK for experiment orchestration
-- Invoke deployed agents via the Orq.ai Agents API
-- Collect per-evaluator scores for each run
-- Apply per-agent, per-evaluator scoring
+### Step 7.1: Create Agent Invocation Job
 
-**Key constraint:** Run per-agent experiments (one experiment per agent). Do NOT run a single mega-experiment with all agents.
+For each agent in the test set (or single filtered agent), create an evaluatorq job that invokes the deployed agent:
+
+```javascript
+job("invoke-{agent-key}", async (data) => {
+  // Call deployed agent using @orq-ai/node SDK
+  // Use agents.responses.create() (NOT deprecated agents.invoke())
+  // Pass data.inputs.text as user message
+  // Return agent response output
+})
+```
+
+**Agent invocation details:**
+- Use `@orq-ai/node` SDK initialized with `ORQ_API_KEY`
+- Call `agents.responses.create({ agent_id: orqai_id, messages: [{ role: "user", content: data.inputs.text }] })`
+- Extract the response output text from the SDK response
+- Return the output as the job result for evaluator scoring
+
+### Step 7.2: Execute Triple-Run Experiments
+
+For each agent, execute 3 experiment runs against the test split dataset:
+
+```javascript
+for (let run = 1; run <= 3; run++) {
+  evaluatorq("test-{swarm}-{agent-key}-run-{run}", {
+    data: { datasetId: testSplitDatasetId },
+    jobs: [agentJob],
+    evaluators: selectedEvaluators
+  })
+}
+```
+
+**Execution constraints:**
+- Add a 2-second delay between runs to avoid rate limiting (research Pitfall 6)
+- Respect `Retry-After` headers on 429 responses (use that value instead of calculated delay)
+- Use evaluatorq's built-in `parallelism` config to control concurrency within each run
+- Each run produces per-evaluator scores for every example in the test dataset
+
+### Step 7.3: Evaluator Execution Strategy
+
+Route evaluators to the appropriate execution method:
+
+**Platform-side evaluation (LLM evaluators):**
+- `coherence`, `helpfulness`, `relevance`, `instruction_following`, `harmfulness`
+- Let Orq.ai run the LLM scoring on their platform (research recommendation -- avoids local LLM costs and latency)
+- Pass evaluator names to the `evaluators` config in evaluatorq
+
+**Local evaluatorq scorers (function evaluators):**
+- `json_validity`, `exactness`, `toxicity`
+- Use local evaluatorq scorers from `@orq-ai/evaluators` where available
+- If evaluatorq does not have a built-in scorer for a needed evaluator, fall back to platform-side evaluation
+
+### Step 7.4: Per-Agent Error Handling
+
+Handle failures gracefully so one agent does not block others:
+
+**All 3 runs fail for an agent:**
+- Record agent status as `"error"` with failure reason
+- Log: `Error testing agent {agent-key}: {error message}`
+- Continue to next agent -- do NOT abort the test run
+
+**1-2 runs fail but at least 1 succeeds:**
+- Use available runs for scoring (note reduced confidence in results)
+- Record the number of successful runs in the results
+- Log: `Warning: Agent {agent-key} completed {N}/3 runs (reduced confidence)`
+
+**Capture experiment error details:**
+- Store the error message, failed run numbers, and any API response codes
+- Include error details in the results output for debugging
+
+### Step 7.5: Collect Raw Scores
+
+After all agents have completed their experiment runs, collect raw scores per agent:
+
+```
+{
+  agent_key: "{agent-key}",
+  runs: [
+    { run: 1, scores: { "{evaluator}": { per_example: [...], aggregate: 0.0 } } },
+    { run: 2, scores: { "{evaluator}": { per_example: [...], aggregate: 0.0 } } },
+    { run: 3, scores: { "{evaluator}": { per_example: [...], aggregate: 0.0 } } }
+  ],
+  successful_runs: 3,
+  status: "complete" | "partial" | "error"
+}
+```
+
+Report progress during execution: `Testing agents... [{completed}/{total}]`
 
 ---
 
-## Phase 8: Aggregate Results and Report (Stub -- Plan 02)
+## Phase 8: Aggregate Results and Report
 
-**This phase will be fully specified in Plan 02.** Placeholder for results aggregation and output.
+Compute statistics across triple runs, determine pass/fail, slice by category, identify worst cases, and produce three output channels: JSON, markdown, and terminal summary.
 
-Pipeline summary (to be implemented):
-- Compute median scores across 3 runs per evaluator per agent
-- Calculate variance and 95% confidence intervals
-- Identify worst-performing cases (bottom 3 per agent)
-- Slice results by category (happy-path, variation, boundary, adversarial, edge-case, stress)
-- Write test-results.json (primary output for Phase 8 iteration loop)
-- Write test-results.md (human-readable historical record)
-- Display terminal summary table
+### Step 8.1: Triple-Run Aggregation (Median with Variance)
 
-**Key constraint:** Report per-evaluator scores separately. Do NOT average across different evaluator scales.
+For each agent, for each evaluator, compute statistics across the 3 runs:
+
+```
+scores = [run1_score, run2_score, run3_score]
+sorted = scores.sort()
+median = sorted[1]  // middle of 3
+mean = sum(scores) / 3
+variance = sum((s - mean)^2) / 3
+stddev = sqrt(variance)
+ci_95 = [max(0, median - 1.96 * stddev), min(scale_max, median + 1.96 * stddev)]
+```
+
+**Scale maximums for CI clamping:**
+- Binary evaluators (`json_validity`, `exactness`, `harmfulness`): scale_max = 1.0
+- Continuous 0-1 evaluators (`toxicity`): scale_max = 1.0
+- Continuous 1-5 evaluators (`coherence`, `helpfulness`, `relevance`, `instruction_following`): scale_max = 5.0
+
+**If fewer than 3 runs succeeded:** Use available runs. For 1 run: median = that score, variance = N/A. For 2 runs: median = average of two, variance computed from 2 values.
+
+### Step 8.2: Pass/Fail Determination (Per-Evaluator Thresholds)
+
+Each evaluator has its own threshold (set in Phase 6 evaluator selection):
+
+- **Agent passes an evaluator** if median score >= threshold
+- **Agent overall pass** = ALL evaluators pass
+- **Overall test pass** = ALL agents pass
+
+Record pass/fail status per evaluator per agent:
+
+```
+{
+  evaluator: "{name}",
+  median: 0.85,
+  threshold: 0.8,
+  pass: true
+}
+```
+
+### Step 8.3: Category-Sliced Scoring
+
+Group examples by category and compute per-evaluator scores within each category:
+
+**Categories:** `happy-path`, `variation`, `boundary`, `adversarial`, `edge-case`, `stress`
+
+For each category:
+1. Filter examples belonging to that category (using the `category` metadata from the dataset)
+2. Compute median score per evaluator across the 3 runs for only those examples
+3. Determine pass/fail per evaluator within the category using the same thresholds
+
+This reveals patterns like "95% on happy-path but 40% on adversarial" -- critical for Phase 8 iteration targeting.
+
+### Step 8.4: Worst-Performing Cases (Bottom 3 per Agent)
+
+For each agent, identify the 3 examples with lowest aggregate scores:
+
+1. For each example, compute an aggregate score: average of all evaluator scores (normalized to 0-1 scale for comparison)
+   - Binary scores: use as-is (0 or 1)
+   - Continuous 0-1 scores: use as-is
+   - Continuous 1-5 scores: normalize to 0-1 by `(score - 1) / 4`
+2. Sort examples by aggregate score ascending
+3. Take the bottom 3
+
+For each worst case, record:
+```
+{
+  eval_id: "{original eval pair ID}",
+  input: "{input text}",
+  expected_output: "{expected output text}",
+  actual_output: "{actual agent response}",
+  scores: { "{evaluator}": score, ... },
+  category: "{category}",
+  reason: "{why this example failed -- lowest scoring evaluator and its score}"
+}
+```
+
+Also count **total failures**: the number of examples where ANY evaluator scored below its threshold.
+
+### Step 8.5: Output Channel 1 -- test-results.json
+
+Write results to `test-results.json` in the swarm output directory, following the template schema in `orq-agent/templates/test-results.json`.
+
+Include all fields:
+- `test_run_id`: Generated as `test-{swarm}-{YYYYMMDD}-{HHMMSS}`
+- `swarm_name`: From the swarm directory
+- `tested_at`: ISO 8601 timestamp
+- `dataset`: Total examples, original/augmented counts, per-split counts, per-agent dataset IDs
+- `evaluators`: List of all evaluators used with types, thresholds, scales
+- `results.overall_pass`: Boolean -- all agents passed all evaluators
+- `results.per_agent`: Array of per-agent results with:
+  - `scores`: Per-evaluator median, variance, confidence interval, pass/fail, threshold, scale, raw runs
+  - `category_scores`: Per-category per-evaluator median, pass/fail, example count
+  - `worst_cases`: Bottom 3 examples with full detail
+  - `total_failure_count`: Number of examples failing any evaluator
+- `summary`: Human-readable one-liner (e.g., "3/5 agents passing. 2 agents failing on adversarial examples.")
+
+### Step 8.6: Output Channel 2 -- test-results.md
+
+Generate a markdown report at `test-results.md` in the swarm output directory:
+
+```markdown
+# Test Results: {swarm-name}
+
+**Tested:** {date}
+**Dataset:** {total} examples ({original} original, {augmented} augmented)
+**Splits:** {train} train / {test} test / {holdout} holdout
+
+## Agent: {agent-key}
+
+**Role:** {structural|conversational|hybrid}
+**Status:** {PASS|FAIL|ERROR}
+
+### Evaluator Scores
+
+| Evaluator | Median | Threshold | Status | CI (95%) |
+|-----------|--------|-----------|--------|----------|
+| {name} | {score} | {threshold} | PASS/FAIL | [{low}, {high}] |
+
+### Category Breakdown
+
+| Category | {eval-1} | {eval-2} | ... | Status |
+|----------|----------|----------|-----|--------|
+| happy-path | {score} | {score} | ... | PASS/FAIL |
+| adversarial | {score} | {score} | ... | PASS/FAIL |
+
+### Worst Cases
+
+**1. {eval_id}** (category: {category})
+- Input: {input text}
+- Expected: {expected output}
+- Actual: {actual output}
+- Scores: {evaluator}: {score}, ...
+- Reason: {failure reason}
+
+[repeat for top 3 worst cases]
+
+---
+
+## Summary
+
+**Overall:** {PASS|FAIL}
+**Agents tested:** {total}
+**Passing:** {count} | **Failing:** {count} | **Errors:** {count}
+```
+
+### Step 8.7: Output Channel 3 -- Terminal Summary Table
+
+Display a concise summary table after the test run completes:
+
+```
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ ORQ >>> TEST RESULTS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Agent              | Role    | Score  | Status
+-------------------|---------|--------|-------
+{agent-key}        | struct  | 0.85   | PASS
+{agent-key}        | conv    | 0.72   | FAIL
+
+Overall: 3/5 agents passing
+Details: test-results.md | JSON: test-results.json
+```
+
+**Score column:** Show the lowest evaluator median for that agent (bottleneck score). This is the single most informative number -- the agent is only as strong as its weakest evaluator.
+
+**Role column abbreviations:** `struct` for structural, `conv` for conversational, `hybrid` for hybrid.
+
+**Status column:** `PASS` if all evaluators pass, `FAIL` if any evaluator fails, `ERROR` if agent had experiment execution errors.
 
 ---
 
@@ -479,11 +719,21 @@ The tester returns a structured result object per agent containing:
       "holdout": 0
     }
   },
-  "scores": "{{PLACEHOLDER -- filled by experiment execution in Plan 02}}"
+  "scores": {
+    "{{EVALUATOR_NAME}}": {
+      "median": 0.0,
+      "variance": 0.0,
+      "confidence_interval": [0.0, 0.0],
+      "pass": false,
+      "threshold": 0.0,
+      "scale": "binary|continuous-01|continuous-15",
+      "runs": [0.0, 0.0, 0.0]
+    }
+  }
 }
 ```
 
-This output is consumed by the test command (Plan 02) for results formatting and by Phase 8 for iteration targeting.
+This output is consumed by the test command for results formatting and by Phase 8 iteration loop for targeting prompt improvements.
 
 ## Anti-Patterns
 
