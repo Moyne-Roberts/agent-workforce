@@ -3,12 +3,12 @@ gsd_state_version: 1.0
 milestone: v0.3
 milestone_name: milestone
 status: unknown
-last_updated: "2026-03-01T16:07:08.377Z"
+last_updated: "2026-03-01T16:36:21.067Z"
 progress:
-  total_phases: 3
-  completed_phases: 3
-  total_plans: 6
-  completed_plans: 6
+  total_phases: 5
+  completed_phases: 4
+  total_plans: 7
+  completed_plans: 7
 ---
 
 # Project State
@@ -18,24 +18,24 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-01)
 
 **Core value:** Given any use case description, produce correct, complete Orq.ai Agent specifications and autonomously deploy, test, iterate, and harden them via the Orq.ai MCP server and API.
-**Current focus:** Phase 8 — Prompt Iteration Loop
+**Current focus:** Phase 7.1 — Test Pipeline Tech Debt (gap closure)
 **Previous milestone:** v0.3 shipped 2026-03-01 — 11 phases, 28 plans, 50/50 requirements
 
 ## Current Position
 
-Phase: 8 of 9 (Prompt Iteration Loop) — third of 4 V2.0 phases (COMPLETE)
-Plan: 2 of 2 complete
+Phase: 7.1 of 9 (Test Pipeline Tech Debt) — gap closure before Phase 9 (COMPLETE)
+Plan: 1 of 1 complete
 Status: Phase Complete
-Last activity: 2026-03-01 — Completed 08-02 (Re-deploy/Re-test Pipeline and Iterate Command)
+Last activity: 2026-03-01 — Completed 07.1-01 (Test Pipeline Tech Debt Cleanup)
 
-Progress: [██████████] 100% (2/2 plans in Phase 8)
+Progress: [██████████] 100% (1/1 plans in Phase 7.1)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 6 (V2.0)
-- Average duration: 3.2min
-- Total execution time: 19min
+- Total plans completed: 7 (V2.0)
+- Average duration: 2.9min
+- Total execution time: 20min
 
 **By Phase:**
 
@@ -44,6 +44,7 @@ Progress: [██████████] 100% (2/2 plans in Phase 8)
 | 6. Orq.ai Deployment | 2/2 | 7min | 3.5min |
 | 7. Automated Testing | 2/2 | 6min | 3min |
 | 8. Prompt Iteration Loop | 2/2 | 6min | 3min |
+| 7.1 Test Pipeline Tech Debt | 1/1 | 1min | 1min |
 | 9. Guardrails and Hardening | 0/? | — | — |
 
 ## Accumulated Context
@@ -76,6 +77,7 @@ Progress: [██████████] 100% (2/2 plans in Phase 8)
 - Deployer subagent unmodified for re-deploy -- existing idempotent create-or-update logic handles selective updates
 - Holdout dataset IDs passed directly from test-results.json to tester for re-test (no new upload)
 - Step 2 MCP unavailable + API key set continues via REST for iterate command (matches deploy/test pattern)
+- REST fallback is documentation-only -- no parallel code path created (SDK handles REST internally)
 
 ### Blockers/Concerns
 
@@ -92,5 +94,5 @@ Progress: [██████████] 100% (2/2 plans in Phase 8)
 ## Session Continuity
 
 Last session: 2026-03-01
-Stopped at: Completed 08-02-PLAN.md (Re-deploy/Re-test Pipeline and Iterate Command) -- Phase 8 complete
+Stopped at: Completed 07.1-01-PLAN.md (Test Pipeline Tech Debt Cleanup) -- Phase 7.1 complete
 Resume with: /gsd:execute-phase 09 (start Phase 9: Guardrails and Hardening)
