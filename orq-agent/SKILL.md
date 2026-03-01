@@ -14,6 +14,10 @@ orq-agent/
     tools.md                     # Standalone tool resolver command
     research.md                  # Standalone researcher command
     datasets.md                  # Standalone dataset generator command
+    deploy.md                    # Phase 5: Deploy to Orq.ai (requires deploy+ tier)
+    test.md                      # Phase 5: Automated testing (requires test+ tier)
+    iterate.md                   # Phase 5: Prompt iteration (requires full tier)
+    set-profile.md               # Phase 5: Model profile management
   agents/
     architect.md                 # Phase 1: Architect subagent
     tool-resolver.md             # Phase 4.2: Tool resolver subagent
@@ -28,12 +32,20 @@ orq-agent/
     dataset.md                   # Template: test dataset with adversarial cases
     readme.md                    # Template: swarm README for non-technical users
     tools.md                     # Template: tool landscape and per-agent assignments
+    deploy-log.json              # Phase 5: V2.0 deployment audit template (JSON)
+    test-results.json            # Phase 5: V2.0 test results template (JSON)
+    iteration-log.json           # Phase 5: V2.0 iteration audit template (JSON)
   references/
     orqai-agent-fields.md        # Orq.ai v2 API field reference (18 fields, 15 tool types)
     orqai-model-catalog.md       # Model catalog by use case (14 providers, 12 models)
     orchestration-patterns.md    # Three orchestration patterns with complexity gate
     naming-conventions.md        # Agent key naming rules with regex validation
     tool-catalog.md              # Unified tool catalog (built-in + MCP + HTTP/function patterns)
+    agentic-patterns.md          # Phase 5: Anthropic composable patterns + context engineering
+    orqai-api-endpoints.md       # Phase 5: REST API endpoint reference for V2.0 subagents
+    orqai-evaluator-types.md     # Phase 5: Evaluator taxonomy for automated testing
+  .orq-agent/
+    config.json                  # Capability tier + model profile settings
 ```
 
 ## Output Directory Convention
@@ -52,8 +64,7 @@ Agents/[swarm-name]/
 ```
 
 - `[swarm-name]` matches the domain portion of agent keys (e.g., `customer-support`)
-- Single-agent swarms still use this structure (ORCHESTRATION.md is omitted)
-- All files are markdown -- no runtime code, no dependencies
+- Single-agent swarms omit ORCHESTRATION.md; all files are markdown
 
 ## Commands
 
@@ -70,16 +81,16 @@ Agents/[swarm-name]/
 | `/orq-agent:datasets` | `commands/datasets.md` | Standalone dataset generator -- produces dual test datasets (clean + edge) |
 | `/orq-agent:help` | `commands/help.md` | Show available commands, usage examples, and version |
 
-**Invocation modes:**
-- Inline: `/orq-agent "Build a customer support triage system"`
-- Interactive: `/orq-agent` (prompts for input)
-- GSD mode: `/orq-agent --gsd "Build invoice processing agents"`
-- Custom output: `/orq-agent --output ./my-agents "Build a chatbot"`
-- Single agent: `/orq-agent:prompt "Build a customer FAQ bot"` (fast path, single spec only)
-- Architect only: `/orq-agent:architect "Build a customer support triage system"` (blueprint only)
-- Tool resolution: `/orq-agent:tools --blueprint ./Agents/support/blueprint.md` (resolve tools from existing blueprint)
-- Research: `/orq-agent:research "Customer support triage agent that routes tickets"` (research brief only)
-- Datasets: `/orq-agent:datasets ./Agents/support/agents/support-triage-agent.md` (generate test datasets from spec)
+### V2.0 Commands (Phase 5+)
+
+| Command | File | Tier Required | Purpose |
+|---------|------|---------------|---------|
+| `/orq-agent:deploy` | `commands/deploy.md` | deploy+ | Deploy agent specs to Orq.ai via MCP (V1.0 fallback: copy-paste steps) |
+| `/orq-agent:test` | `commands/test.md` | test+ | Run automated tests against deployed agents (V1.0 fallback: manual steps) |
+| `/orq-agent:iterate` | `commands/iterate.md` | full | Iterate on prompts using evaluator feedback (V1.0 fallback: manual steps) |
+| `/orq-agent:set-profile` | `commands/set-profile.md` | any | View or change model profile (quality/balanced/budget) |
+
+**Invocation:** `/orq-agent "description"` | `/orq-agent` (interactive) | `--gsd` flag | `--output <path>`
 
 ## Subagents
 
@@ -114,6 +125,24 @@ Agents/[swarm-name]/
 | `orchestration-patterns.md` | Single, sequential, and parallel patterns with selection criteria and complexity gate |
 | `naming-conventions.md` | `[domain]-[role]-agent` convention, regex validation, 12 valid and 7 invalid examples |
 | `tool-catalog.md` | Unified catalog: built-in tools, 21 MCP servers, HTTP/function patterns with resolution priority chain |
+| `agentic-patterns.md` | Anthropic composable patterns mapped to Orq.ai equivalents |
+| `orqai-api-endpoints.md` | REST API endpoints for V2.0 deploy/test/iterate subagents |
+| `orqai-evaluator-types.md` | Evaluator taxonomy: 3 built-in categories + 4 custom types |
+
+## Capability Tiers
+
+Installed via `install.sh`. Config stored at `.orq-agent/config.json`.
+
+| Tier | Capabilities | Commands |
+|------|-------------|----------|
+| core | Spec generation | `/orq-agent` |
+| deploy | + Deployment | `/orq-agent:deploy` |
+| test | + Automated testing | `/orq-agent:test` |
+| full | + Prompt iteration | `/orq-agent:iterate` |
+
+- Default profile: **quality** (best output out-of-the-box)
+- Change profile: `/orq-agent:set-profile [quality|balanced|budget]`
+- V2.0 commands check MCP availability; fall back to V1.0 copy-paste output when MCP unavailable
 
 ## Templates
 
@@ -124,6 +153,9 @@ Agents/[swarm-name]/
 | `dataset.md` | Template for test datasets requiring 30% adversarial cases minimum |
 | `readme.md` | Template for swarm READMEs with non-technical setup instructions |
 | `tools.md` | Template for TOOLS.md output with capability-first organization and per-agent config JSON |
+| `deploy-log.json` | V2.0 deployment audit log template (JSON) |
+| `test-results.json` | V2.0 test results template (JSON) |
+| `iteration-log.json` | V2.0 iteration audit log template (JSON) |
 
 ## Distribution
 
@@ -135,18 +167,14 @@ Agents/[swarm-name]/
 
 ## Key Design Decisions
 
-- **Complexity gate:** Architect defaults to single-agent design; each additional agent requires explicit justification
+- **Complexity gate:** Architect defaults to single-agent; each extra agent requires justification
 - **Reference files under 1000 words:** Preserves subagent context window for reasoning
-- **{{PLACEHOLDER}} format:** Matches Orq.ai native variable syntax for consistency
-- **Self-contained templates:** Each template has its own legend; no cross-template dependencies
-- **Hyphens-only naming:** Agent keys use kebab-case despite regex allowing dots and underscores
-- **Discussion-first flow:** Every invocation starts with a GSD-style structured discussion that surfaces domain-specific gray areas and enriches user input before the architect runs
-- **Only researcher is skippable:** Researcher skip decision is made internally after discussion enrichment, not as a user-facing checkpoint
-- **Wave-based parallelism:** Researchers parallel, then spec generators parallel, then post-generation parallel
-- **Lean orchestrator:** Passes file paths to subagents rather than loading outputs into orchestrator context
-- **`--gsd` flag is a hint, not a dependency:** Skill works standalone without GSD installed
-- **Install to skills directory:** `~/.claude/skills/orq-agent/` for multi-file support without plugin namespace overhead
-- **Clean install every time:** No preservation of user customizations; always overwrite from GitHub
-- **MCP-first tool resolution:** Tool resolver prefers MCP servers for external integrations, verified via web search before recommending
-- **Tool resolver always runs:** Even when researcher is skipped, tools still need resolution from the architect blueprint
-- **TOOLS.md is authoritative:** Spec generator and researcher defer to TOOLS.md for tool selection; both add domain-specific detail but do not override
+- **Discussion-first flow:** Structured discussion enriches input before architect runs
+- **Only researcher is skippable:** Internal decision after discussion, not user-facing
+- **Wave-based parallelism:** Research -> spec generation -> post-generation, parallel within waves
+- **Lean orchestrator:** Passes file paths to subagents, not full content
+- **Tool resolver always runs:** Resolves tools from blueprint even when researcher skipped
+- **TOOLS.md is authoritative:** Spec generator and researcher defer to TOOLS.md for tool selection
+- **MCP-first V2.0:** Deploy/test/iterate use MCP when available, V1.0 copy-paste fallback otherwise
+- **Clean install:** Always overwrite from GitHub; no user customization preservation
+- **`--gsd` flag is a hint:** Skill works standalone without GSD installed
