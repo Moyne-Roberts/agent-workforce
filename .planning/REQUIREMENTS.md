@@ -96,8 +96,8 @@ Requirements for V2.0 milestone — Autonomous Orq.ai Pipeline. Each maps to roa
 - [x] **INST-01**: Install script presents capability tier selection (core/deploy/test/full) with hierarchical enforcement (test requires deploy, full requires test)
 - [x] **INST-02**: Install script prompts for Orq.ai API key, validates with lightweight API call, and stores via environment variable only (never in generated files)
 - [x] **INST-03**: Install script auto-registers Orq.ai MCP server via `claude mcp add` when deploy or higher tier is selected
-- [ ] **INST-04**: Commands are capability-gated — `/orq-agent:deploy` only available when deploy tier installed, `/orq-agent:test` only with test tier, etc.
-- [ ] **INST-05**: Pipeline gracefully falls back to V1.0 copy-paste behavior when MCP is unavailable or only core tier is installed
+- [x] **INST-04**: Commands are capability-gated — `/orq-agent:deploy` only available when deploy tier installed, `/orq-agent:test` only with test tier, etc.
+- [x] **INST-05**: Pipeline gracefully falls back to V1.0 copy-paste behavior when MCP is unavailable or only core tier is installed
 
 ### Deployment
 
@@ -227,8 +227,8 @@ Deferred to future releases. Tracked but not in current roadmap.
 | INST-01 | Phase 5 | Complete |
 | INST-02 | Phase 5 | Complete |
 | INST-03 | Phase 5 | Complete |
-| INST-04 | Phase 5 | Pending |
-| INST-05 | Phase 5 | Pending |
+| INST-04 | Phase 5 | Complete |
+| INST-05 | Phase 5 | Complete |
 | DEPL-01 | Phase 6 | Pending |
 | DEPL-02 | Phase 6 | Pending |
 | DEPL-03 | Phase 6 | Pending |

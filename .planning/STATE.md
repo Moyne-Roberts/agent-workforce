@@ -10,19 +10,19 @@ See: .planning/PROJECT.md (updated 2026-03-01)
 
 ## Current Position
 
-Phase: 5 of 9 (References, Install, and Capability Infrastructure)
-Plan: 3 of 4 (Phase 5)
-Status: Executing
-Last activity: 2026-03-01 — Completed 05-03 install infrastructure plan
+Phase: 5 of 9 (References, Install, and Capability Infrastructure) -- COMPLETE
+Plan: 4 of 4 (Phase 5)
+Status: Phase 5 Complete
+Last activity: 2026-03-01 — Completed 05-04 capability-gated commands plan
 
-Progress: [############........] 58% (V2.0 Phase 5: 3/4 plans complete)
+Progress: [################....] 80% (V2.0 Phase 5: 4/4 plans complete)
 
 ## Version Progress
 
 | Version | Milestone | Status |
 |---------|-----------|--------|
 | **V1.0** | Core Pipeline | **Complete** (2026-02-26) |
-| **V2.0** | Autonomous Orq.ai Pipeline | **Active** — Phase 5 executing (3/4 plans) |
+| **V2.0** | Autonomous Orq.ai Pipeline | **Active** — Phase 5 complete (4/4 plans), Phase 6 next |
 | V2.1 | Automated KB Setup | Planned |
 | V3.0 | Browser Automation | Planned |
 
@@ -34,7 +34,7 @@ Progress: [############........] 58% (V2.0 Phase 5: 3/4 plans complete)
 - Total execution time: ~1 hour
 
 **V2.0 Velocity:**
-- Total plans completed: 3
+- Total plans completed: 4
 - Phases: 5 (Phases 5-9)
 - Requirements: 31
 
@@ -43,6 +43,7 @@ Progress: [############........] 58% (V2.0 Phase 5: 3/4 plans complete)
 | 05 | 02 | 2min | 2 | 5 |
 | 05 | 01 | 3min | 2 | 2 |
 | 05 | 03 | 2min | 1 | 1 |
+| 05 | 04 | 3min | 2 | 5 |
 
 ## Accumulated Context
 
@@ -62,6 +63,10 @@ Progress: [############........] 58% (V2.0 Phase 5: 3/4 plans complete)
 - [05-01]: Evaluator-optimizer mapped to Phase 8 iteration loop rather than standalone Orq.ai pattern
 - [05-01]: OpenAI Agent-as-Tool is direct 1:1 equivalent to Orq.ai team_of_agents -- no adaptation needed
 - [05-01]: A2A v0.3 states used as error handling design checklist, not direct implementation target
+- [05-04]: Gate pattern reads config.json for tier, shows upgrade table with [YOU] marker on current tier
+- [05-04]: MCP fallback produces domain-specific V1.0 copy-paste steps per command type
+- [05-04]: set-profile has no tier gate (model profiles apply at all tiers including core)
+- [05-04]: SKILL.md consolidated to 180 lines with all Phase 5 additions
 
 ### Pending Todos
 
@@ -76,5 +81,5 @@ None.
 ## Session Continuity
 
 Last session: 2026-03-01
-Stopped at: Completed 05-01-PLAN.md (agentic framework references)
-Resume with: /gsd:execute-phase 05 (plan 04 next)
+Stopped at: Completed 05-04-PLAN.md (capability-gated commands and SKILL.md update) -- Phase 5 complete
+Resume with: /gsd:execute-phase 06 (Phase 6: Autonomous Deployment)
