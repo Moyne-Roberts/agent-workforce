@@ -90,7 +90,9 @@ Build a Claude Code skill that transforms natural language use case descriptions
   1. User runs `/orq-agent:test` and V1.0 markdown datasets are transformed to Orq.ai row format, split into train/test/holdout sets, and uploaded — with minimum 30 examples enforced
   2. Evaluators are auto-selected by agent role: structural agents get JSON/schema validators, conversational agents get coherence/helpfulness/relevance, all agents get instruction_following — no manual evaluator configuration needed
   3. Experiments execute 3 times per agent with median scores and variance tracking, and results appear in `test-results.md` with per-agent scores, confidence intervals, pass/fail summary, and worst-performing cases highlighted
-**Plans**: TBD
+**Plans:** 2 plans
+- [ ] 07-01-PLAN.md — Tester subagent with dataset transformation pipeline (parse, augment, merge, split, upload) and evaluator auto-selection by agent role
+- [ ] 07-02-PLAN.md — Experiment execution (3x via evaluatorq, median aggregation) + test command wiring + results reporting (JSON, markdown, terminal)
 
 ### Phase 8: Prompt Iteration Loop
 **Goal**: Users can improve underperforming agents through a guided analyze-propose-approve-retest cycle that explains every change in plain language and never acts without permission
