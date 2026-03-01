@@ -1,0 +1,42 @@
+{
+  "_template_meta": {
+    "template": "test-results",
+    "version": "2.0",
+    "description": "Test results template for automated agent testing. Records evaluator scores, per-agent results, and overall pass/fail status."
+  },
+  "test_run_id": "{{TEST_RUN_ID}}",
+  "swarm_name": "{{SWARM_NAME}}",
+  "tested_at": "{{TIMESTAMP}}",
+  "dataset": {
+    "total_examples": 0,
+    "train_count": 0,
+    "test_count": 0,
+    "holdout_count": 0
+  },
+  "evaluators": [
+    {
+      "name": "{{EVALUATOR_NAME}}",
+      "type": "function|llm|ragas|python|http|json",
+      "orqai_evaluator_id": "{{ORQAI_ID}}"
+    }
+  ],
+  "results": {
+    "overall_pass": false,
+    "per_agent": [
+      {
+        "agent_key": "{{AGENT_KEY}}",
+        "scores": {
+          "{{EVALUATOR_NAME}}": {
+            "median": 0.0,
+            "variance": 0.0,
+            "confidence_interval": [0.0, 0.0],
+            "pass": false,
+            "runs": [0.0, 0.0, 0.0]
+          }
+        },
+        "worst_cases": []
+      }
+    ]
+  },
+  "summary": "{{RESULTS_SUMMARY}}"
+}

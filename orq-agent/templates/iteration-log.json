@@ -1,0 +1,32 @@
+{
+  "_template_meta": {
+    "template": "iteration-log",
+    "version": "2.0",
+    "description": "Iteration audit trail for autonomous prompt iteration. Records diagnosis, proposed changes, approval status, and score improvements per iteration."
+  },
+  "iteration_id": "{{ITERATION_ID}}",
+  "swarm_name": "{{SWARM_NAME}}",
+  "iterations": [
+    {
+      "iteration_number": 1,
+      "started_at": "{{TIMESTAMP}}",
+      "agent_key": "{{AGENT_KEY}}",
+      "diagnosis": "{{PLAIN_LANGUAGE_DIAGNOSIS}}",
+      "proposed_changes": [
+        {
+          "field": "instructions|tools|model|context",
+          "change_type": "add|modify|remove",
+          "reasoning": "{{WHY}}",
+          "diff": "{{CHANGE_DIFF}}"
+        }
+      ],
+      "approval_status": "pending|approved|rejected",
+      "scores_before": {},
+      "scores_after": {},
+      "improvement_pct": 0.0
+    }
+  ],
+  "stopping_reason": "max_iterations|max_api_calls|timeout|min_improvement|success",
+  "total_api_calls": 0,
+  "total_duration_seconds": 0
+}
