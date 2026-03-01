@@ -186,7 +186,7 @@ Never apply changes without explicit user approval. This is a locked HITL decisi
 
 ---
 
-## Phase 5: Apply Approved Changes to Local Spec Files (ITER-04 -- partial, re-deploy in Plan 02)
+## Phase 5: Apply Approved Changes to Local Spec Files (ITER-04)
 
 For each approved agent, apply the section-level changes to the local spec file.
 
@@ -233,11 +233,123 @@ Only the content within the XML-tagged sections inside `## Instructions` is modi
 
 ---
 
-## Phase 6: Iteration Loop Control with Four Stop Conditions (ITER-06)
+## Phase 6: Re-deploy Changed Agents to Orq.ai (ITER-04)
 
-Wrap Phases 1-5 (and Phase 6/7 from Plan 02: re-deploy + re-test) in an outer loop.
+After approved changes are written to local spec files (Phase 5), invoke the deployer subagent to update the changed agents on Orq.ai. Only agents with approved and applied prompt changes are re-deployed -- unchanged agents are skipped.
 
-### Step 6.1: Loop Structure
+### Step 6.1: Invoke Deployer Subagent
+
+Invoke the deployer subagent (`agents/deployer.md`) with the swarm directory path (same path used for the original deploy).
+
+The deployer's existing idempotent create-or-update logic handles selective updates naturally:
+
+1. The deployer reads all agent spec files in the swarm
+2. For each agent, it compares the local spec against the Orq.ai state
+3. Only agents with changed `instructions` field (from Phase 5 apply) will be updated (PATCHed)
+4. Unchanged agents get status `unchanged` and are skipped automatically
+
+**Do NOT modify the deployer subagent.** It already handles selective updates. The deployer processes the full swarm manifest but only PATCHes what changed.
+
+### Step 6.2: Record Re-deploy Results
+
+After the deployer completes:
+
+1. Collect the list of agents that were actually updated (status `updated`)
+2. Record each agent's new `orqai_version` and `deployed_at` from the frontmatter annotation
+3. Note: the deployer updates `orqai_version` and `deployed_at` in the spec file's YAML frontmatter automatically (Phase 5 of the deployer pipeline)
+
+### Step 6.3: Handle Re-deploy Failures
+
+- If the deployer reports any failed resources: log the failure but continue to Phase 7 (re-test). The changed spec file is already written locally, and partial re-deploy should not block re-testing of successfully re-deployed agents.
+- If ALL agents fail to re-deploy: log the error, skip Phase 7, and continue to Phase 8 (loop control). The iteration will likely stop on `min_improvement` since no re-test scores are available.
+
+### Step 6.4: Display Re-deploy Progress
+
+```
+Re-deploying {N} changed agent(s)...
+  {agent-key}: updated (version: {new_version})
+  {agent-key}: updated (version: {new_version})
+Re-deploy complete.
+```
+
+If any agent failed:
+```
+Re-deploying {N} changed agent(s)...
+  {agent-key}: updated (version: {new_version})
+  {agent-key}: FAILED ({error_reason})
+Re-deploy complete with {F} failure(s).
+```
+
+---
+
+## Phase 7: Re-test Changed Agents on Holdout Split (ITER-05)
+
+After re-deployment, invoke the tester subagent to run experiments against changed agents using the holdout dataset split. This validates whether prompt changes actually improved performance on unseen data.
+
+### Step 7.1: Invoke Tester Subagent with Holdout Split
+
+Invoke the tester subagent (`agents/tester.md`) with:
+
+1. **Swarm directory path** -- same as original test run
+2. **Agent-key filter** -- list of changed agent keys only (not the full swarm). Only agents that were approved, applied, and successfully re-deployed need re-testing.
+3. **Dataset split override: "holdout"** -- direct the tester to use holdout dataset IDs from `test-results.json` at `dataset.per_agent.{agent_key}.holdout_dataset_id` instead of the test split IDs
+
+### Step 7.2: Holdout Split Parameter Mechanism
+
+The tester subagent (from Phase 7 automated testing) normally uses the test split by default. For Phase 8 re-testing, the iterator directs the tester to use the holdout split:
+
+- Pass the holdout dataset IDs directly to the tester when invoking it
+- The holdout dataset IDs are stored in `test-results.json` at `dataset.per_agent.{agent_key}.holdout_dataset_id`
+- The tester accepts these IDs and uses them for experiment execution instead of the test split IDs
+
+**Tester phases to execute for re-test:**
+- Skip Phases 1-5 of tester (dataset already uploaded in Phase 7 original run)
+- Skip Phase 6 (evaluator selection already done -- reuse from original test results)
+- Execute Phase 7 (experiments 3x) using holdout dataset
+- Execute Phase 8 (aggregate results)
+
+### Step 7.3: Before/After Score Comparison
+
+After re-test completes, compute and display a comparison table for each changed agent. Use the original `test-results.json` scores as "Before" and the new holdout re-test scores as "After":
+
+```markdown
+### Re-Test Results: {agent-key}
+
+| Evaluator | Before | After | Delta | Status |
+|-----------|--------|-------|-------|--------|
+| {name} | {old_median} | {new_median} | {delta}% | improved/unchanged/regressed |
+
+**Bottleneck:** {old_bottleneck} -> {new_bottleneck} ({improvement}%)
+```
+
+**Delta calculation per evaluator:**
+- `delta = ((new_median - old_median) / old_median) * 100`
+- Status: `improved` if delta > 0, `unchanged` if delta == 0, `regressed` if delta < 0
+
+### Step 7.4: Flag Regressions
+
+If any evaluator's median DECREASED after changes (even if still passing), flag it as a warning:
+
+```
+Warning: {evaluator} regressed from {old} to {new} on {agent-key}. Net bottleneck still improved.
+```
+
+This warns about collateral damage from prompt changes (research Pitfall 2: cascading changes breaking working sections). Regressions on individual evaluators are expected occasionally -- the important metric is whether the overall bottleneck improved.
+
+### Step 7.5: Re-test Error Handling
+
+- If re-test fails for an agent: log the error, keep the old scores as "after" (treat as no improvement), continue to next agent
+- If re-test times out: same treatment -- log and continue
+- Re-test failures do not roll back the spec file changes (those are already written and deployed)
+- If ALL re-tests fail: continue to Phase 8 (loop control) with no improvement data -- the `min_improvement` stop condition will trigger
+
+---
+
+## Phase 8: Iteration Loop Control with Four Stop Conditions (ITER-06)
+
+Wrap Phases 1-7 in an outer loop that enforces hard stop conditions.
+
+### Step 8.1: Loop Structure
 
 ```
 start_time = now()
@@ -261,8 +373,8 @@ WHILE true:
   // If user declines all: STOP reason="user_declined"
 
   // Apply changes (Phase 5)
-  // Re-deploy changed agents (Phase 6 -- Plan 02)
-  // Re-test changed agents on holdout split (Phase 7 -- Plan 02)
+  // Re-deploy changed agents (Phase 6)
+  // Re-test changed agents on holdout split (Phase 7)
 
   // Stop condition 3: insufficient improvement (<5%)
   current_scores = new test results from re-test
@@ -281,14 +393,14 @@ WHILE true:
   previous_scores = current_scores
 ```
 
-### Step 6.2: Improvement Calculation Detail
+### Step 8.2: Improvement Calculation Detail
 
 - For each changed agent, compute the delta of its bottleneck score (lowest evaluator median)
 - Bottleneck improvement = (new_bottleneck - old_bottleneck) / old_bottleneck * 100
 - Average the deltas across all changed agents
 - If average delta < 5%, stop
 
-### Step 6.3: Stop Condition Summary
+### Step 8.3: Stop Condition Summary
 
 | Condition | Trigger | Reason Code |
 |-----------|---------|-------------|
@@ -300,7 +412,7 @@ WHILE true:
 
 ---
 
-## Phase 7: Logging and Audit Trail (ITER-07)
+## Phase 9: Logging and Audit Trail (ITER-07)
 
 Two log outputs, written BEFORE applying changes to ensure diagnosis/proposals are recorded even if apply/test fails.
 
