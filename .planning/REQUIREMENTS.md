@@ -91,12 +91,12 @@ Which phases cover which requirements. Updated during roadmap creation.
 | ITER-02 | Phase 8 | Complete |
 | ITER-03 | Phase 8 | Complete |
 | ITER-04 | Phase 8 | Complete |
-| ITER-05 | Phase 8 | Complete |
+| ITER-05 | Phase 8, Phase 10 (integration fix) | Complete |
 | ITER-06 | Phase 8 | Complete |
 | ITER-07 | Phase 8 | Complete |
 | GUARD-01 | Phase 9 | Complete |
 | GUARD-02 | Phase 9 | Complete |
-| GUARD-03 | Phase 9 | Complete |
+| GUARD-03 | Phase 9, Phase 11 (integration fix) | Complete |
 
 **Coverage:**
 - V2.0 requirements: 23 total

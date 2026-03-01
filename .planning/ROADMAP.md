@@ -66,6 +66,8 @@ Build a Claude Code skill that transforms natural language use case descriptions
 - [ ] **Phase 7.1: Test Pipeline Tech Debt** — SDK-to-REST mapping, undeclared package declaration, deploy-log template cleanup
 - [ ] **Phase 8: Prompt Iteration Loop** — Iterator subagent, failure analysis, diff-based proposals, per-iteration HITL approval, 4 hard stopping conditions, audit trail
 - [ ] **Phase 9: Guardrails and Hardening** — Evaluator promotion to runtime guardrails, threshold-based quality gates, incremental per-agent deployment
+- [ ] **Phase 10: Fix Holdout Dataset Path** — Resolve holdout dataset ID path mismatch in test-results.json template and iterator, fix stale step labels
+- [ ] **Phase 11: Flag Conventions + Tech Debt Cleanup** — Align harden.md flag syntax, pass TOOLS.md to Wave 3, fix orchestrator references
 
 ## Phase Details
 
@@ -129,6 +131,30 @@ Build a Claude Code skill that transforms natural language use case descriptions
   3. User can deploy, test, and iterate individual agents before wiring the full orchestration — enabling incremental confidence building
 **Plans**: TBD
 
+### Phase 10: Fix Holdout Dataset Path
+**Goal**: Resolve the holdout dataset ID path mismatch between test-results.json template and iterator.md so the re-test-on-holdout flow works end-to-end
+**Depends on**: Phase 8
+**Requirements**: ITER-05 (integration fix)
+**Gap Closure**: Closes INT-01, FLOW-01, and iterator step label tech debt from V2.0 audit
+**Success Criteria** (what must be TRUE):
+  1. `test-results.json` template `per_agent_datasets[]` entries include `train_dataset_id`, `test_dataset_id`, and `holdout_dataset_id` fields
+  2. `tester.md` Phase 5.3 populates per-split dataset IDs when uploading datasets
+  3. `iterator.md` Phase 7 Step 7.2 reads holdout dataset ID from the correct field path in test-results.json
+  4. `iterator.md` Phase 9 step labels use correct `Step 9.x` numbering (not stale `Step 7.x`)
+**Plans:** TBD
+
+### Phase 11: Flag Conventions + Tech Debt Cleanup
+**Goal**: Align CLI flag conventions across all commands and resolve carried-forward tech debt from v0.3
+**Depends on**: Phase 9
+**Requirements**: GUARD-03 (integration fix)
+**Gap Closure**: Closes INT-02 and 3 carried-forward v0.3 tech debt items from V2.0 audit
+**Success Criteria** (what must be TRUE):
+  1. `harden.md` Step 3 uses `--agent` flag (not positional argument), matching deploy/test/iterate commands and SKILL.md documentation
+  2. TOOLS.md is included in Wave 3 `files_to_read` for dataset-gen and readme-gen subagents
+  3. `agentic-patterns.md` is included in orchestration-generator `files_to_read`
+  4. Step 5.5/5 numbering inversion in orchestrator is corrected
+**Plans:** TBD
+
 ---
 
 ## V2.1 — Automated KB Setup (PLANNED)
@@ -157,5 +183,7 @@ Build a Claude Code skill that transforms natural language use case descriptions
 | V2.0 | 7.1. Test Pipeline Tech Debt | 0/? | Not started | - |
 | V2.0 | 8. Prompt Iteration Loop | 2/2 | Verified | 2026-03-01 |
 | V2.0 | 9. Guardrails and Hardening | 0/? | Not started | - |
+| V2.0 | 10. Fix Holdout Dataset Path | 0/? | Not started | - |
+| V2.0 | 11. Flag Conventions + Tech Debt | 0/? | Not started | - |
 | V2.1 | Automated KB Setup | - | Not started | - |
 | V3.0 | Browser Automation | - | Not started | - |
