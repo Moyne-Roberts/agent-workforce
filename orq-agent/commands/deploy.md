@@ -26,7 +26,7 @@ cat "$HOME/.claude/skills/orq-agent/.orq-agent/config.json" 2>/dev/null || echo 
 
 Install required. Run the orq-agent install script first.
 
-  curl -sfL https://raw.githubusercontent.com/OWNER/REPO/main/install.sh | bash
+  curl -sfL https://raw.githubusercontent.com/NCrutzen/orqai-agent-pipeline/main/install.sh | bash
 ```
 
 **If config exists:** Extract the `tier` value. Check against the tier hierarchy:
@@ -53,7 +53,7 @@ The deploy command requires the "deploy" tier or higher.
   | full   | + Prompt iteration (/orq-agent:iterate)        |
 
 To upgrade, re-run the install script and select a higher tier:
-  curl -sfL https://raw.githubusercontent.com/OWNER/REPO/main/install.sh | bash
+  curl -sfL https://raw.githubusercontent.com/NCrutzen/orqai-agent-pipeline/main/install.sh | bash
 ```
 
 **If tier is "deploy", "test", or "full":** Gate passes. Proceed to Step 2.

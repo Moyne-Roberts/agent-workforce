@@ -28,7 +28,7 @@ Check if the install directory exists:
 Orq Agent Designer is not installed.
 
 Install with:
-  curl -sfL https://raw.githubusercontent.com/OWNER/REPO/main/install.sh | bash
+  curl -sfL https://raw.githubusercontent.com/NCrutzen/orqai-agent-pipeline/main/install.sh | bash
 ```
 
 ## Step 2: Read Local VERSION
@@ -43,10 +43,8 @@ Store the result as `LOCAL_VERSION`. If the file does not exist, set `LOCAL_VERS
 
 ## Step 3: Fetch Remote VERSION
 
-<!-- TODO: Replace OWNER/REPO with actual GitHub repository path -->
-
 ```bash
-curl -sf https://raw.githubusercontent.com/OWNER/REPO/main/VERSION
+curl -sf https://raw.githubusercontent.com/NCrutzen/orqai-agent-pipeline/main/VERSION
 ```
 
 Store the result as `REMOTE_VERSION`. If the fetch fails, display the following and STOP:
@@ -78,12 +76,10 @@ If versions differ, proceed to Step 5.
 
 ## Step 5: Show Changelog
 
-<!-- TODO: Replace OWNER/REPO with actual GitHub repository path -->
-
 Fetch the remote CHANGELOG.md:
 
 ```bash
-curl -sf https://raw.githubusercontent.com/OWNER/REPO/main/CHANGELOG.md
+curl -sf https://raw.githubusercontent.com/NCrutzen/orqai-agent-pipeline/main/CHANGELOG.md
 ```
 
 If the fetch succeeds, display the changelog entries between `LOCAL_VERSION` and `REMOTE_VERSION`. Parse the changelog for version headers (lines starting with `## ` followed by a version number) and show only entries newer than `LOCAL_VERSION`.
@@ -107,12 +103,10 @@ Updating...
 
 ## Step 6: Run Install Script
 
-<!-- TODO: Replace OWNER/REPO with actual GitHub repository path -->
-
 Execute the install script which handles backup, download, and rollback on failure:
 
 ```bash
-curl -sfL https://raw.githubusercontent.com/OWNER/REPO/main/install.sh | bash
+curl -sfL https://raw.githubusercontent.com/NCrutzen/orqai-agent-pipeline/main/install.sh | bash
 ```
 
 ## Step 7: Verify Update
@@ -144,5 +138,5 @@ Update may have failed -- version is still vLOCAL_VERSION.
 The install script should have restored your previous installation.
 
 Try again or reinstall manually:
-  curl -sfL https://raw.githubusercontent.com/OWNER/REPO/main/install.sh | bash
+  curl -sfL https://raw.githubusercontent.com/NCrutzen/orqai-agent-pipeline/main/install.sh | bash
 ```

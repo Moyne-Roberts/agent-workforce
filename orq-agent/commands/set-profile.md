@@ -27,7 +27,7 @@ cat "$HOME/.claude/skills/orq-agent/.orq-agent/config.json" 2>/dev/null || echo 
 
 Install required. Run the orq-agent install script first.
 
-  curl -sfL https://raw.githubusercontent.com/OWNER/REPO/main/install.sh | bash
+  curl -sfL https://raw.githubusercontent.com/NCrutzen/orqai-agent-pipeline/main/install.sh | bash
 ```
 
 **If config exists:** Extract the current `model_profile` value. Proceed to Step 2.

@@ -159,7 +159,7 @@ Installed via `install.sh`. Config stored at `.orq-agent/config.json`.
 
 ## Distribution
 
-- **Install:** `curl -sfL https://raw.githubusercontent.com/OWNER/REPO/main/install.sh | bash`
+- **Install:** `curl -sfL https://raw.githubusercontent.com/NCrutzen/orqai-agent-pipeline/main/install.sh | bash`
 - **Update:** `/orq-agent:update` (version-aware, shows changelog, auto-rollback)
 - **Location:** Installed to `~/.claude/skills/orq-agent/`
 - **GSD integration:** Use `--gsd` flag when invoking from a GSD phase
