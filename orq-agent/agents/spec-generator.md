@@ -9,6 +9,7 @@ model: inherit
 - orq-agent/references/orqai-agent-fields.md
 - orq-agent/references/orqai-model-catalog.md
 - orq-agent/references/naming-conventions.md
+- orq-agent/references/agentic-patterns.md
 - orq-agent/templates/agent-spec.md
 </files_to_read>
 
