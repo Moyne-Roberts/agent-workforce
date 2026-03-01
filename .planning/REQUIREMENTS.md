@@ -54,7 +54,7 @@ Each agent `.md` must include ALL Orq.ai Agent fields:
 ### Tool & Function Schemas
 
 - [x] **TOOL-01**: Generate valid JSON Schema definitions for Function Tools each agent needs
-- [x] **TOOL-02**: Recommend appropriate Built-in Tools per agent (Web search, Current date, Write/Delete memory store)
+- [ ] **TOOL-02**: Recommend appropriate Built-in Tools per agent (Web search, Current date, Write/Delete memory store)
 - [x] **TOOL-03**: Identify when HTTP Tools or Python Tools are needed and provide configuration guidance
 - [x] **TOOL-04**: Identify when MCP Server connections are relevant and recommend them
 
@@ -76,7 +76,7 @@ Each agent `.md` must include ALL Orq.ai Agent fields:
 
 - [x] **DIST-01**: Installable as Claude Code slash command `/orq-agent` via GitHub repo
 - [x] **DIST-02**: Simple install process achievable by non-technical employees
-- [x] **DIST-03**: `/orq-agent:update` command pulls latest version from GitHub
+- [ ] **DIST-03**: `/orq-agent:update` command pulls latest version from GitHub
 - [x] **DIST-04**: Integrates with GSD workflow — callable standalone or from within a GSD phase
 
 ## V2.0 Requirements
@@ -199,7 +199,7 @@ Deferred to future releases. Tracked but not in current roadmap.
 | ORCH-04 | Phase 2 | Complete |
 | ORCH-05 | Phase 2 | Complete |
 | TOOL-01 | Phase 2 | Complete |
-| TOOL-02 | Phase 2 | Complete |
+| TOOL-02 | Phase 05.2 | Pending |
 | TOOL-03 | Phase 2 | Complete |
 | TOOL-04 | Phase 2 | Complete |
 | DATA-01 | Phase 2 | Complete |
@@ -212,7 +212,7 @@ Deferred to future releases. Tracked but not in current roadmap.
 | OUT-04 | Phase 1 | Complete |
 | DIST-01 | Phase 4 | Complete |
 | DIST-02 | Phase 4 | Complete |
-| DIST-03 | Phase 4 | Complete |
+| DIST-03 | Phase 05.1 | Pending |
 | DIST-04 | Phase 4 | Complete |
 
 ### V2.0 (Pending)
@@ -252,7 +252,7 @@ Deferred to future releases. Tracked but not in current roadmap.
 | GUARD-03 | Phase 9 | Pending |
 
 **Coverage:**
-- V1.0 requirements: 40 total -- 40 complete
+- V1.0 requirements: 40 total -- 38 complete, 2 pending (DIST-03, TOOL-02)
 - V2.0 requirements: 31 total -- 0 complete
 - Total: 71 requirements
 - Unmapped: 0

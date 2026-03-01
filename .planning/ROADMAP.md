@@ -196,7 +196,9 @@ Plans:
 
 ### Phases
 
-- [ ] **Phase 5: References, Install, and Capability Infrastructure** — Updated agentic framework references, new API/evaluator references, V2.0 output templates, modular install with capability tiers and API key onboarding
+- [x] **Phase 5: References, Install, and Capability Infrastructure** — Updated agentic framework references, new API/evaluator references, V2.0 output templates, modular install with capability tiers and API key onboarding
+- [ ] **Phase 05.1: Fix Distribution Placeholders** — Replace OWNER/REPO literals in command files with correct GitHub repo path (gap closure)
+- [ ] **Phase 05.2: Fix Tool Catalog & Pipeline Wiring** — Correct memory tool identifiers and wire research brief to orchestration generator (gap closure)
 - [ ] **Phase 6: Orq.ai Deployment** — Deployer subagent, API adapter layer, idempotent agent/tool creation, orchestration wiring, verify-after-deploy, deployment status reporting
 - [ ] **Phase 7: Automated Testing** — Tester subagent, dataset transformation and upload, evaluator creation, experiment execution with statistical rigor, structured results presentation
 - [ ] **Phase 8: Prompt Iteration Loop** — Iterator subagent, results analysis with plain-language diagnosis, diff-based prompt proposals, per-iteration user approval, hard stopping conditions, audit trail
@@ -221,6 +223,32 @@ Plans:
 - [ ] 05-02-PLAN.md — Create Orq.ai API endpoints reference, evaluator types reference, and V2.0 JSON output templates
 - [ ] 05-03-PLAN.md — Extend install script with capability tier selection, API key validation, and MCP server registration
 - [ ] 05-04-PLAN.md — Create capability-gated V2.0 command stubs, model profile management, and update SKILL.md
+
+### Phase 05.1: Fix Distribution Placeholders
+**Goal**: Replace all `OWNER/REPO` placeholder literals in command files with the correct `NCrutzen/orqai-agent-pipeline` values so the update command and all GitHub URLs are functional
+**Depends on**: Phase 5
+**Requirements**: DIST-03, INST-05
+**Gap Closure**: Closes gaps from v0.3 audit
+**Success Criteria** (what must be TRUE):
+  1. All 5 command files (update.md, deploy.md, test.md, iterate.md, help.md) use `NCrutzen/orqai-agent-pipeline` instead of `OWNER/REPO`
+  2. `/orq-agent:update` curl URLs resolve to valid GitHub endpoints
+  3. Flow D-Update completes end-to-end
+
+Plans:
+- [ ] 05.1-01-PLAN.md — Global find-replace OWNER/REPO in command files and verify URLs
+
+### Phase 05.2: Fix Tool Catalog & Pipeline Wiring
+**Goal**: Correct wrong memory tool identifiers in tool-catalog.md and wire research brief path to orchestration generator so KB use cases produce complete orchestration output
+**Depends on**: Phase 5
+**Requirements**: TOOL-02, ORCH-01, ARCH-04
+**Gap Closure**: Closes gaps from v0.3 audit
+**Success Criteria** (what must be TRUE):
+  1. tool-catalog.md uses correct memory tool identifiers: `write_memory_store` and `delete_memory_document`
+  2. Orchestrator Wave 3 passes research brief path to orchestration generator inputs
+  3. Flow C (KB use case) research brief data reaches ORCHESTRATION.md KB Design section
+
+Plans:
+- [ ] 05.2-01-PLAN.md — Fix memory tool identifiers in tool-catalog.md and wire research brief to Wave 3 orchestration generator
 
 ### Phase 6: Orq.ai Deployment
 **Goal**: Users can deploy a generated agent swarm to Orq.ai with a single command and get back a verified, live deployment with all agents wired together
@@ -309,7 +337,9 @@ Plans:
 | V1.0 | 04.3 Prompt Strategy | 3/3 | Complete | 2026-02-24 |
 | V1.0 | 04.4 KB-Aware Pipeline | 3/3 | Complete | 2026-02-26 |
 | **V1.0** | **All phases** | **22/22** | **Complete** | **2026-02-26** |
-| V2.0 | 5. References, Install, and Capability Infrastructure | 0/4 | Planned | - |
+| V2.0 | 5. References, Install, and Capability Infrastructure | 4/4 | Complete | 2026-03-01 |
+| V2.0 | 05.1 Fix Distribution Placeholders | 0/1 | Gap closure | - |
+| V2.0 | 05.2 Fix Tool Catalog & Pipeline Wiring | 0/1 | Gap closure | - |
 | V2.0 | 6. Orq.ai Deployment | 0/? | Not started | - |
 | V2.0 | 7. Automated Testing | 0/? | Not started | - |
 | V2.0 | 8. Prompt Iteration Loop | 0/? | Not started | - |
