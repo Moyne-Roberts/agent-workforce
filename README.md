@@ -1,6 +1,6 @@
 # Orq Agent Designer
 
-Generate complete, copy-paste-ready Orq.ai agent swarm specifications from a simple use case description. Built as a Claude Code skill for the Moyne Roberts team.
+Generate, deploy, test, iterate, and harden Orq.ai agent swarms from a simple use case description. Built as a Claude Code skill for the Moyne Roberts team.
 
 ## What it does
 
@@ -9,6 +9,12 @@ Describe what you need in plain language, and the pipeline produces:
 - Orchestration docs with data flow diagrams and error handling
 - Test datasets with adversarial edge cases
 - A step-by-step setup README
+
+Then autonomously:
+- **Deploys** agents to Orq.ai (MCP-first, REST API fallback)
+- **Tests** with automated evaluations (3x median scoring, role-based evaluator selection)
+- **Iterates** prompts based on test failures (diff proposals, user approval required)
+- **Hardens** with guardrails and quality gates before production
 
 ## Prerequisites
 
@@ -44,6 +50,8 @@ The pipeline will guide you through a short discussion to clarify your needs, th
 
 ### All commands
 
+**Generation (V1.0)**
+
 | Command | What it does |
 |---------|-------------|
 | `/orq-agent "your use case"` | Full pipeline — generates complete agent swarm (specs, orchestration, datasets, README) |
@@ -52,6 +60,22 @@ The pipeline will guide you through a short discussion to clarify your needs, th
 | `/orq-agent:tools "your use case"` | Tool resolution only — produces TOOLS.md with verified MCP/API/function tool configs |
 | `/orq-agent:research "agent role"` | Research only — investigates domain best practices (model, prompt strategy, guardrails) |
 | `/orq-agent:datasets ./path/to/spec.md` | Datasets only — generates test datasets with adversarial edge cases from an existing spec |
+
+**Automation (V2.0)** — requires Orq.ai API key
+
+| Command | What it does |
+|---------|-------------|
+| `/orq-agent:deploy` | Deploy agent swarm to Orq.ai (tools, agents, orchestration wiring) |
+| `/orq-agent:test` | Run automated evaluations against deployed agents (3x median scoring) |
+| `/orq-agent:iterate` | Analyze failures, propose prompt changes, re-test after approval |
+| `/orq-agent:harden` | Promote evaluators to runtime guardrails with quality gates |
+
+All V2.0 commands support `--agent agent-key` to target a single agent.
+
+**Utility**
+
+| Command | What it does |
+|---------|-------------|
 | `/orq-agent:help` | Show available commands and options |
 | `/orq-agent:update` | Update to the latest version |
 
@@ -59,7 +83,7 @@ The pipeline will guide you through a short discussion to clarify your needs, th
 - Need a complete swarm? Use `/orq-agent`
 - Just need one agent's prompt? Use `/orq-agent:prompt`
 - Want to explore architecture before committing? Use `/orq-agent:architect`
-- Need to figure out tool integrations? Use `/orq-agent:tools`
+- Ready to ship to Orq.ai? Use `/orq-agent:deploy` then `/orq-agent:test`
 
 ## Update
 
