@@ -343,5 +343,6 @@ if [ "$SELECTED_TIER" != "core" ]; then
   echo ""
 fi
 
-echo -e "  Run these commands inside ${BOLD}Claude Code${NC} to get started."
+echo -e "  ${YELLOW}IMPORTANT: Restart Claude Code to activate commands.${NC}"
+echo -e "  Then run these commands inside ${BOLD}Claude Code${NC} to get started."
 echo ""
