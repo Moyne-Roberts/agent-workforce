@@ -92,21 +92,32 @@ List available projects using the API:
 curl -s -H "Authorization: Bearer $ORQ_API_KEY" https://api.orq.ai/v2/projects
 ```
 
-Parse the response to extract project names and IDs. Display a picker:
+Parse the response to extract project names and IDs. Display a picker with an option to create a new project:
 
 ```
 Which Orq.ai project should I deploy to?
 
   1. Project Name A
   2. Project Name B
-  3. Project Name C
+  3. [+] Create new project
 
-Select project number:
+Select:
 ```
 
-Store the selected project ID as `ORQ_PROJECT_ID`. If only one project exists, auto-select it and display: `Project: [name]`.
+- If the user selects an existing project: store its ID as `ORQ_PROJECT_ID`
+- If the user selects "Create new project": ask for a project name, then create it via the API:
 
-If the API does not support a projects endpoint or returns an error, skip this step (the API key may be scoped to a single project already).
+```bash
+curl -s -X POST -H "Authorization: Bearer $ORQ_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"name":"<user-provided-name>"}' \
+  https://api.orq.ai/v2/projects
+```
+
+Store the returned project ID as `ORQ_PROJECT_ID`. Display: `Project created: [name]`
+
+- If only one project exists: still show the picker (user may want to create a new one)
+- If the API does not support a projects endpoint or returns an error, skip this step (the API key may be scoped to a single project already)
 
 ### 2.3: MCP Availability Check
 
