@@ -183,7 +183,7 @@ Build a Claude Code skill that transforms natural language use case descriptions
 | V2.0 | 7.1. Test Pipeline Tech Debt | 0/? | Not started | - |
 | V2.0 | 8. Prompt Iteration Loop | 2/2 | Verified | 2026-03-01 |
 | V2.0 | 9. Guardrails and Hardening | 0/? | Not started | - |
-| V2.0 | 10. Fix Holdout Dataset Path | 1/1 | Complete   | 2026-03-02 |
+| V2.0 | 10. Fix Holdout Dataset Path | 1/1 | Complete    | 2026-03-02 |
 | V2.0 | 11. Flag Conventions + Tech Debt | 0/? | Not started | - |
 | V2.1 | Automated KB Setup | - | Not started | - |
 | V3.0 | Browser Automation | - | Not started | - |
