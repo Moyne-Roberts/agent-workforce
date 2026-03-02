@@ -116,8 +116,8 @@ Authorization: Bearer $ORQ_API_KEY
   ```
   DEPLOY FAILED: Invalid Orq.ai API key.
 
-  Set ORQ_API_KEY environment variable with a valid API key:
-    export ORQ_API_KEY="your-api-key-here"
+  Re-run the installer to configure your API key:
+    curl -sL https://raw.githubusercontent.com/NCrutzen/orqai-agent-pipeline/main/install.sh | bash -s -- --reconfigure
 
   Get your API key from: https://studio.orq.ai/settings/api-keys
   ```

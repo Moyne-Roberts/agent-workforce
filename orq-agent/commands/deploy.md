@@ -58,7 +58,33 @@ To upgrade, re-run the install script and select a higher tier:
 
 **If tier is "deploy", "test", or "full":** Gate passes. Proceed to Step 2.
 
-## Step 2: MCP Availability Check
+## Step 2: Load API Key and Check MCP
+
+### 2.1: Load API Key
+
+The API key is stored in config.json (set during install). Extract it:
+
+```bash
+node -e "try{const c=JSON.parse(require('fs').readFileSync('$HOME/.claude/skills/orq-agent/.orq-agent/config.json','utf8'));console.log(c.orq_api_key||'')}catch(e){console.log('')}"
+```
+
+Store the result as `ORQ_API_KEY`. If empty, also check the environment variable `$ORQ_API_KEY` as fallback.
+
+**If both are empty:** Display the following and STOP:
+
+```
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ ORQ ► DEPLOY — API Key Missing
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+No Orq.ai API key found. Re-run the installer to configure:
+
+  curl -sL https://raw.githubusercontent.com/NCrutzen/orqai-agent-pipeline/main/install.sh | bash -s -- --reconfigure
+```
+
+**If API key found:** Export it for use in subsequent bash commands: `export ORQ_API_KEY="<value>"`
+
+### 2.2: MCP Availability Check
 
 Attempt a lightweight MCP operation to verify MCP server availability:
 
@@ -188,7 +214,7 @@ If `mcp_available` was already false from Step 2, skip this probe entirely.
 
 ### 4.2: Validate API Key
 
-Verify the Orq.ai API key is valid by making a lightweight authenticated request:
+Verify the Orq.ai API key (loaded in Step 2.1) is valid by making a lightweight authenticated request:
 
 ```bash
 curl -s -o /dev/null -w "%{http_code}" \
@@ -198,17 +224,17 @@ curl -s -o /dev/null -w "%{http_code}" \
 
 **If 200:** API key is valid. Proceed.
 
-**If 401 or ORQ_API_KEY is empty/unset:** Display the following and STOP:
+**If 401:** Display the following and STOP:
 
 ```
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
  ORQ ► DEPLOY — Authentication Failed
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-Invalid or missing Orq.ai API key.
+API key is invalid or expired.
 
-Set ORQ_API_KEY environment variable:
-  export ORQ_API_KEY="your-api-key-here"
+Re-run the installer to update your key:
+  curl -sL https://raw.githubusercontent.com/NCrutzen/orqai-agent-pipeline/main/install.sh | bash -s -- --reconfigure
 
 Get your API key from: https://studio.orq.ai/settings/api-keys
 ```

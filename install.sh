@@ -310,6 +310,7 @@ const config = {
   tier: '$SELECTED_TIER',
   model_profile: 'quality',
   model_overrides: $MODEL_OVERRIDES,
+  orq_api_key: '${ORQ_API_KEY:-}',
   installed_at: new Date().toISOString(),
   orqai_mcp_registered: $MCP_REGISTERED
 };

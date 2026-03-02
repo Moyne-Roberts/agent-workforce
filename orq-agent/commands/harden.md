@@ -60,6 +60,20 @@ Note: The `[YOU]` marker appears next to the user's current tier. Adjust its pos
 
 **If tier is "full":** Gate passes. Proceed to Step 2.
 
+## Step 1.5: Load API Key
+
+The API key is stored in config.json (set during install). Extract it:
+
+```bash
+node -e "try{const c=JSON.parse(require('fs').readFileSync('$HOME/.claude/skills/orq-agent/.orq-agent/config.json','utf8'));console.log(c.orq_api_key||'')}catch(e){console.log('')}"
+```
+
+Store the result as `ORQ_API_KEY`. If empty, also check the environment variable `$ORQ_API_KEY` as fallback.
+
+**If both are empty:** Display an error directing the user to run `curl -sL https://raw.githubusercontent.com/NCrutzen/orqai-agent-pipeline/main/install.sh | bash -s -- --reconfigure` and STOP.
+
+**If API key found:** Export it for use in subsequent bash commands: `export ORQ_API_KEY="<value>"`
+
 ## Step 2: MCP Availability Check
 
 Attempt a lightweight MCP operation to verify MCP server availability:
@@ -101,7 +115,7 @@ To set up guardrails manually:
 
 To enable autonomous hardening, either:
   - Register the MCP server: claude mcp add orqai
-  - Or set your API key: export ORQ_API_KEY="your-api-key-here"
+  - Or re-run installer: curl -sL https://raw.githubusercontent.com/NCrutzen/orqai-agent-pipeline/main/install.sh | bash -s -- --reconfigure
 ```
 
 STOP after displaying fallback instructions.
