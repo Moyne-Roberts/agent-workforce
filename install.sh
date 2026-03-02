@@ -284,14 +284,38 @@ if [ "$SELECTED_TIER" != "core" ]; then
 
   echo ""
   echo "  Registering Orq.ai MCP server..."
-  if claude mcp add --transport http --scope user orqai-mcp \
+
+  # Try claude mcp add first
+  MCP_OUTPUT=$(claude mcp add --transport http --scope user orqai-mcp \
     "$ORQAI_MCP_URL" \
-    --header "Authorization: Bearer $ORQ_API_KEY" 2>/dev/null; then
+    --header "Authorization: Bearer $ORQ_API_KEY" 2>&1) && MCP_CLI_OK=true || MCP_CLI_OK=false
+
+  if [ "$MCP_CLI_OK" = true ]; then
     echo -e "  ${GREEN}Orq.ai MCP server registered.${NC}"
     MCP_REGISTERED=true
   else
-    echo -e "  ${YELLOW}WARNING: MCP registration failed. Deploy commands will use API fallback.${NC}"
-    MCP_REGISTERED=false
+    # Fallback: write directly to ~/.claude.json
+    echo -e "  ${YELLOW}claude mcp add failed, writing config directly...${NC}"
+    if node -e "
+      const fs = require('fs');
+      const p = require('path').join(require('os').homedir(), '.claude.json');
+      let cfg = {};
+      try { cfg = JSON.parse(fs.readFileSync(p, 'utf8')); } catch(e) {}
+      if (!cfg.mcpServers) cfg.mcpServers = {};
+      cfg.mcpServers['orqai-mcp'] = {
+        type: 'http',
+        url: '$ORQAI_MCP_URL',
+        headers: { Authorization: 'Bearer $ORQ_API_KEY' }
+      };
+      fs.writeFileSync(p, JSON.stringify(cfg, null, 2) + '\n');
+      console.log('OK');
+    " 2>/dev/null | grep -q "OK"; then
+      echo -e "  ${GREEN}Orq.ai MCP server registered (direct config).${NC}"
+      MCP_REGISTERED=true
+    else
+      echo -e "  ${YELLOW}WARNING: MCP registration failed. Deploy commands will use API fallback.${NC}"
+      MCP_REGISTERED=false
+    fi
   fi
 fi
 
