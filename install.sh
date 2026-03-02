@@ -295,6 +295,44 @@ if [ "$SELECTED_TIER" != "core" ]; then
   fi
 fi
 
+# --- Model Profile Selection ---
+EXISTING_PROFILE=""
+if [ -f "$CONFIG_FILE" ]; then
+  EXISTING_PROFILE=$(node -e "try{console.log(JSON.parse(require('fs').readFileSync('$CONFIG_FILE','utf8')).model_profile)}catch(e){}" 2>/dev/null || echo "")
+fi
+
+echo ""
+echo -e "${BOLD}Select your model profile:${NC}"
+echo ""
+echo "  ┌──────────┬─────────────────────────────────────────┐"
+echo "  │ Profile  │ Description                             │"
+echo "  ├──────────┼─────────────────────────────────────────┤"
+echo "  │ quality  │ Best output, higher cost (Recommended)  │"
+echo "  │ balanced │ Good output, moderate cost               │"
+echo "  │ budget   │ Fast output, lowest cost                 │"
+echo "  └──────────┴─────────────────────────────────────────┘"
+echo ""
+
+if [ -n "$EXISTING_PROFILE" ]; then
+  echo -e "  Current profile: ${BOLD}${EXISTING_PROFILE}${NC}"
+  read -p "  Select profile [quality/balanced/budget] (enter to keep $EXISTING_PROFILE): " SELECTED_PROFILE </dev/tty
+  if [ -z "$SELECTED_PROFILE" ]; then
+    SELECTED_PROFILE="$EXISTING_PROFILE"
+  fi
+else
+  read -p "  Select profile [quality/balanced/budget] (default: quality): " SELECTED_PROFILE </dev/tty
+  if [ -z "$SELECTED_PROFILE" ]; then
+    SELECTED_PROFILE="quality"
+  fi
+fi
+
+case "$SELECTED_PROFILE" in
+  quality|balanced|budget) ;;
+  *) echo -e "  ${YELLOW}Invalid profile. Defaulting to quality.${NC}"; SELECTED_PROFILE="quality" ;;
+esac
+
+echo -e "  ${GREEN}Profile selected: ${SELECTED_PROFILE}${NC}"
+
 # --- Config File Creation ---
 mkdir -p "$CONFIG_DIR"
 
@@ -308,7 +346,7 @@ fi
 node -e "
 const config = {
   tier: '$SELECTED_TIER',
-  model_profile: 'quality',
+  model_profile: '$SELECTED_PROFILE',
   model_overrides: $MODEL_OVERRIDES,
   orq_api_key: '${ORQ_API_KEY:-}',
   installed_at: new Date().toISOString(),
