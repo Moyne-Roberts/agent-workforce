@@ -25,16 +25,17 @@ See: .planning/PROJECT.md (updated 2026-03-02)
 
 Milestone: V2.0 Autonomous Orq.ai Pipeline — SHIPPED
 Status: Complete — all 7 phases, 11 plans, 23 requirements satisfied
-Last activity: 2026-03-02 - Completed quick task 3: Add KB provisioning to deploy flow
+Last activity: 2026-03-02 - Completed quick task 4: Add KB generator agent and /orq-agent:kb command
 
 ### Quick Tasks Completed
 
 | # | Description | Date | Commit | Directory |
 |---|-------------|------|--------|-----------|
 | 3 | Add KB provisioning to deploy flow | 2026-03-02 | 524dad6 | [3-add-kb-provisioning-to-deploy-flow](./quick/3-add-kb-provisioning-to-deploy-flow/) |
+| 4 | Add KB generator agent and /orq-agent:kb command | 2026-03-02 | 70533ba | [4-add-orq-agent-kb-command-and-kb-generato](./quick/4-add-orq-agent-kb-command-and-kb-generato/) |
 
 ## Session Continuity
 
 Last session: 2026-03-02
-Stopped at: V2.0 milestone archived
+Stopped at: Completed quick task 4: Add KB generator agent and /orq-agent:kb command
 Resume with: /gsd:new-milestone
