@@ -2,30 +2,17 @@
 
 ## What This Is
 
-A Claude Code skill (`/orq-agent`) that takes a use case description from a Moyne Roberts colleague and delivers a complete agent swarm specification — copy-paste-ready Orq.ai Agent configs, orchestration logic, and experimentation datasets. It's a pipeline from idea to production-ready agent specs, designed for 5-15 users with varying technical backgrounds.
+A Claude Code skill (`/orq-agent`) that takes a use case description from a Moyne Roberts colleague and delivers a complete agent swarm — from specification through autonomous deployment, testing, iteration, and hardening on Orq.ai. A pipeline from idea to production-ready agents, designed for 5-15 users with varying technical backgrounds.
 
 ## Core Value
 
 Given any use case description (brief or detailed), produce correct, complete Orq.ai Agent specifications and autonomously deploy, test, iterate, and harden them via the Orq.ai MCP server and API — while keeping non-technical colleagues able to review and approve every change.
 
-## Current Milestone: V2.0 Autonomous Orq.ai Pipeline
-
-**Goal:** Transform the spec generation skill into a fully autonomous pipeline that deploys agent swarms to Orq.ai, runs automated tests, iterates prompts based on results (with user approval), and configures guardrails — all via MCP-first integration with API fallback.
-
-**Target features:**
-- Update skill references and prompts with latest agentic framework research (Anthropic, OpenAI, etc.)
-- Modular install with capability selection (core/deploy/test/full) and Orq.ai API key onboarding
-- Autonomous agent deployment to Orq.ai via MCP (tools via API), with idempotent updates
-- Automated testing: dataset upload, evaluator creation, experiment execution, results presentation
-- Prompt iteration loop: analyze results → propose changes → user approves → update → re-test
-- Guardrails and hardening via evaluator-based quality gates
-- Full audit trail: all iterations and reasoning logged to local `.md` files
-
 ## Requirements
 
 ### Validated
 
-Shipped in V1.0 (2026-02-26) — 40 requirements:
+Shipped in v0.3 (2026-03-01) — 50 requirements:
 
 - Adaptive input handling (brief → detailed, pipeline depth adapts)
 - Architect subagent with complexity gate (single-agent default)
@@ -41,41 +28,34 @@ Shipped in V1.0 (2026-02-26) — 40 requirements:
 - Tool resolver (unified tool catalog, MCP-first)
 - Prompt strategy (XML-tagged, heuristic-first, context-engineered)
 - KB-aware pipeline (discussion → researcher → spec generator)
+- Modular install with capability tiers (core/deploy/test/full)
 
-Shipped in v0.3 Foundation (2026-03-01) — 10 requirements:
+Shipped in V2.0 (2026-03-02) — 23 requirements:
 
-- ✓ Latest agentic framework references (Anthropic, OpenAI, Google A2A) — v0.3
-- ✓ Orq.ai API endpoints and evaluator types references — v0.3
-- ✓ V2.0 output templates (deploy-log, test-results, iteration-log) — v0.3
-- ✓ Modular install with capability tier selection (core/deploy/test/full) — v0.3
-- ✓ API key validation and MCP server auto-registration — v0.3
-- ✓ Capability-gated commands with upgrade messaging — v0.3
-- ✓ V1.0 fallback when MCP unavailable — v0.3
+- ✓ Autonomous agent deployment to Orq.ai via MCP/API (DEPLOY-01 through DEPLOY-08) — V2.0
+- ✓ Automated testing pipeline with dataset upload, evaluator selection, 3x experiments (TEST-01 through TEST-05) — V2.0
+- ✓ Prompt iteration loop with diagnosis, diff proposals, HITL approval, stopping conditions (ITER-01 through ITER-07) — V2.0
+- ✓ Guardrails and hardening via evaluator promotion and quality gates (GUARD-01 through GUARD-03) — V2.0
 
 ### Active
 
-- [ ] Autonomous agent deployment to Orq.ai via MCP/API
-- [ ] Automated testing pipeline (datasets, evaluators, experiments)
-- [ ] Prompt iteration loop with user approval
-- [ ] Guardrails and hardening via evaluator-based quality gates
-- [ ] Full audit trail in local `.md` files
+(None — next milestone requirements defined via `/gsd:new-milestone`)
 
 ### Out of Scope
 
 - Orq.ai Deployments — output targets Agents API (`/v2/agents`), not the simpler Deployments pattern
 - Real-time agent monitoring/observability — Orq.ai handles this natively
-- Knowledge base automated provisioning — Deferred to V2.1 (user-chosen RAG DB)
 - Auto-update on launch — updates are manual via `/orq-agent:update`
 
 ## Context
 
 - **Platform:** Orq.ai — Generative AI orchestration platform with Agents API (`/v2/agents`), A2A Protocol support, Task ID-based state persistence, two-step tool execution, and agent versioning via `@version-number` tags
 - **Agent config surface:** key, role, description, model (`provider/model-name`), instructions, settings (max_iterations: 3-15, max_execution_time: ~300s), tools (built-in + function with JSON schema)
-- **Orchestration pattern:** Sequential pipelines where agents connect at the application layer — output from Agent A feeds Agent B via shared Task IDs. Agents pause at `input-required` state for tool execution or human decisions
+- **V2.0 pipeline:** 4 commands (`deploy`, `test`, `iterate`, `harden`) with 4 subagents (deployer, tester, iterator, hardener). MCP-first with REST API fallback. Per-agent incremental operations via `--agent` flag.
 - **Distribution model:** Claude Code skill (like GSD), versioned through GitHub, installed via one-liner script
 - **Users:** 5-15 Moyne Roberts employees, mostly non-technical. Output must be human-readable and copy-paste ready into Orq.ai Studio
-- **GSD reference architecture:** Follows similar patterns — workflows (orchestrators) reference agents (subagents), with templates, references, and a bin/ toolchain. The `/orq-agent` skill should mirror this structure for its own distribution
-- **Model landscape:** Agent should recommend models per use case from Orq.ai's 200+ model catalog (OpenAI, Anthropic, Google, Groq, DeepSeek, etc.) while making it easy for users to swap
+- **Codebase:** 10,628 lines across orq-agent/ (markdown + JSON). 43 files: 11 agents, 5 commands, 8 references, 7 templates, SKILL.md, install script
+- **Shipped:** v0.3 (2026-03-01, 50 requirements), V2.0 (2026-03-02, 23 requirements)
 
 ## Constraints
 
@@ -83,20 +63,25 @@ Shipped in v0.3 Foundation (2026-03-01) — 10 requirements:
 - **Users:** Non-technical colleagues must be able to follow README and copy-paste specs without developer assistance
 - **Distribution:** Must work as Claude Code slash command — no standalone CLI or separate tooling
 - **Compatibility:** Must integrate cleanly with GSD workflow when used within coding projects
+- **SDK pins:** `@orq-ai/node@^3.14.45`, `@orq-ai/evaluatorq@^1.1.0`, `@orq-ai/evaluators@^1.1.0`
 
 ## Key Decisions
 
 | Decision | Rationale | Outcome |
 |----------|-----------|---------|
-| Target Orq.ai Agents, not Deployments | Agents support orchestration, persistent state, tool execution loops, and A2A Protocol — Deployments are single-call only | ✓ Good — pipeline generates full agent specs |
-| Kebab-case naming convention (`[domain]-[role]-agent`) | Matches Orq.ai's own deployment key patterns, readable, consistent | ✓ Good — consistent across all output |
-| Directory-per-swarm output structure | Groups related agents with their orchestration logic and datasets — mirrors how GSD organizes workflows + agents | ✓ Good — clean, navigable output |
-| Claude Code skill distribution via GitHub | Balances easy install for non-technical users with version management for maintainers | ✓ Good — install + update working |
-| Manual updates only (`/orq-agent:update`) | Simpler than auto-update, avoids surprise changes mid-workflow | ✓ Good |
-| Smart subagent spawning based on input detail | Avoids unnecessary research when user provides detailed brief — reduces token cost and time | ✓ Good — 5-dimension classification |
-| MCP-first with API fallback for V2.0 | Orq.ai MCP server covers agents/datasets/evaluators; REST API covers tools/prompts/memory | — Pending (Phase 6 validation) |
-| Modular capability tiers | Users control what automation is enabled; core tier preserves V1.0 behavior | ✓ Good — clean upgrade path |
-| XML-tagged prompt strategy | Anthropic context engineering patterns produce more consistent, grounded output | ✓ Good — all 7 subagents upgraded |
+| Target Orq.ai Agents, not Deployments | Agents support orchestration, persistent state, tool execution loops, and A2A Protocol | ✓ Good |
+| Kebab-case naming convention | Matches Orq.ai's own deployment key patterns | ✓ Good |
+| Directory-per-swarm output structure | Groups related agents with orchestration and datasets | ✓ Good |
+| Claude Code skill distribution via GitHub | Easy install for non-technical users with version management | ✓ Good |
+| Smart subagent spawning based on input detail | Avoids unnecessary research, reduces token cost | ✓ Good |
+| MCP-first with API fallback | MCP covers agents/datasets/evaluators; REST covers tools/prompts/memory | ✓ Good — validated in V2.0 |
+| Modular capability tiers | Users control automation; core tier preserves V1.0 behavior | ✓ Good |
+| XML-tagged prompt strategy | Anthropic context engineering patterns produce consistent output | ✓ Good |
+| Subagents as .md instruction files | LLM reasoning handles diagnosis/proposals — no custom code needed | ✓ Good — iterator, hardener both work this way |
+| Per-agent `--agent` flag (not positional args) | Consistent convention across all 4 commands, documented in SKILL.md | ✓ Good |
+| Native `settings.guardrails` API for guardrail attachment | Direct Orq.ai integration, no application-layer workarounds | ✓ Good |
+| Holdout dataset for re-test | Clean isolation between training and iteration testing | ✓ Good |
+| HITL approval before any prompt change | Non-technical users maintain trust and control | ✓ Good |
 
 ---
-*Last updated: 2026-03-01 after v0.3 milestone completion*
+*Last updated: 2026-03-02 after V2.0 milestone completion*
