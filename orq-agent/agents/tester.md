@@ -328,6 +328,8 @@ Agent {agent-key}:
   holdout_dataset_id: "{id}"
 ```
 
+Write these per-split dataset IDs into the `per_agent_datasets[]` entry for each agent in `test-results.json`. Each entry must include `train_dataset_id`, `test_dataset_id`, and `holdout_dataset_id` fields alongside the existing `dataset_id` field.
+
 ### Step 5.4: Report Upload Progress
 
 Display: `Uploading datasets... ({N}/{M} agents)` where N is current agent and M is total.
@@ -717,6 +719,9 @@ The tester returns a structured result object per agent containing:
     }
   ],
   "dataset_id": "{{PLATFORM_DATASET_ID}}",
+  "train_dataset_id": "{{TRAIN_DATASET_ID}}",
+  "test_dataset_id": "{{TEST_DATASET_ID}}",
+  "holdout_dataset_id": "{{HOLDOUT_DATASET_ID}}",
   "example_counts": {
     "original": 0,
     "augmented": 0,

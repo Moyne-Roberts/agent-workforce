@@ -18,6 +18,9 @@
       {
         "agent_key": "{{AGENT_KEY}}",
         "dataset_id": "{{PLATFORM_DATASET_ID}}",
+        "train_dataset_id": "{{TRAIN_DATASET_ID}}",
+        "test_dataset_id": "{{TEST_DATASET_ID}}",
+        "holdout_dataset_id": "{{HOLDOUT_DATASET_ID}}",
         "split_counts": {
           "train": 0,
           "test": 0,
