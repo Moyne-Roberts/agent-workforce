@@ -298,12 +298,14 @@ Data source for {kb-name}:
 
   1. Yes -- I have a local folder with files
   2. No -- I'll upload in Orq.ai Studio later
+  3. Generate KB content for me (creates documents from pipeline context)
 
 Select [2]:
 ```
 
 - Default to option 2
 - If option 1 selected: prompt for folder path, validate path exists, list files found, filter to supported formats (TXT, PDF, DOCX, CSV, XML), warn if any file exceeds 10MB
+- If option 3 selected: Spawn the kb-generator agent (`orq-agent/agents/kb-generator.md`) with the swarm directory path and this KB's name as context. The kb-generator writes output to `{swarm-dir}/kb-content/{kb-name}/`. After generation completes, display the generated files listing. Then proceed with the normal upload flow using `{swarm-dir}/kb-content/{kb-name}/` as the folder path (same as if user had selected option 1 and provided that path). Note: if option 3 is selected for multiple KBs, spawn the kb-generator once per KB with that KB's name as context.
 
 ### 3.5.5: External Connection Details (external hosts only)
 

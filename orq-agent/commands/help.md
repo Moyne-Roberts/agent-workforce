@@ -34,6 +34,7 @@ Commands:
   /orq-agent:research          Domain best practices research
   /orq-agent:datasets          Test dataset generation
   /orq-agent:deploy            Deploy specs to Orq.ai (deploy+ tier)
+  /orq-agent:kb                KB management (deploy+ tier)
   /orq-agent:test              Automated evaluation (test+ tier)
   /orq-agent:iterate           Prompt iteration with HITL (full tier)
   /orq-agent:harden            Guardrails & quality gates (full tier)

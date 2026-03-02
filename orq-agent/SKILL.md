@@ -20,6 +20,7 @@ orq-agent/
     research.md                  # Standalone researcher command
     datasets.md                  # Standalone dataset generator command
     deploy.md                    # Phase 5: Deploy to Orq.ai (requires deploy+ tier)
+    kb.md                        # KB management: generate, provision, upload
     test.md                      # Phase 5: Automated testing (requires test+ tier)
     iterate.md                   # Phase 5: Prompt iteration (requires full tier)
     harden.md                    # Phase 9: Guardrails and quality gates (requires full tier)
@@ -32,6 +33,7 @@ orq-agent/
     orchestration-generator.md   # Phase 2: Orchestration generator subagent
     dataset-generator.md         # Phase 2: Dataset generator subagent
     readme-generator.md          # Phase 2: README generator subagent
+    kb-generator.md              # KB content generation from pipeline context
     hardener.md                  # Phase 9: Guardrails promotion and quality gates
   templates/
     agent-spec.md                # Template: individual agent specification
@@ -93,6 +95,7 @@ Agents/[swarm-name]/
 | Command | File | Tier Required | Purpose |
 |---------|------|---------------|---------|
 | `/orq-agent:deploy` | `commands/deploy.md` | deploy+ | Deploy agent specs to Orq.ai via MCP (V1.0 fallback: copy-paste steps) |
+| `/orq-agent:kb` | `commands/kb.md` | deploy+ | Manage KBs -- generate content, provision, upload files |
 | `/orq-agent:test` | `commands/test.md` | test+ | Run automated tests against deployed agents (V1.0 fallback: manual steps) |
 | `/orq-agent:iterate` | `commands/iterate.md` | full | Iterate on prompts using evaluator feedback (V1.0 fallback: manual steps) |
 | `/orq-agent:harden` | `commands/harden.md` | full | Set up guardrails and quality gates from test results |
@@ -138,6 +141,12 @@ Agents/[swarm-name]/
 | Agent | File | Purpose |
 |-------|------|---------|
 | Iterator | `agents/iterator.md` | Analyzes test failures, proposes targeted prompt changes with diff-style views, collects per-agent approval, orchestrates re-deploy/re-test cycle with holdout validation |
+
+### Phase 5 (KB Management)
+
+| Agent | File | Purpose |
+|-------|------|---------|
+| KB Generator | `agents/kb-generator.md` | Generates KB-ready documents from pipeline context or domain templates |
 
 ### Phase 9 (Guardrails)
 
