@@ -227,6 +227,7 @@ Display the swarm summary:
 Swarm: [swarm-name]
 Agents: [N] ([list agent keys])
 Tools: [M] ([list tool keys])
+Knowledge Bases: [K]
 Orchestrator: [orchestrator-key]
 Channel: [MCP + REST | REST only]
 Scope: [all | agent-key + N tool dependencies]
@@ -235,6 +236,103 @@ Scope: [all | agent-key + N tool dependencies]
 > **Note:** The orchestrator can be deployed independently via `--agent orchestrator-key` once all sub-agents exist in Orq.ai. This allows incremental wiring after individual agents are deployed and tested.
 
 Proceed to Step 4.
+
+## Step 3.5: Knowledge Base Setup
+
+### 3.5.1: Detect KBs
+
+Parse the ORCHESTRATION.md `## Knowledge Base Design` section (if present). Extract:
+- KB names (keys)
+- `used_by` agent associations (which agents reference each KB)
+
+**Scope filtering:** If `--agent` was used (or specific agents were selected via picker), only show KBs that are used by the selected agent(s). Skip KBs not associated with any selected agent.
+
+**If no KBs found:** Display `No knowledge bases detected.` and skip the rest of Step 3.5. Proceed directly to Step 4.
+
+### 3.5.2: Embedding Model Picker
+
+Show the embedding model picker **once per deploy** (NOT per KB). The selected model applies to all KBs in this deploy run:
+
+```
+Select embedding model for knowledge bases:
+
+  1. cohere/embed-english-v3.0 (recommended)
+  2. openai/text-embedding-3-small
+  3. openai/text-embedding-3-large
+  4. Custom (enter model identifier)
+
+Select [1]:
+```
+
+- Default to option 1 if user presses enter
+- Note: embedding model is immutable after KB creation -- it cannot be changed later
+
+### 3.5.3: Per-KB Host Selection
+
+For each KB detected, display:
+
+```
+Knowledge Base: {kb-name}
+Used by: {agent-1}, {agent-2}
+
+  1. Orq.ai internal
+  2. External -- Supabase
+  3. External -- Pinecone
+  4. External -- Weaviate
+  5. External -- Custom
+  6. Skip -- configure manually later
+  A. Apply choice to ALL remaining KBs
+
+Select [1]:
+```
+
+- Default to option 1 (Orq.ai internal)
+- Option A applies the current selection to all remaining KBs (only shown if >1 KB remaining)
+
+### 3.5.4: Per-KB Data Source (Orq.ai internal only)
+
+Only shown when host is "Orq.ai internal":
+
+```
+Data source for {kb-name}:
+
+  1. Yes -- I have a local folder with files
+  2. No -- I'll upload in Orq.ai Studio later
+
+Select [2]:
+```
+
+- Default to option 2
+- If option 1 selected: prompt for folder path, validate path exists, list files found, filter to supported formats (TXT, PDF, DOCX, CSV, XML), warn if any file exceeds 10MB
+
+### 3.5.5: External Connection Details (external hosts only)
+
+Collect API URL and API key for external KBs:
+
+```
+{kb-name} -- External {provider} connection:
+
+  API URL: _
+  API Key: _
+```
+
+### 3.5.6: KB Plan Summary Table
+
+Display the complete KB plan before proceeding:
+
+```
+Knowledge Base Plan:
+
+| KB | Host | Embedding Model | Data Source | Files |
+|----|------|-----------------|-------------|-------|
+| kb-name-1 | Orq.ai internal | cohere/embed-english-v3.0 | /path/to/docs | 5 files |
+| kb-name-2 | External (Pinecone) | openai/text-embedding-3-small | -- | -- |
+| kb-name-3 | Skip | -- | -- | -- |
+
+Proceed? [Y/n]:
+```
+
+The confirmed KB plan becomes the **KB manifest** passed to the deployer in Step 5. It contains: list of KBs with host type, embedding model, file paths (if any), and external connection details (if any).
 
 ## Step 4: Pre-flight Validation
 
@@ -293,12 +391,14 @@ Invoke the deployer with the following context:
 - `mcp_available` flag (from Steps 2/4)
 - Parsed swarm manifest: ORCHESTRATION.md content, TOOLS.md content, agent spec file contents
 - **Agent scope** (from Step 3): which agents and tools are in scope for this deploy run
+- **KB manifest** (from Step 3.5): list of KBs with host type, embedding model, file paths, and external connection details. The deployer's Phase 1.5 handles KB provisioning using this manifest.
 
 ### 5.1: Scoped Deployment Behavior
 
 When `--agent` is active (or specific agents selected via picker), tell the deployer subagent to scope its pipeline:
 
 - **Phase 1 (Deploy Tools):** Only deploy tools that the selected agent(s) reference in their `settings.tools`. Skip all other tools.
+- **Phase 1.5 (Provision KBs):** Only provision KBs that the selected agent(s) use (from `used_by` associations). Skip all other KBs.
 - **Phase 2 (Deploy Sub-Agents):** Only deploy the selected agent(s). Skip all other sub-agents.
 - **Phase 3 (Deploy Orchestrator):** Skip UNLESS the orchestrator is explicitly selected (via `--agent orchestrator-key` or picker selection) or all agents were selected.
 
@@ -317,24 +417,30 @@ The deployer executes its 6-phase pipeline (scoped to selected resources):
    Deploying tools... (3/3) done
    ```
 
-3. **Phase 2: Deploy Sub-Agents** -- Creates/updates sub-agents in scope. Display progress:
+3. **Phase 1.5: Provision Knowledge Bases** -- Creates KBs using the KB manifest from Step 3.5. Display progress:
+   ```
+   Provisioning knowledge bases... (1/2)
+   Provisioning knowledge bases... (2/2) done
+   ```
+
+4. **Phase 2: Deploy Sub-Agents** -- Creates/updates sub-agents in scope. Display progress:
    ```
    Deploying sub-agents... (1/2)
    Deploying sub-agents... (2/2) done
    ```
 
-4. **Phase 3: Deploy Orchestrator** -- Creates/updates the orchestrator with `team_of_agents` wiring (only if in scope). Display progress:
+5. **Phase 3: Deploy Orchestrator** -- Creates/updates the orchestrator with `team_of_agents` wiring (only if in scope). Display progress:
    ```
    Deploying orchestrator... (1/1) done
    ```
 
-5. **Phase 4: Read-Back Verification** -- Reads back every deployed resource from Orq.ai and compares against local spec. Collects discrepancies as warnings. Display progress:
+6. **Phase 4: Read-Back Verification** -- Reads back every deployed resource from Orq.ai and compares against local spec. Collects discrepancies as warnings. Display progress:
    ```
    Verifying resources... (1/6)
    Verifying resources... (6/6) done
    ```
 
-6. **Phase 5: Annotate Spec Files** -- Writes YAML frontmatter (orqai_id, version, timestamp, channel) to each local spec file. Display progress:
+7. **Phase 5: Annotate Spec Files** -- Writes YAML frontmatter (orqai_id, version, timestamp, channel) to each local spec file. Display progress:
    ```
    Annotated 5 spec files with deployment metadata.
    ```
@@ -386,13 +492,14 @@ Each deploy run section format:
 | Resource | Type | Status | Channel | Orq.ai Link |
 |----------|------|--------|---------|-------------|
 | {resource_key} | tool | created | mcp | -- |
+| {kb_name} | kb | created | rest | -- |
 | {agent_key} | agent | created | mcp | [Studio]({studio_url}) |
 | {agent_key} | agent | updated | rest (fallback) | [Studio]({studio_url}) |
 
 **Warnings:**
 - {agent_key}: {field} field differs after read-back ({summary})
 
-**Summary:** {N} resources deployed ({T} tools, {A} agents). {C} created, {U} updated, {X} unchanged, {F} failed.
+**Summary:** {N} resources deployed ({T} tools, {K} KBs, {A} agents). {C} created, {U} updated, {X} unchanged, {F} failed.
 ```
 
 **Status values (three-way distinction):**
@@ -400,6 +507,12 @@ Each deploy run section format:
 - `updated` -- resource existed but differed from local spec; patched
 - `unchanged` -- resource existed and matched local spec; skipped
 - `failed` -- resource could not be deployed (only in partial failure scenarios)
+
+**Additional KB status values:**
+- `created` -- internal KB created with files uploaded and chunked
+- `created (no files)` -- internal KB created, files to be uploaded later
+- `external-configured` -- external KB created with connection details
+- `skipped` -- KB skipped, to be configured manually
 
 **Orq.ai Studio link construction:**
 - Check if the agent create/update API response contains a URL field
