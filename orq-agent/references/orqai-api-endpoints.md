@@ -85,6 +85,90 @@ Supports 4 custom evaluator types: LLM, Python, HTTP, JSON.
 | GET | `/v2/memory-stores/{store_id}` | Get memory store by ID |
 | DELETE | `/v2/memory-stores/{store_id}` | Delete a memory store |
 
+## Knowledge Bases
+
+| Method | Path | Description |
+|--------|------|-------------|
+| POST | `/v2/knowledge` | Create a knowledge base |
+| GET | `/v2/knowledge` | List all knowledge bases |
+| GET | `/v2/knowledge/{knowledge_id}` | Get knowledge base by ID |
+| PATCH | `/v2/knowledge/{knowledge_id}` | Update knowledge base |
+| DELETE | `/v2/knowledge/{knowledge_id}` | Delete knowledge base |
+
+### Files
+
+| Method | Path | Description |
+|--------|------|-------------|
+| POST | `/v2/files` | Upload a file (multipart/form-data, max 10MB, supports TXT/PDF/DOCX/CSV/XML) |
+
+### Datasources
+
+| Method | Path | Description |
+|--------|------|-------------|
+| POST | `/v2/knowledge/{knowledge_id}/datasources` | Add datasource to KB |
+| GET | `/v2/knowledge/{knowledge_id}/datasources` | List datasources |
+| DELETE | `/v2/knowledge/{knowledge_id}/datasources/{datasource_id}` | Remove datasource |
+
+### Chunking
+
+| Method | Path | Description |
+|--------|------|-------------|
+| POST | `/v2/knowledge/{knowledge_id}/datasources/{datasource_id}/chunks` | Chunk a datasource |
+| POST | `/v2/chunking` | Preview chunking strategy |
+
+### Search
+
+| Method | Path | Description |
+|--------|------|-------------|
+| POST | `/v2/knowledge/{knowledge_id}/search` | Search knowledge base |
+
+### Create Payloads
+
+**Internal KB:**
+```json
+{
+  "key": "kb-key-from-orchestration",
+  "type": "internal",
+  "embedding_model": "cohere/embed-english-v3.0",
+  "description": "KB description from ORCHESTRATION.md"
+}
+```
+
+**External KB:**
+```json
+{
+  "key": "kb-key-from-orchestration",
+  "type": "external",
+  "api_url": "https://your-vector-db.example.com",
+  "api_key": "your-api-key",
+  "embedding_model": "openai/text-embedding-3-small"
+}
+```
+
+### Chunking Strategy Mapping
+
+Maps ORCHESTRATION.md chunking strategy values to API `strategy` parameter values:
+
+| ORCHESTRATION.md | API value |
+|---|---|
+| semantic | `semantic` |
+| token | `token` |
+| sentence | `sentence` |
+| recursive | `recursive` |
+| agentic | `agentic` |
+| other/default | `fast` |
+
+### Embedding Model Defaults
+
+- `cohere/embed-english-v3.0` (recommended)
+- `openai/text-embedding-3-small`
+- `openai/text-embedding-3-large`
+
+### Usage Notes
+
+- **List-and-filter lookup:** KBs are NOT addressable by key directly. Use `GET /v2/knowledge?limit=200` and filter by `key` field (same pattern as tools).
+- **Embedding model is immutable:** The `embedding_model` field cannot be changed via PATCH after creation. To change the embedding model, delete and re-create the KB.
+
 ## Models
 
 | Method | Path | Description |
