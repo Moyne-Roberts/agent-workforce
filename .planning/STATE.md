@@ -3,12 +3,12 @@ gsd_state_version: 1.0
 milestone: v0.3
 milestone_name: milestone
 status: unknown
-last_updated: "2026-03-01T17:25:55.636Z"
+last_updated: "2026-03-02T09:30:14.000Z"
 progress:
-  total_phases: 5
-  completed_phases: 5
-  total_plans: 9
-  completed_plans: 9
+  total_phases: 6
+  completed_phases: 6
+  total_plans: 10
+  completed_plans: 10
 ---
 
 # Project State
@@ -18,17 +18,17 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-01)
 
 **Core value:** Given any use case description, produce correct, complete Orq.ai Agent specifications and autonomously deploy, test, iterate, and harden them via the Orq.ai MCP server and API.
-**Current focus:** Phase 9 — Guardrails and Hardening
+**Current focus:** Phase 10 — Fix Holdout Dataset Path (complete)
 **Previous milestone:** v0.3 shipped 2026-03-01 — 11 phases, 28 plans, 50/50 requirements
 
 ## Current Position
 
-Phase: 9 of 9 (Guardrails and Hardening)
-Plan: 1 of 2 complete
-Status: In Progress
-Last activity: 2026-03-01 — Completed 09-01 (Guardrails and Quality Gates)
+Phase: 10 of 10 (Fix Holdout Dataset Path)
+Plan: 1 of 1 complete
+Status: Complete
+Last activity: 2026-03-02 — Completed 10-01 (Fix Holdout Dataset Path)
 
-Progress: [█████-----] 50% (1/2 plans in Phase 9)
+Progress: [██████████] 100% (1/1 plans in Phase 10)
 
 ## Performance Metrics
 
@@ -47,6 +47,7 @@ Progress: [█████-----] 50% (1/2 plans in Phase 9)
 | 7.1 Test Pipeline Tech Debt | 1/1 | 1min | 1min |
 | 9. Guardrails and Hardening | 1/2 | 4min | 4min |
 | Phase 09 P01 | 4min | 2 tasks | 3 files |
+| 10. Fix Holdout Dataset Path | 1/1 | 2min | 2min |
 
 ## Accumulated Context
 
@@ -86,6 +87,7 @@ Progress: [█████-----] 50% (1/2 plans in Phase 9)
 - Guardrail config stored in ## Guardrails markdown section in agent spec files (not YAML frontmatter)
 - Severity and threshold are application-layer fields only -- NOT sent to Orq.ai API (API accepts only id, execute_on, sample_rate)
 - Pre-built guardrails (orq_pii_detection, orq_harmful_moderation, orq_sexual_moderation) always suggested for conversational/hybrid agents
+- Preserve existing dataset_id field for backward compatibility while adding per-split fields (train/test/holdout) alongside it
 
 ### Blockers/Concerns
 
@@ -101,6 +103,6 @@ Progress: [█████-----] 50% (1/2 plans in Phase 9)
 
 ## Session Continuity
 
-Last session: 2026-03-01
-Stopped at: Completed 09-01-PLAN.md (Guardrails and Quality Gates)
+Last session: 2026-03-02
+Stopped at: Completed 10-01-PLAN.md (Fix Holdout Dataset Path)
 Resume with: /gsd:execute-phase 09 (continue with 09-02-PLAN.md)

@@ -66,7 +66,7 @@ Build a Claude Code skill that transforms natural language use case descriptions
 - [ ] **Phase 7.1: Test Pipeline Tech Debt** — SDK-to-REST mapping, undeclared package declaration, deploy-log template cleanup
 - [ ] **Phase 8: Prompt Iteration Loop** — Iterator subagent, failure analysis, diff-based proposals, per-iteration HITL approval, 4 hard stopping conditions, audit trail
 - [ ] **Phase 9: Guardrails and Hardening** — Evaluator promotion to runtime guardrails, threshold-based quality gates, incremental per-agent deployment
-- [ ] **Phase 10: Fix Holdout Dataset Path** — Resolve holdout dataset ID path mismatch in test-results.json template and iterator, fix stale step labels
+- [x] **Phase 10: Fix Holdout Dataset Path** — Resolve holdout dataset ID path mismatch in test-results.json template and iterator, fix stale step labels (completed 2026-03-02)
 - [ ] **Phase 11: Flag Conventions + Tech Debt Cleanup** — Align harden.md flag syntax, pass TOOLS.md to Wave 3, fix orchestrator references
 
 ## Phase Details
@@ -141,7 +141,7 @@ Build a Claude Code skill that transforms natural language use case descriptions
   2. `tester.md` Phase 5.3 populates per-split dataset IDs when uploading datasets
   3. `iterator.md` Phase 7 Step 7.2 reads holdout dataset ID from the correct field path in test-results.json
   4. `iterator.md` Phase 9 step labels use correct `Step 9.x` numbering (not stale `Step 7.x`)
-**Plans:** TBD
+**Plans:** 1/1 plans complete
 
 ### Phase 11: Flag Conventions + Tech Debt Cleanup
 **Goal**: Align CLI flag conventions across all commands and resolve carried-forward tech debt from v0.3
@@ -183,7 +183,7 @@ Build a Claude Code skill that transforms natural language use case descriptions
 | V2.0 | 7.1. Test Pipeline Tech Debt | 0/? | Not started | - |
 | V2.0 | 8. Prompt Iteration Loop | 2/2 | Verified | 2026-03-01 |
 | V2.0 | 9. Guardrails and Hardening | 0/? | Not started | - |
-| V2.0 | 10. Fix Holdout Dataset Path | 0/? | Not started | - |
+| V2.0 | 10. Fix Holdout Dataset Path | 1/1 | Complete   | 2026-03-02 |
 | V2.0 | 11. Flag Conventions + Tech Debt | 0/? | Not started | - |
 | V2.1 | Automated KB Setup | - | Not started | - |
 | V3.0 | Browser Automation | - | Not started | - |
