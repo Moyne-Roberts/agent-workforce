@@ -53,6 +53,9 @@ tools-list         # GET /v2/tools
 
 # Pre-flight
 models-list        # GET /v2/models
+
+# Knowledge Bases -- NO MCP TOOLS EXIST
+# All KB operations use REST API directly (see Phase 1.5)
 ```
 
 ### REST API Base
@@ -150,10 +153,11 @@ Read the swarm output directory structure:
 Create an ordered list of resources to deploy:
 
 1. **Tools** (from TOOLS.md) -- deployed first because agents reference them
-2. **Sub-agents** (non-orchestrator agents from ORCHESTRATION.md) -- deployed second
-3. **Orchestrator** (the agent with `team_of_agents`) -- deployed last so sub-agent keys exist
+2. **Knowledge Bases** (from ORCHESTRATION.md Knowledge Base Design section) -- deployed second because agents reference knowledge_ids
+3. **Sub-agents** (non-orchestrator agents from ORCHESTRATION.md) -- deployed third
+4. **Orchestrator** (the agent with `team_of_agents`) -- deployed last so sub-agent keys exist
 
-This ordering is mandatory. Never deploy an agent before its tools, never deploy the orchestrator before its sub-agents.
+This ordering is mandatory. Never deploy an agent before its tools or knowledge bases, never deploy the orchestrator before its sub-agents.
 
 ---
 
@@ -205,6 +209,86 @@ After all tools: `Deploying tools... (M/M) done`
 
 ---
 
+## Phase 1.5: Provision Knowledge Bases
+
+For each knowledge base defined in the ORCHESTRATION.md Knowledge Base Design section, in order:
+
+### Step 1.5.0: REST-Only Pattern for KB Operations
+
+KB operations are REST-only. No MCP tools exist for knowledge base CRUD. All KB API calls use `Authorization: Bearer $ORQ_API_KEY` against REST endpoints directly. Do NOT attempt the MCP-first/REST-fallback pattern for KB operations -- go directly to REST.
+
+### Step 1.5.1: Lookup Existing KB
+
+KBs are NOT addressable by key directly. You must list and filter:
+
+`GET /v2/knowledge?limit=200` with Bearer auth. Search response `data` array for a KB with matching `key` field.
+
+**Cache the KB list** after the first call. Do not re-fetch for every KB -- use the cached list for subsequent lookups within this deploy run. Same caching pattern as tools (Step 1.1).
+
+### Step 1.5.2: Per-KB Provisioning
+
+For each KB in the deploy manifest, the host type (from the deploy command's Step 3.5) determines the provisioning flow:
+
+**If `skip`:**
+- Record status as `skipped`
+- Set `kb_id_map[kb_name] = null`
+- Continue to next KB
+
+**If `orq_internal`:**
+
+1. Check cached KB list for existing KB with matching `key`
+2. If not found: Create via `POST /v2/knowledge` with payload:
+   ```json
+   {
+     "key": "kb-key-from-orchestration",
+     "type": "internal",
+     "embedding_model": "selected-embedding-model",
+     "description": "KB description from ORCHESTRATION.md"
+   }
+   ```
+3. If files provided in manifest: Upload each file via `POST /v2/files` (multipart/form-data), then create datasource via `POST /v2/knowledge/{knowledge_id}/datasources` linking the uploaded file
+4. Trigger chunking via `POST /v2/knowledge/{knowledge_id}/datasources/{datasource_id}/chunks` using the chunking strategy mapped from ORCHESTRATION.md. Use the chunking strategy mapping table from the API endpoint reference:
+   | ORCHESTRATION.md | API value |
+   |---|---|
+   | semantic | `semantic` |
+   | token | `token` |
+   | sentence | `sentence` |
+   | recursive | `recursive` |
+   | agentic | `agentic` |
+   | other/default | `fast` |
+5. Record `knowledge_id` from response
+
+**If `external_*` (supabase, pinecone, weaviate, custom):**
+
+1. Check cached KB list for existing KB with matching `key`
+2. If not found: Create via `POST /v2/knowledge` with payload:
+   ```json
+   {
+     "key": "kb-key-from-orchestration",
+     "type": "external",
+     "api_url": "provided-api-url",
+     "api_key": "provided-api-key",
+     "embedding_model": "selected-embedding-model"
+   }
+   ```
+3. Record `knowledge_id` from response
+
+**Build `kb_id_map`:** After all KBs are processed, the result is a dictionary mapping `kb_name -> knowledge_id` (or `null` for skipped KBs). This map is used in Phase 2 to wire KBs into agent payloads.
+
+### Step 1.5.3: Error Handling
+
+- **KB creation failure IS a blocker** -- stop deploy immediately. Agents cannot wire `knowledge_id` values if the KB does not exist. Apply the same On Resource Failure behavior as tools/agents.
+- **File upload failure is a WARNING** -- the KB shell is still created and usable. Files can be uploaded later via Orq.ai Studio or API. Log the warning and continue.
+- **Chunking failure is a WARNING** -- the datasource exists, chunking can be retried manually. Log the warning and continue.
+
+### Step 1.5.4: Report Progress
+
+Display: `Provisioning knowledge bases... (N/M)` where N is current KB number and M is total.
+
+After all KBs: `Provisioning knowledge bases... (M/M) done`
+
+---
+
 ## Phase 2: Deploy Sub-Agents
 
 For each sub-agent (non-orchestrator) from ORCHESTRATION.md, in the listed dependency order:
@@ -248,6 +332,9 @@ Create via `agents-create` (MCP) or `POST /v2/agents` (REST) with payload built 
   "variables": {...}
 }
 ```
+
+**Resolving `knowledge_bases` from `kb_id_map`:** When building the agent payload, resolve each entry in the agent's `knowledge_bases` array using `kb_id_map` (built in Phase 1.5) instead of using placeholder IDs from spec files. For each KB referenced by the agent, look up its `knowledge_id` in `kb_id_map`. If a KB was skipped (`null` in `kb_id_map`), omit it from the agent's `knowledge_bases` array.
+
 Record agent response. Status: `created`.
 
 **If agent found (existing agent):**
@@ -335,6 +422,8 @@ For each resource in the deploy manifest (tools, sub-agents, orchestrator):
 
 **For tools:** Use `tools-retrieve` (MCP) or `GET /v2/tools/{tool_id}` (REST) to read back the deployed tool. Use the `tool_id` recorded during Phase 1 deployment.
 
+**For knowledge bases:** Use `GET /v2/knowledge/{knowledge_id}` (REST only -- no MCP tools for KBs) to read back each provisioned KB. Use the `knowledge_id` recorded during Phase 1.5.
+
 ### Step 4.2: Compare Against Local Spec
 
 For each read-back response, compare against the local spec using an **allowlist approach** -- only compare fields that are present in the local spec. Ignore all server-added metadata fields.
@@ -357,6 +446,11 @@ For each read-back response, compare against the local spec using an **allowlist
 - `type`
 - `description`
 - Type-specific configuration object (varies by tool type: `function`, `http`, `code`, `mcp`, `json_schema`)
+
+**Knowledge base fields to compare** (if present in manifest):
+- `key`
+- `embedding_model`
+- `type` (internal/external)
 
 ### Step 4.3: Collect Discrepancies
 
@@ -461,7 +555,21 @@ For each deployed tool, store the `tool_id` (from `_id` field in API response) s
 
 **Resource lookup on re-deploy (LOCKED):** Use frontmatter metadata (stored agent ID / tool ID) first. Fall back to key-based API search if no metadata is present or if the stored ID returns a 404 (stale metadata).
 
-### Step 5.3: Report Annotation Results
+### Step 5.3: Annotate ORCHESTRATION.md with Knowledge Base IDs
+
+For each provisioned KB, add a `knowledge_base_ids` map to the ORCHESTRATION.md YAML frontmatter:
+
+```yaml
+knowledge_base_ids:
+  kb-name-1: "knowledge_id_abc123"
+  kb-name-2: "knowledge_id_def456"
+```
+
+Follow the same merge-safe frontmatter handling rules as agent spec files (Step 5.1). If ORCHESTRATION.md already has frontmatter, merge the `knowledge_base_ids` field into it. If no frontmatter exists, create one.
+
+Only include KBs that were successfully provisioned (not skipped). Skipped KBs are omitted from the map.
+
+### Step 5.4: Report Annotation Results
 
 Display: `Annotated {N} spec files with deployment metadata.`
 
@@ -495,6 +603,8 @@ Resources:
 | Resource | Type | Status | Channel | ID |
 |----------|------|--------|---------|-----|
 | tool-key-1 | tool | created | mcp | tool_id_abc |
+| kb-name-1 | kb | created | rest | knowledge_id_xyz |
+| kb-name-2 | kb | external-configured | rest | knowledge_id_uvw |
 | agent-key-1 | agent | updated | rest (fallback) | agent_id_def |
 | orchestrator-key | agent | created | mcp | agent_id_ghi |
 
@@ -529,3 +639,6 @@ When deciding how to handle ambiguous situations:
 - **Comparing all response fields for diff** -- Server adds metadata fields (`_id`, `created`, `updated`, `workspace_id`, `project_id`, `status`, `created_by_id`, `updated_by_id`). Only compare fields present in the local spec.
 - **Silently swallowing errors** -- Every failure must be reported. Never catch an error and continue as if nothing happened.
 - **Deploying resources in parallel** -- Deploy sequentially to respect rate limits and dependency order. Parallel deploys risk 429 errors and race conditions.
+- **Deploying agents before their knowledge bases** -- KBs must exist before agents can reference `knowledge_id` in their payloads. The deploy order (Tools -> KBs -> Agents) enforces this.
+- **Re-chunking existing datasources on re-deploy** -- Chunking is expensive and idempotent re-deploy should skip already-chunked datasources. Only chunk new datasources or datasources with updated files.
+- **Attempting MCP tools for KB operations** -- KB CRUD has no MCP tool equivalents. Always use REST API directly for all knowledge base operations.
