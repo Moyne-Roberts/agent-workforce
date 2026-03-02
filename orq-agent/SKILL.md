@@ -1,3 +1,8 @@
+---
+name: orq-agent
+description: Generate complete, copy-paste-ready Orq.ai Agent specifications with orchestration logic from use case descriptions
+---
+
 # orq-agent
 
 Generate complete, copy-paste-ready Orq.ai Agent specifications with orchestration logic from use case descriptions.

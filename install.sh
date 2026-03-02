@@ -133,6 +133,14 @@ else
   exit 1
 fi
 
+# Copy commands to ~/.claude/commands/orq-agent/ for slash command discovery
+COMMANDS_DIR="$HOME/.claude/commands/orq-agent"
+mkdir -p "$COMMANDS_DIR"
+if [ -d "$EXTRACTED_DIR/orq-agent/commands" ]; then
+  cp "$EXTRACTED_DIR/orq-agent/commands/"*.md "$COMMANDS_DIR/"
+  echo "Commands registered to $COMMANDS_DIR"
+fi
+
 # Copy version tracking files
 cp "$EXTRACTED_DIR/VERSION" "$INSTALL_DIR/VERSION"
 cp "$EXTRACTED_DIR/CHANGELOG.md" "$INSTALL_DIR/CHANGELOG.md"
