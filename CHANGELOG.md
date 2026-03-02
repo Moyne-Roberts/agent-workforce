@@ -1,5 +1,13 @@
 # Changelog
 
+## 2.2.0 (2026-03-02)
+
+### Changed
+- All model selection now uses MCP `models-list` tool exclusively — no more REST API or static catalog fallbacks
+- Command model pickers (`/orq-agent:prompt`, `/orq-agent:deploy`, `/orq-agent:research`) fetch live models from MCP only
+- Subagent model validation (spec-generator, researcher, architect, dataset-generator) validates against MCP `models-list` only
+- Static model catalog (`orqai-model-catalog.md`) demoted to format reference — no longer used as source of truth
+
 ## 2.1.0 (2026-03-02)
 
 ### Added
