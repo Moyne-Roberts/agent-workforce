@@ -1,7 +1,7 @@
 # Requirements: Orq Agent Designer V3.0
 
 **Defined:** 2026-03-03
-**Core Value:** Any colleague can go from a use case description to deployed, tested agents on Orq.ai — through a browser UI with real-time visibility, visual agent graphs, and in-app approvals.
+**Core Value:** Any colleague can go from a use case description to deployed, tested agents on Orq.ai -- through a browser UI with real-time visibility, visual agent graphs, and in-app approvals.
 
 ## v1 Requirements
 
@@ -9,7 +9,7 @@ Requirements for V3.0 release. Each maps to roadmap phases.
 
 ### Authentication & Infrastructure
 
-- [ ] **AUTH-01**: User can sign in with M365 SSO (Azure AD) — no separate registration
+- [ ] **AUTH-01**: User can sign in with M365 SSO (Azure AD) -- no separate registration
 - [ ] **AUTH-02**: Only Moyne Roberts tenant users can access the application
 - [ ] **INFRA-01**: Pipeline prompts auto-deploy from GitHub repo via Vercel
 - [ ] **INFRA-02**: Pipeline state persists in Supabase DB with row-level security
@@ -19,7 +19,7 @@ Requirements for V3.0 release. Each maps to roadmap phases.
 ### Self-Service Pipeline UI
 
 - [ ] **PIPE-01**: User can enter a use case description with guidance (placeholders, examples)
-- [ ] **PIPE-02**: User can see pipeline step indicator showing current position (discuss → architect → research → specs → orchestrate → tools → datasets)
+- [ ] **PIPE-02**: User can see pipeline step indicator showing current position (discuss -> architect -> research -> specs -> orchestrate -> tools -> datasets)
 - [ ] **PIPE-03**: User receives live status messages per step while pipeline runs
 - [ ] **PIPE-04**: User can view generated agent specs and orchestration output in formatted cards
 - [ ] **PIPE-05**: User sees plain-language error messages with recovery options (retry, go back, start over) on failure
@@ -90,14 +90,14 @@ Deferred to V3.1+. Tracked but not in current roadmap.
 
 | Feature | Reason |
 |---------|--------|
-| Visual pipeline builder (drag-and-drop agent wiring) | Non-technical users cannot meaningfully wire agent architectures — the AI pipeline does this for them |
+| Visual pipeline builder (drag-and-drop agent wiring) | Non-technical users cannot meaningfully wire agent architectures -- the AI pipeline does this for them |
 | Editable spec fields in UI | Exposing 18 Orq.ai fields creates confusion; describe changes in natural language instead |
 | Real-time production metrics (latency, throughput) | Orq.ai handles production observability natively |
 | 3D graph visualization | Adds cognitive load without insight for 3-8 node swarms |
-| Multi-user collaboration on same pipeline run | 5-15 users, solo runs — collaboration adds complexity for no real benefit |
+| Multi-user collaboration on same pipeline run | 5-15 users, solo runs -- collaboration adds complexity for no real benefit |
 | Slack notifications | Moyne Roberts uses Teams, not Slack |
-| Approve-all batch action | Undermines HITL purpose — approvals must be deliberate |
-| Custom evaluator creation from dashboard | Requires deep understanding of scoring criteria — not self-service |
+| Approve-all batch action | Undermines HITL purpose -- approvals must be deliberate |
+| Custom evaluator creation from dashboard | Requires deep understanding of scoring criteria -- not self-service |
 | SMS notifications | Over-engineering for 5-15 internal users |
 
 ## Traceability
@@ -106,52 +106,52 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| AUTH-01 | — | Pending |
-| AUTH-02 | — | Pending |
-| INFRA-01 | — | Pending |
-| INFRA-02 | — | Pending |
-| INFRA-03 | — | Pending |
-| INFRA-04 | — | Pending |
-| PIPE-01 | — | Pending |
-| PIPE-02 | — | Pending |
-| PIPE-03 | — | Pending |
-| PIPE-04 | — | Pending |
-| PIPE-05 | — | Pending |
-| PIPE-06 | — | Pending |
-| PIPE-07 | — | Pending |
-| PIPE-08 | — | Pending |
-| PIPE-09 | — | Pending |
-| PIPE-10 | — | Pending |
-| DASH-01 | — | Pending |
-| DASH-02 | — | Pending |
-| DASH-03 | — | Pending |
-| DASH-04 | — | Pending |
-| DASH-05 | — | Pending |
-| DASH-06 | — | Pending |
-| DASH-07 | — | Pending |
-| GRAPH-01 | — | Pending |
-| GRAPH-02 | — | Pending |
-| GRAPH-03 | — | Pending |
-| GRAPH-04 | — | Pending |
-| GRAPH-05 | — | Pending |
-| GRAPH-06 | — | Pending |
-| GRAPH-07 | — | Pending |
-| GRAPH-08 | — | Pending |
-| PERF-01 | — | Pending |
-| PERF-02 | — | Pending |
-| PERF-03 | — | Pending |
-| HITL-01 | — | Pending |
-| HITL-02 | — | Pending |
-| HITL-03 | — | Pending |
-| HITL-04 | — | Pending |
-| HITL-05 | — | Pending |
-| HITL-06 | — | Pending |
+| AUTH-01 | Phase 12 | Pending |
+| AUTH-02 | Phase 12 | Pending |
+| INFRA-01 | Phase 12 | Pending |
+| INFRA-02 | Phase 12 | Pending |
+| INFRA-03 | Phase 12 | Pending |
+| INFRA-04 | Phase 12 | Pending |
+| PIPE-01 | Phase 13 | Pending |
+| PIPE-02 | Phase 13 | Pending |
+| PIPE-03 | Phase 13 | Pending |
+| PIPE-04 | Phase 13 | Pending |
+| PIPE-05 | Phase 13 | Pending |
+| PIPE-06 | Phase 13 | Pending |
+| PIPE-07 | Phase 13 | Pending |
+| PIPE-08 | Phase 13 | Pending |
+| PIPE-09 | Phase 13 | Pending |
+| PIPE-10 | Phase 13 | Pending |
+| DASH-01 | Phase 14 | Pending |
+| DASH-02 | Phase 14 | Pending |
+| DASH-03 | Phase 14 | Pending |
+| DASH-04 | Phase 14 | Pending |
+| DASH-05 | Phase 14 | Pending |
+| DASH-06 | Phase 14 | Pending |
+| DASH-07 | Phase 14 | Pending |
+| PERF-01 | Phase 14 | Pending |
+| PERF-02 | Phase 14 | Pending |
+| PERF-03 | Phase 14 | Pending |
+| GRAPH-01 | Phase 15 | Pending |
+| GRAPH-02 | Phase 15 | Pending |
+| GRAPH-03 | Phase 15 | Pending |
+| GRAPH-04 | Phase 15 | Pending |
+| GRAPH-05 | Phase 15 | Pending |
+| GRAPH-06 | Phase 15 | Pending |
+| GRAPH-07 | Phase 15 | Pending |
+| GRAPH-08 | Phase 15 | Pending |
+| HITL-01 | Phase 16 | Pending |
+| HITL-02 | Phase 16 | Pending |
+| HITL-03 | Phase 16 | Pending |
+| HITL-04 | Phase 16 | Pending |
+| HITL-05 | Phase 16 | Pending |
+| HITL-06 | Phase 16 | Pending |
 
 **Coverage:**
 - v1 requirements: 34 total
-- Mapped to phases: 0
-- Unmapped: 34 ⚠️
+- Mapped to phases: 34
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-03-03*
-*Last updated: 2026-03-03 after initial definition*
+*Last updated: 2026-03-03 after roadmap creation*
