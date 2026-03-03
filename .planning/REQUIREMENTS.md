@@ -1,84 +1,78 @@
-# Requirements: Orq Agent Designer V4.0
+# Requirements: Orq Agent Designer V5.0 Browser Automation
 
 **Defined:** 2026-03-03
-**Core Value:** Agent swarms don't operate in silos -- overlaps are surfaced, missing coordination is identified, and fixes are proposed or auto-applied across the entire swarm ecosystem.
+**Core Value:** Any colleague can go from a use case description to deployed, tested agents on Orq.ai — including agents that interact with browser-only systems via deterministic Playwright scripts.
 
-## v1 Requirements
+## V5.0 Requirements
 
-Requirements for V4.0 release. Each maps to roadmap phases.
+Requirements for browser automation milestone. Each maps to roadmap phases.
 
-### Ecosystem Mapping
+### Capabilities & Detection
 
-- [ ] **ECO-01**: User can see a unified inventory of all agent swarms from local specs and live Orq.ai state
-- [ ] **ECO-02**: User can see per-agent sync status (in-sync, drifted, spec-only, deployed-only)
-- [ ] **ECO-03**: User can see orphan agents (deployed on Orq.ai without local spec) and ghost specs (local spec with no deployment)
-- [ ] **ECO-04**: User can see a tool registry showing which tools are used across which swarms
-- [ ] **ECO-05**: User can see a KB registry showing knowledge base usage across swarms
-- [ ] **ECO-06**: User can read a human-readable ecosystem report summarizing the entire swarm landscape
+- [ ] **CAP-01**: User can define application capabilities in a config file (system name, integration method, base URL, auth type, available flows)
+- [ ] **CAP-02**: Pipeline detects browser automation needs by matching systems in use case against capabilities config
+- [ ] **CAP-03**: Discussion step asks about unknown systems' integration method and writes discovered capabilities back to config file
+- [ ] **CAP-04**: Pipeline supports mixed swarms where some agents use APIs and others use browser automation
 
-### Drift Detection
+### Script Generation
 
-- [ ] **DRIFT-01**: User can see field-by-field comparison between local spec and deployed Orq.ai state per agent
-- [ ] **DRIFT-02**: User can see drift findings classified by severity (CRITICAL/WARNING/INFO)
-- [ ] **DRIFT-03**: User can see a swarm-level drift summary showing how many agents are drifted per swarm
-- [ ] **DRIFT-04**: User can see a reconciliation direction recommendation (update spec or re-deploy) per drift finding
+- [ ] **SCRIPT-01**: Pipeline generates deterministic Playwright TypeScript scripts from flow descriptions
+- [ ] **SCRIPT-02**: Generated scripts use typed interface contract (async function with typed params and return values)
+- [ ] **SCRIPT-03**: Generated scripts accept runtime parameters (customer ID, invoice number) via parameterized templates
+- [ ] **SCRIPT-04**: Pipeline accepts Playwright codegen recordings as input to improve script accuracy when LLM-only generation fails
+- [ ] **SCRIPT-05**: Pipeline tries LLM-only generation first, falls back to requesting codegen recording if self-test fails
 
-### Overlap & Gap Analysis
+### VPS MCP Server
 
-- [ ] **OVLP-01**: User can see semantic role overlap detection across swarms (REDUNDANT/COMPLEMENTARY/CONFLICTING)
-- [ ] **OVLP-02**: User can see tool duplication report showing shared tools across swarms
-- [ ] **OVLP-03**: User can see blind spot identification highlighting missing handoffs between swarms
-- [ ] **OVLP-04**: User can see a coordination gap report with specific recommendations
-- [ ] **OVLP-05**: User can dismiss overlap findings as accepted (persisted so they don't resurface)
+- [ ] **VPS-01**: MCP server on VPS exposes Playwright scripts as workflow-level MCP tools (one tool per business flow)
+- [ ] **VPS-02**: MCP server uses Streamable HTTP transport compatible with Orq.ai
+- [ ] **VPS-03**: MCP server resolves credentials internally — credentials never flow through agent tool parameters
+- [ ] **VPS-04**: MCP server secured with TLS and authentication (bearer token or equivalent)
 
-### Fix Proposals
+### Deployment
 
-- [ ] **FIX-01**: User can see structured fix proposals with before/after diff preview per finding
-- [ ] **FIX-02**: User can see risk classification (LOW/MEDIUM/HIGH) per proposal
-- [ ] **FIX-03**: User can approve or reject each fix proposal via HITL flow
-- [ ] **FIX-04**: User can see shared context injection proposals (adding cross-swarm awareness to agent instructions)
-- [ ] **FIX-05**: User can see data contract proposals for inter-swarm communication
-- [ ] **FIX-06**: User can see fix provenance tracking (trigger, diff, approver, outcome)
+- [ ] **DEPLOY-01**: Pipeline deploys generated scripts to VPS automatically (no manual SSH/SCP)
+- [ ] **DEPLOY-02**: Script versioning — deployed scripts tracked by version with rollback capability
+- [ ] **DEPLOY-03**: Self-test before deployment — generated scripts run against target system before being deployed
 
-### Command & Integration
+### Agent Wiring
 
-- [ ] **CMD-01**: User can run `/orq-agent:audit` to trigger a full cross-swarm analysis
-- [ ] **CMD-02**: User can see a structured ecosystem report (ECOSYSTEM-REPORT.md) after audit completes
-- [ ] **CMD-03**: Pipeline auto-triggers a lightweight cross-swarm check after each new swarm design
-- [ ] **CMD-04**: Auto-trigger runs in lightweight mode (map + overlap check only) to avoid blocking the pipeline
+- [ ] **WIRE-01**: Tool resolver extended with browser automation resolution path
+- [ ] **WIRE-02**: Generated agent specs include correct MCP tool references pointing to VPS server
 
-## v2 Requirements
+### Hardening
 
-Deferred to V4.1+. Tracked but not in current roadmap.
+- [ ] **HARD-01**: Script health monitoring — MCP tool runs smoke tests on all deployed scripts and reports status
+- [ ] **HARD-02**: Second system validation — pipeline works end-to-end for iController (not just NXT)
 
-### Auto-Apply
+### Validation
 
-- **FIX-07**: Low-risk fixes (shared context additions) auto-applied to spec files with audit trail
-- **FIX-08**: Auto-apply requires evaluator re-run before confirming application
+- [ ] **VAL-01**: End-to-end NXT validation — user describes use case involving NXT, pipeline detects browser need, generates script, deploys, and wires agent spec
 
-### Advanced Analysis
+## Future Requirements
 
-- **OVLP-06**: Cross-swarm data flow diagram visualization
-- **OVLP-07**: Semantic coverage analysis (requires business domain context)
-- **OVLP-08**: Instruction semantic diff (high token cost, marginal improvement over field-level)
+Deferred to future release. Tracked but not in current roadmap.
 
-### Maturity & Reporting
+### Advanced Recording
 
-- **ECO-07**: Swarm maturity scorecard (spec completeness, deploy status, test coverage)
-- **FIX-09**: Batch proposal review (select and apply multiple proposals in one session)
-- **ECO-08**: Incremental analysis (only re-analyze changed swarms)
+- **REC-01**: Video recording + vision LLM approach for non-technical users to capture workflows
+- **REC-02**: Automated codegen session launching from the pipeline (headless codegen)
+
+### Additional Systems
+
+- **SYS-01**: Intelly browser automation (may require headed browser / Xvfb on VPS)
+- **SYS-02**: Auto-discovery of available workflows per system
 
 ## Out of Scope
 
 | Feature | Reason |
 |---------|--------|
-| Real-time agent performance monitoring | Orq.ai handles production observability natively |
-| Automatic agent merging across swarms | Architectural decision requiring human judgment -- cannot be automated |
-| Self-healing detect-fix-deploy loop | Unsupervised production changes are unacceptable for enterprise users |
-| Cross-swarm deployment orchestration | Deploy one swarm at a time via existing V2.0 pipeline |
-| Event trigger proposals | Depends on Orq.ai A2A Protocol maturity -- unconfirmed; defer until platform support is clear |
-| Scheduled/periodic audits | Requires persistent infrastructure; better suited for V3.0 web UI |
-| 3D graph visualization | Adds cognitive load without insight for current swarm sizes |
+| Dynamic/exploratory browser-use | Already handled by existing Orq.ai MCP tools |
+| Generic browser primitives (click, type, navigate) | Tool proliferation problem — V5.0 uses workflow-level tools |
+| Screenshot/vision-based interaction | Less reliable and more expensive than DOM/accessibility-based approach |
+| Self-healing scripts | Masks UI changes; health monitoring + LLM regeneration is safer |
+| Headed browser mode for agents | VPS runs headless; results returned as structured data |
+| Browser automation for all systems at once | Validate pipeline on NXT first, then expand incrementally |
 
 ## Traceability
 
@@ -86,37 +80,33 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| ECO-01 | Phase 17 | Pending |
-| ECO-02 | Phase 17 | Pending |
-| ECO-03 | Phase 17 | Pending |
-| ECO-04 | Phase 17 | Pending |
-| ECO-05 | Phase 17 | Pending |
-| ECO-06 | Phase 17 | Pending |
-| DRIFT-01 | Phase 18 | Pending |
-| DRIFT-02 | Phase 18 | Pending |
-| DRIFT-03 | Phase 18 | Pending |
-| DRIFT-04 | Phase 18 | Pending |
-| OVLP-01 | Phase 19 | Pending |
-| OVLP-02 | Phase 19 | Pending |
-| OVLP-03 | Phase 19 | Pending |
-| OVLP-04 | Phase 19 | Pending |
-| OVLP-05 | Phase 19 | Pending |
-| FIX-01 | Phase 20 | Pending |
-| FIX-02 | Phase 20 | Pending |
-| FIX-03 | Phase 20 | Pending |
-| FIX-04 | Phase 20 | Pending |
-| FIX-05 | Phase 20 | Pending |
-| FIX-06 | Phase 20 | Pending |
-| CMD-01 | Phase 21 | Pending |
-| CMD-02 | Phase 21 | Pending |
-| CMD-03 | Phase 21 | Pending |
-| CMD-04 | Phase 21 | Pending |
+| CAP-01 | — | Pending |
+| CAP-02 | — | Pending |
+| CAP-03 | — | Pending |
+| CAP-04 | — | Pending |
+| SCRIPT-01 | — | Pending |
+| SCRIPT-02 | — | Pending |
+| SCRIPT-03 | — | Pending |
+| SCRIPT-04 | — | Pending |
+| SCRIPT-05 | — | Pending |
+| VPS-01 | — | Pending |
+| VPS-02 | — | Pending |
+| VPS-03 | — | Pending |
+| VPS-04 | — | Pending |
+| DEPLOY-01 | — | Pending |
+| DEPLOY-02 | — | Pending |
+| DEPLOY-03 | — | Pending |
+| WIRE-01 | — | Pending |
+| WIRE-02 | — | Pending |
+| HARD-01 | — | Pending |
+| HARD-02 | — | Pending |
+| VAL-01 | — | Pending |
 
 **Coverage:**
-- v1 requirements: 25 total
-- Mapped to phases: 25
-- Unmapped: 0
+- V5.0 requirements: 21 total
+- Mapped to phases: 0
+- Unmapped: 21
 
 ---
 *Requirements defined: 2026-03-03*
-*Last updated: 2026-03-03 after roadmap creation*
+*Last updated: 2026-03-03 after initial definition*
