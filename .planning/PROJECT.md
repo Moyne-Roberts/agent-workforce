@@ -39,35 +39,35 @@ Shipped in V2.0 (2026-03-02) — 23 requirements:
 
 ### Active
 
-<!-- V4.0 — Cross-Swarm Intelligence -->
+<!-- V5.0 — Browser Automation -->
 
-- [ ] Cross-swarm map pulling from local specs and live Orq.ai state
-- [ ] Drift detection between spec files and deployed agents
-- [ ] Overlap and blind spot analysis across swarms
-- [ ] Coordination gap identification (missing handoffs, shared data points)
-- [ ] Fix proposals with shared signals, data contracts, event triggers
-- [ ] Auto-apply low-risk fixes (shared context); escalate structural changes
-- [ ] Auto-trigger analysis on new swarm design
-- [ ] On-demand audit for existing swarm ecosystems
+- [ ] Application capabilities config file (per-system integration method)
+- [ ] Browser-use detection during spec generation
+- [ ] Playwright script generation for deterministic flows
+- [ ] VPS-hosted MCP server for Playwright scripts
+- [ ] Automated script deployment to VPS
+- [ ] Agent spec wiring with MCP tool references
 
 ### Out of Scope
 
 - Orq.ai Deployments — output targets Agents API (`/v2/agents`), not the simpler Deployments pattern
 - Real-time agent monitoring/observability — Orq.ai handles this natively
 - Auto-update on launch — updates are manual via `/orq-agent:update`
+- Dynamic/exploratory browser-use — already handled by existing Orq.ai MCP tools
 
-## Current Milestone: V4.0 Cross-Swarm Intelligence
+## Current Milestone: V5.0 Browser Automation
 
-**Goal:** Give the agent design pipeline cross-swarm awareness so that swarms don't operate in silos — overlaps are surfaced, missing coordination is identified, and fixes are proposed or auto-applied.
+**Goal:** Pipeline detects browser automation needs, generates deterministic Playwright scripts, deploys them to a VPS-hosted MCP server, and wires agent specs with the right MCP tools — end-to-end for at least one real system (e.g., NXT).
 
 **Target features:**
-- Cross-swarm ecosystem map from local specs + live Orq.ai state with drift reconciliation
-- Overlap and blind spot analysis (e.g., follow-up swarm unaware of dispute swarm state)
-- Fix proposals: shared signals, data contracts, event triggers between swarms
-- Auto-apply low-risk fixes; escalate structural rewiring to humans
-- Auto-trigger on new swarm design + on-demand audit command
+- Application capabilities config file defining per-system integration method (API / browser-only / headed browser)
+- Browser-use detection during spec generation (config file + discussion step fallback for unknown systems)
+- Playwright script generation for deterministic flows (login, navigate, extract data, fill forms)
+- VPS-hosted MCP server exposing Playwright scripts as MCP tools
+- Automated script deployment to VPS via MCP
+- Agent spec wiring with correct MCP tool references for browser automation
 
-**V4.0 scope:** Cross-swarm map and analysis working end-to-end. Auto-fix proposals produced. Full automated rewiring loop is stretch/future.
+**V5.0 scope:** Fixed/deterministic Playwright scripts only. Dynamic browser-use already handled by existing Orq.ai MCP tools (out of scope). At least one real system (NXT) working end-to-end.
 
 ## Context
 
@@ -76,10 +76,11 @@ Shipped in V2.0 (2026-03-02) — 23 requirements:
 - **V2.0 pipeline:** 4 commands (`deploy`, `test`, `iterate`, `harden`) with 4 subagents (deployer, tester, iterator, hardener). MCP-first with REST API fallback. Per-agent incremental operations via `--agent` flag.
 - **V3.0 stack:** Next.js on Vercel (frontend + API routes), Supabase (auth via M365 SSO, DB, Realtime), Claude API (pipeline prompts), Orq.ai API (agent deployment/testing)
 - **V4.0 context:** As swarms multiply across business processes (Invoice-to-Cash, etc.), they develop blind spots — overlapping work, missing handoffs, conflicting actions. The ultra architect layer provides cross-swarm awareness.
+- **V5.0 context:** Many Moyne Roberts systems (NXT, iController, Intelly) lack APIs. Agents interacting with these need browser automation. Fixed Playwright scripts handle deterministic flows; dynamic browser-use is already available via existing Orq.ai MCP tools. Scripts deploy to a VPS-hosted MCP server.
 - **Distribution model:** Web app (primary for non-technical users) + Claude Code skill (for technical users). Both share pipeline logic from the same GitHub repo.
 - **Users:** 5-15 Moyne Roberts employees, mostly non-technical. Web UI is the primary interface; Claude Code remains available for developers.
 - **Codebase:** 10,628 lines across orq-agent/ (markdown + JSON). 43 files: 11 agents, 5 commands, 8 references, 7 templates, SKILL.md, install script
-- **Shipped:** v0.3 (2026-03-01, 50 requirements), V2.0 (2026-03-02, 23 requirements), V3.0 (Web UI — defined, not yet shipped)
+- **Shipped:** v0.3 (2026-03-01, 50 requirements), V2.0 (2026-03-02, 23 requirements), V3.0 (Web UI — defined, not yet shipped), V4.0 (Cross-Swarm Intelligence — defined, not yet shipped)
 
 ## Constraints
 
@@ -115,6 +116,9 @@ Shipped in V2.0 (2026-03-02) — 23 requirements:
 | Cross-swarm intelligence layer | Swarms grow siloed; need ecosystem-level awareness to prevent overlaps and missing handoffs | — Pending |
 | Dual source of truth (specs + Orq.ai) | Drift detection requires reading both local specs and live deployed state | — Pending |
 | Auto-apply low-risk, escalate structural | Shared context additions are safe; rewiring agent relationships needs human judgment | — Pending |
+| MCP server on VPS for Playwright scripts | Agents call browser automation via MCP tools; VPS handles Playwright runtime. Non-technical users never touch it. | — Pending |
+| Fixed scripts over dynamic browser-use | Deterministic Playwright scripts for known flows; dynamic browser-use already solved via existing Orq.ai MCP tools | — Pending |
+| Application capabilities config file | Pipeline reads per-system integration method from config; discussion step fills gaps for unknown systems | — Pending |
 
 ---
-*Last updated: 2026-03-03 after V4.0 milestone start*
+*Last updated: 2026-03-03 after V5.0 milestone start*
