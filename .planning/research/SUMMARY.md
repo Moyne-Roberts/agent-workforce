@@ -1,195 +1,243 @@
 # Project Research Summary
 
-**Project:** Orq Agent Designer — V2.0 Autonomous Orq.ai Pipeline
-**Domain:** Claude Code skill / LLM agent deployment, testing, and prompt iteration tooling
-**Researched:** 2026-03-01
+**Project:** Orq Agent Designer — V3.0 Web UI & Dashboard
+**Domain:** Browser-based AI agent design pipeline with real-time dashboard, node graph visualization, and M365-integrated HITL approval workflows
+**Researched:** 2026-03-03
 **Confidence:** MEDIUM-HIGH
 
 ## Executive Summary
 
-The V2.0 extension of the Orq Agent Designer transforms a spec-generation skill into a full autonomous pipeline: natural language input flows through spec generation (V1.0, complete), then into autonomous deployment to Orq.ai, automated experiment-based testing, human-approved prompt iteration, and production guardrails. The v0.3 foundation has already shipped (modular install tiers, API key validation, MCP auto-registration, capability-gated command stubs, output templates), meaning V2.0 implementation work is focused entirely on replacing stub logic with three new subagent prompts (deployer, tester, iterator) and wiring them into the existing orchestrator pipeline. The recommended approach is MCP-first integration using `@orq-ai/node@^3.14.45` (NOT v4, which dropped the MCP server binary) with a REST API fallback, and `@orq-ai/evaluatorq` for experiment execution. Node.js >= 20 is required.
+V3.0 adds a browser-based interface on top of the completed V1.0/V2.0 Claude Code CLI pipeline, making the Orq.ai agent design workflow self-service for non-technical Moyne Roberts employees. The recommended approach is a Next.js 15 + Supabase + Inngest stack: Next.js App Router for the frontend and API layer, Supabase for auth (Azure AD OAuth), database, and real-time subscriptions, and Inngest for durable async pipeline orchestration that sidesteps Vercel's serverless timeout constraints. The core pipeline logic remains in the existing markdown files — a prompt extraction adapter reads those same files at runtime and calls the Claude API directly, preserving a single source of truth across both the CLI and web interfaces.
 
-The core strategic finding is that no competitor offers the full loop from natural language to production-deployed, tested, and iterated agents. Braintrust, Promptfoo, and LangSmith each handle one or two stages; the Orq Agent Designer integrates them all. This integration IS the competitive moat, and the recommended architecture preserves it by building each V2 stage as a standalone command that also composes into a full pipeline run. The phase sequence — Deploy, then Test, then Iterate, then Harden — is strictly dependency-driven: experiments cannot run against agents that do not exist, and iteration cannot proceed without test results to analyze.
+The critical architectural decision is async pipeline execution. The agent design pipeline runs 2–10 minutes end-to-end, which is incompatible with synchronous serverless functions. Every pipeline step must be a discrete Inngest step with Supabase as the state store; the UI subscribes to Supabase Realtime channels to receive live updates without polling. This pattern also enables the HITL approval flow, where the pipeline writes an approval request to the database and waits for a Supabase row change before proceeding — a clean, restartable gate that does not require a long-lived server process.
 
-The highest-priority risks are: (1) evaluator-as-guardrail may not be available on the Agents API surface (only confirmed on Deployments), requiring early validation before Phase 5 is designed; (2) without hard iteration caps, the autonomous loop can run indefinitely at significant API cost; and (3) MCP state desync between local files and Orq.ai creates ghost deployments that silently corrupt later pipeline stages. All three risks have concrete mitigations that must be validated or designed in at the start of their respective phases, not added retroactively.
+The main risks are architectural and must be addressed in Phase 1 before any UI features are built: synchronous pipeline execution (the "504 wall"), Supabase Realtime subscription leaks, Azure AD SSO misconfiguration causing total lockout, dual-environment pipeline logic divergence between CLI and web, and Claude API cost explosion from web-enabled casual usage. All five are critical-severity pitfalls with concrete prevention strategies. The stack itself is mature and well-documented; the novel challenge is the prompt extraction adapter and async pipeline orchestration pattern, both of which have clear implementation approaches verified from official sources.
 
 ## Key Findings
 
 ### Recommended Stack
 
-The stack is additive to V1.0's zero-dependency baseline. V2.0 introduces runtime npm dependencies only for users who opt into deploy/test/full capability tiers. The critical version constraint is `@orq-ai/node@^3.14.45` — the v3 line is the only version that ships the MCP server binary (`bin/mcp-server.js`); v4 (the npm `latest` tag at 4.4.9) dropped it entirely. Additionally, `@orq-ai/evaluatorq` carries a peer dependency on `@orq-ai/node@^3.9.26`, meaning v4 also breaks experiment execution. Pin explicitly to `@3` in all install commands and MCP config to prevent accidental v4 resolution. Two distinct MCP servers exist and must not be confused: the Docs MCP (`https://docs.orq.ai/mcp`) is read-only documentation search; the Workspace MCP (`@orq-ai/node@3` via npx) provides full platform operations and is what V2.0 uses.
+V3.0 builds on the existing `@orq-ai/node@^3.14.45` and Claude Code skill without replacing them. The new additions are: **Next.js 15** (App Router, React 19, Turbopack) as the web framework; **Supabase** (`@supabase/supabase-js@^2.98.0` + `@supabase/ssr@^0.8.0`) for auth, PostgreSQL, and Realtime; **Inngest** for durable multi-step function orchestration; **`@xyflow/react@^12.10.0`** for the agent swarm node graph; **Recharts + shadcn/ui + Tailwind v4** for the dashboard UI; and **`@anthropic-ai/sdk@^0.39.0`** for server-side pipeline execution. Deployment targets Vercel Pro (required for 300s function timeouts on pipeline routes).
 
 **Core technologies:**
-- `@orq-ai/node@^3.14.45`: TypeScript SDK + MCP server — only v3 ships the MCP binary; satisfies evaluatorq peer dep; do not upgrade to v4
-- `@orq-ai/evaluatorq@^1.1.0`: Experiment runner with Effect-based architecture — handles dataset linking, evaluator attachment, parallel execution, and result upload to Orq.ai
-- `@orq-ai/evaluators@^1.1.0`: Pre-built evaluator functions (cosine similarity, thresholds) — requires `OPENAI_API_KEY` for embedding-based evaluators
-- `@orq-ai/cli@^1.1.0`: Optional CLI for running `.eval.ts` files — useful for CI/CD, not required for MCP-driven workflows
-- Orq.ai REST API (`https://api.orq.ai/v2/`): Full CRUD on agents, tools, datasets, evaluators, experiments, prompts — fallback when MCP unavailable; sole path for experiment operations not exposed via MCP
+- `next@^15.5.0`: Web framework — App Router is stable, React 19 included, Vercel-native. Choose over Next.js 16 (too new for a small team).
+- `@supabase/supabase-js@^2.98.0` + `@supabase/ssr@^0.8.0`: Single BaaS covering auth, DB, and Realtime. Use Azure AD OAuth (not SAML, which requires Pro plan) for M365 SSO. `@supabase/ssr` replaces the deprecated `@supabase/auth-helpers-nextjs`.
+- Inngest: Durable step function orchestration — the only viable pattern for 2–10 minute pipelines on Vercel serverless without rewriting as a monolith.
+- `@xyflow/react@^12.10.0`: Node graph visualization — industry standard (20K+ stars), official shadcn/ui integration, handles 2–15 node swarms without WebGL overhead. Replaces unmaintained `reactflow` package.
+- `@anthropic-ai/sdk@^0.39.0`: Claude API for server-side pipeline execution — called from Inngest steps. Server-side only; never import in Client Components.
+- `recharts@^2.15.0` + `shadcn/ui`: Dashboard charts and UI components — Recharts underlies shadcn/ui charts; skip the Tremor abstraction layer.
+- `@tanstack/react-query@^5.67.0`: Client-side data caching for non-realtime queries (agent lists, historical results).
+- `@orq-ai/node@^3.14.45`: Imported directly in API routes for Orq.ai operations. NOT via MCP server — MCP is a Claude Code transport layer, not an HTTP interface.
 
-**What NOT to use:** `@orq-ai/node@4` (dropped MCP binary, breaks evaluatorq peer dep), LangChain/LangGraph/CrewAI (V2.0 deploys TO Orq.ai runtime — local execution frameworks are the wrong abstraction), Orq.ai Deployments API `/v2/deployments` (single-call, no orchestration; use Agents API), Jest/Vitest (evaluatorq handles experiment execution), custom MCP server wrapper (`@orq-ai/node@3` is already the MCP server).
+**Critical version/configuration notes:**
+- Use `@supabase/ssr` — NOT deprecated `@supabase/auth-helpers-nextjs`
+- Use `@xyflow/react` — NOT old `reactflow` package (unmaintained at v11.11.4)
+- Vercel Pro plan required for 300s function timeout on pipeline routes (free tier: 10s)
+- Azure AD OAuth with tenant URL restriction configured in Supabase Auth settings
+- `@orq-ai/node` v3 pinned (same as V2.0); imported as REST SDK in web app, not as MCP server
+
+**What NOT to add:**
+NextAuth.js (unnecessary — Supabase Auth handles Azure AD natively), Socket.io/Pusher (Supabase Realtime covers all real-time needs), Redux/Zustand (Server Components + React Query + Realtime cover all state), Prisma/Drizzle ORM (Supabase client + generated types is sufficient), LangChain.js (wrong abstraction — the web app calls Claude directly for prompts and Orq.ai directly for deployment).
 
 ### Expected Features
 
-Feature phases follow a strict dependency chain: v0.3 Foundation gates all V2 work; Deploy gates Test; Test gates Iterate; Iterate gates Guardrails. Each phase is also independently invokable via its slash command for incremental use.
+The research categorizes V3.0 features across five areas: Self-Service Pipeline UI, Real-Time Dashboard, Node Graph Visualization, Agent Performance Dashboard, and HITL Approval Flow. No competitor combines natural language input, auto-generated agent architectures, visual graph output, evaluator-based performance scoring, and HITL approval flows in a single non-technical-user-friendly interface — that combination is the differentiator.
 
-**Must have (table stakes):**
-- Autonomous agent and tool creation/update via MCP (preferred) or REST API — core automation
-- Tool-before-agent deployment ordering — tools must exist in Orq.ai before agents that reference them
-- Idempotent create-or-update (GET-before-POST) — safe re-runs with no duplicates or errors
-- Orchestration wiring (`team_of_agents`, `retrieve_agents`, `call_sub_agent`) — multi-agent swarm support requires sub-agents deployed before orchestrator
-- Deploy-verify-record pattern — read back every resource after writing; never assume success from non-error response
-- Dataset upload and transformation from V1.0 markdown format to Orq.ai row format (chunked at 5,000 rows per request)
-- Role-based evaluator selection heuristic (structural agents get JSON validators; conversational agents get coherence/helpfulness/relevance; all agents get instruction_following)
-- Experiment execution via evaluatorq with 3x median runs and variance tracking — single-run evaluation is a disqualifying design flaw
-- Results collection formatted as readable markdown with confidence intervals, per-agent scores, and worst-case analysis
-- Per-agent, per-iteration user approval gate (HITL) with diff view — no "approve all" option in V2.0
-- Iteration stopping conditions: max 3 cycles, 5% diminishing returns threshold, 10-minute wall-clock timeout, 50 API call budget ceiling
-- Local audit trail: deploy-log.json, test-results.json, iteration-log.json (machine-readable for inter-stage handoffs)
+**Must have (P0 — table stakes, required for launch):**
+- M365 SSO authentication gate — blocks everything without it; Azure AD OAuth via Supabase
+- Use case text input with guidance — placeholder text, examples, character guidance
+- Pipeline step indicator — stepper showing pending/active/complete/error states per stage
+- Live status messages per step — Supabase Realtime-driven, updated every 2–5 seconds
+- Output display (agent specs) — formatted cards per agent, collapsible detail, read-only
+- Error handling with plain-language recovery — retry/back/restart options; no raw stack traces
+- Session persistence — Supabase DB saves pipeline state after each step; 7-day expiry
+- Pipeline run list with status — table sorted by recency with status badges
+- Step-by-step progress for active run — real-time via Supabase Postgres Changes
+- Node-per-agent graph with directed edges — React Flow, auto-layout (dagre/elkjs), orchestrator node visually distinct
+- Agent detail slide-out panel on node click — role, model, description, tools, link to Orq.ai Studio
 
-**Should have (differentiators):**
-- End-to-end spec-to-production pipeline — the full loop is the moat; no competitor offers this integration
-- Smart evaluator selection using V1.0 architect blueprint context (pipeline "knows" agent role and domain)
-- Evaluator-based guardrails on deployed agents — contingent on API surface validation; may require application-layer implementation
-- Threshold-based quality gates (configurable per-evaluator minimums before marking production-ready)
-- Incremental per-agent deployment (deploy-test-iterate each agent, then wire orchestration)
-- Diff-based prompt versioning with rollback to previous iteration
+**Should have (P1 — core value justifying the web UI over the CLI):**
+- One-click deploy to Orq.ai — the killer feature for non-technical users
+- In-app HITL approval UI — approve/reject/request changes with diff view, mobile-friendly
+- Approval queue and status tracking — pipeline pauses via Inngest `waitForEvent`, resumes on Supabase row change
+- Approval history / audit log — who approved what and when; non-deletable
+- Email notifications for pending approvals — Microsoft Graph `sendMail` API (M365 already in use for SSO)
+- Pipeline execution overlay on graph — nodes animate during execution via Realtime (the "wow factor")
+- Per-agent and per-evaluator score display — read-only performance data from V2.0 test runs
 
-**Defer to V2.1+:**
-- Knowledge base automated provisioning — different domain, massive scope increase
-- Multi-environment deployment (dev/staging/prod) — Orq.ai does not natively support environment-based agent separation; use agent versioning instead
-- Real-time production monitoring dashboard — duplicates Orq.ai's native observability; reference platform's built-in traces instead
-- "Approve all" batch approval mode — only after trust is established with the non-technical user base
+**Should have (P2 — polish, not blocking launch):**
+- Use case templates and recent runs — reduce friction for common patterns
+- Complexity preview before pipeline runs — set expectations, reduce abandonment
+- Cancel running pipeline — escape hatch for wrong inputs
+- Duration per step and total — elapsed time with comparison to average
+- Status badges on graph nodes — gray/blue/green/red/yellow lifecycle states
+- Zoom/pan/fit-to-view — React Flow built-in controls with minimap
+- Export graph as PNG/SVG
+
+**Defer to V3.1+:**
+- Teams notifications — requires Teams app registration, Adaptive Cards, separate workstream from SSO
+- Score trend charts across iterations — not useful until test/iterate is web-enabled
+- Prompt change diff viewer — depends on iterate capability in web UI
+- Worst-performing test cases display — needs test triggering from web UI
+- Historical run comparison — needs accumulated data over time
+- Live log stream — technical users have Claude Code
+- Delegation/escalation for approvals — premature for 5–15 users
+
+**Explicitly do not build:**
+Visual pipeline builder / drag-and-drop agent wiring (the AI does the wiring — this is an anti-feature); editable spec fields in UI (18 Orq.ai fields confuse non-technical users); real-time production metrics (Orq.ai handles observability natively); 3D graph visualization; batch approve-all action (undermines HITL purpose); custom evaluator creation from dashboard.
 
 ### Architecture Approach
 
-V2.0 extends V1.0's orchestrator pipeline by appending three new stages (Steps 7-9) after the existing Step 6 final summary, gated by the capability tier stored in `.orq-agent/config.json`. The work is focused: create three subagent prompt files (deployer.md, tester.md, iterator.md) in the existing `agents/` directory, and fill in the placeholder stubs in the three existing command files (deploy.md, test.md, iterate.md). No V1 components change. The deployer reads V1.0 spec markdown and uses LLM parsing (no regex) to extract fields and construct API payloads — the spec template's structure intentionally mirrors the `/v2/agents` API fields. All V2 inter-stage state is JSON (deploy-log.json, test-results.json, iteration-log.json) for deterministic machine-to-machine handoffs, while V1 markdown output remains unchanged for human readability.
+V3.0 introduces a dual-interface model: the existing Claude Code CLI continues to work unchanged while the new Next.js web app provides a browser-based alternative. Both interfaces share the same markdown prompt files from the repo — the web app reads them via a prompt extraction adapter that strips Claude Code-specific directives (`<files_to_read>` blocks, YAML frontmatter) and calls the Claude API directly with the extracted system prompt and resolved context. The key structural shift is that Claude Code's interactive agent loop is replaced by Inngest durable functions where the Inngest orchestrator (not the LLM) manages tool calls and step sequencing. Supabase is the single state store and real-time event bus connecting all components.
 
 **Major components:**
-1. **Deployer subagent** (`agents/deployer.md`) — reads V1.0 agent spec markdown, extracts 18 Orq.ai API fields, creates/updates tools then sub-agents then orchestrator in dependency order, writes deploy-log.json with version numbers
-2. **Tester subagent** (`agents/tester.md`) — uploads V1.0 datasets to Orq.ai with train/test/holdout split enforcement, selects evaluators by agent role heuristic, executes experiments via evaluatorq with 3x median runs, formats test-results.json with confidence intervals
-3. **Iterator subagent** (`agents/iterator.md`) — analyzes test results, correlates low evaluator scores to specific XML-tagged prompt sections, proposes surgical changes with reasoning, enforces HITL approval gate with diff view, logs all changes with before/after scores; does NOT directly call deployer or tester — orchestrator mediates re-deployment and re-testing
-4. **MCP/REST adapter pattern** (within subagent prompts) — attempt MCP tool call first; on failure fall back to REST curl; detect integration path at session start, never switch mid-session; normalize error formats into a common type
-5. **Orchestrator pipeline extension** (`commands/orq-agent.md`) — gates Steps 7-9 on capability tier from config.json, wires deployer/tester/iterator, mediates re-deployment and re-testing during iteration loop
+1. **Next.js Frontend (App Router)** — Pipeline wizard, dashboard, node graph, HITL approval UI. Server Components fetch initial data; Client Components handle Realtime subscriptions and interactive graph. Strict boundary: Realtime subscriptions live in `components/realtime/`, never in Server Components.
+2. **Next.js API Routes** — HTTP endpoints for triggering pipelines, recording approvals, and data queries. Trigger Inngest functions and write state to Supabase. All pipeline execution is server-side only.
+3. **Inngest Durable Functions** — Multi-step pipeline orchestration with automatic retry and step-level state persistence. Each pipeline stage (discuss, architect, spec-gen, deploy, etc.) is a discrete `step.run()` that stores output in Supabase before the next step begins. Supports `step.waitForEvent()` for HITL approval gates.
+4. **Prompt Extraction Adapter (`lib/pipeline/prompt-adapter.ts`)** — Reads existing `.md` subagent files, strips `<files_to_read>` directives, resolves context files, and constructs Claude API messages. This is the architectural bridge between the existing skill and the web runtime. Single source of truth for pipeline logic.
+5. **Supabase (Auth + DB + Realtime)** — Azure AD OAuth for M365 SSO; PostgreSQL schema (`pipeline_runs`, `pipeline_steps`, `agent_specs`, `swarm_graph`, `approval_requests`) with RLS on all tables; Realtime pushes step status changes to dashboard clients. Organization-level read access (all authenticated users see all runs for this small team).
+6. **`@xyflow/react` Node Graph** — Graph structure (nodes/edges) from `swarm_graph` table; status overlays from `pipeline_steps` Realtime subscriptions. Node and edge components memoized with `React.memo()` to prevent re-render churn. Status updates batched to 1-second intervals.
 
-**Key anti-patterns to avoid:** Separate JSON deployment manifest (two sources of truth that drift); fully autonomous iteration without approval (dangerous for non-technical users); deploying orchestrator before sub-agents (team_of_agents requires sub-agent keys to exist first); rewriting entire prompts during iteration (loses V1.0 XML context engineering work; only surgical section changes); ignoring MCP and going straight to curl (MCP is already registered and provides cleaner tool calls).
+**Key patterns to follow:**
+- Async job queue: API route triggers Inngest function → returns job ID immediately → UI subscribes to Realtime for progress updates
+- Server Component fetches initial page data; Client Component subscribes to Realtime for live updates — Realtime requires browser WebSocket and cannot run in Server Components
+- Singleton Supabase browser client per session, shared across all Client Components via React context
+- Explicit pipeline state machine with enum: `pending → discussion → running → awaiting_approval → completed/failed/cancelled`
+- Supabase Broadcast for high-frequency progress messages (transient, low-latency); Postgres Changes for persistent state transitions (final status writes)
+- Inngest functions use service role key (bypasses RLS); frontend uses anon key (RLS enforced)
 
 ### Critical Pitfalls
 
-1. **Guardrails wrong API surface** — Orq.ai's evaluator-as-guardrail feature is confirmed on Deployments but NOT confirmed on the Agents API. Validate hands-on in Phase 2 before designing Phase 5. If unavailable on Agents, redesign to application-layer guardrails (run evaluator post-execution, gate on result) rather than blocking on a potentially missing API feature.
+1. **Vercel function timeout — "504 wall"** — The pipeline runs 2–10 minutes; serverless functions default to 10s (Hobby) or 60s (Pro), configurable to 300s. A single API route handling the full pipeline will time out in production even if it works in local development. Prevention: use Inngest for all pipeline orchestration with discrete steps; set `maxDuration: 300` explicitly on all pipeline API routes; never build a synchronous pipeline. Must be the first architectural decision in Phase 1 — cannot be retrofitted.
 
-2. **Runaway autonomous iteration loop** — Without hard caps, the loop optimizes indefinitely at API cost. Must build in from day one: max 3 iterations, 50 API calls budget ceiling, 5% diminishing returns gate, 10-minute wall-clock timeout. These are non-negotiable and cannot be added retroactively after the first user hits runaway behavior.
+2. **Supabase Realtime subscription leaks** — Components subscribe in `useEffect` without cleanup → zombie subscriptions accumulate → connection limit hit → dashboard stops receiving updates. Prevention: always return `supabase.removeChannel()` in useEffect cleanup; use a singleton Supabase browser client; monitor subscription count; prefer Broadcast over Postgres Changes for high-frequency updates. Establish in Phase 1 before any Realtime features are built.
 
-3. **MCP state desync (ghost deployments)** — MCP calls are not transactional. Local state and Orq.ai state can diverge. Implement the deploy-verify-record pattern as the architectural foundation of every deployment operation: write to Orq.ai, immediately read back, compare, log version number. Never assume success from a non-error MCP response.
+3. **Azure AD SSO misconfiguration = total lockout** — M365 SSO is the only auth method; wrong tenant ID, expired client secret, or unregistered redirect URI locks out all users with no self-service recovery. Prevention: register redirect URIs for all environments (prod, staging, local); set client secret expiry monitoring with rotation procedure; configure Azure app as single-tenant; document emergency service-role bypass in secure runbook; test SSO monthly. Address in Phase 1.
 
-4. **Prompt overfitting to evaluation dataset** — After 3-5 iterations, prompt scores improve on test data but degrade on real-world inputs. Enforce train/test/holdout splits before any iteration begins, with holdout never exposed during iteration. Require minimum 30 examples before allowing automated iteration. Use LLM-as-judge semantic evaluators rather than exact-match evaluators for iteration feedback.
+4. **Dual-environment pipeline logic divergence** — Prompts hardcoded separately in `.md` files (CLI) and `api/*.ts` (web app) diverge immediately as the two environments evolve independently. Prevention: extract all prompts to a shared `pipeline/prompts/` directory consumed by both environments; define step input/output schemas; maintain golden input/output parity test pairs. This must be the first architectural decision — unfixable retroactively at scale.
 
-5. **API key exposure in audit trails** — The key flows through multiple touchpoints (onboarding, MCP config, curl fallback calls, audit files). Store only as environment variable. Never write to any generated file. All audit entries must log summaries, not full API responses or auth headers.
+5. **Claude API cost explosion from casual web usage** — Non-technical users run the pipeline experimentally; a 5-agent swarm costs $2–5 per run; no quotas or cost visibility → unpredictable bills that compound with each new user. Prevention: show estimated cost before execution; implement per-user daily/weekly quotas tracked in Supabase; enable prompt caching for static pipeline prompts; implement request queue with 429/529 exponential backoff; never surface raw API errors. Address in Phase 2 alongside first pipeline features — not after costs spike.
 
 ## Implications for Roadmap
 
-The v0.3 Foundation is shipped. All remaining V2.0 work fits into four implementation phases. The dependency chain is strict and consistent across all four research files. Each phase produces an independently testable standalone command before orchestrator wiring.
+The research reveals a clear phase dependency structure. The foundational infrastructure (auth, async pipeline pattern, shared prompts, Supabase schema) must be complete before any UI feature can function correctly. All five critical pitfalls target Phase 1 — they cannot be fixed without full rewrites if addressed later. The pipeline UI (Phase 2) must produce data before the graph visualization (Phase 3), HITL approvals (Phase 4), or performance dashboard (Phase 5) have anything meaningful to display.
 
-### Phase 1 (COMPLETE): Foundation — v0.3
-**Rationale:** Infrastructure before automation. API key handling, MCP registration, capability tiers, and command stubs must exist before any deployment or testing features.
-**Status:** Shipped 2026-03-01. All 10 requirements satisfied. No work remaining.
-**Delivered:** Modular install (core/deploy/test/full tiers), API key validation via `/v2/models`, MCP auto-registration, capability-gated command stubs with upgrade messaging, output templates (deploy-log, test-results, iteration-log), API endpoint reference, evaluator type reference (41 total), agentic patterns reference.
+### Phase 1: Foundation — Auth, Infrastructure, and Async Pipeline Architecture
 
-### Phase 2: Autonomous Deployment
-**Rationale:** Foundation of all subsequent phases. Experiments cannot run against agents that do not exist; iteration cannot redeploy without the deployer working. Build deployer as a standalone testable command first, then wire into orchestrator in Phase 5. The MCP/REST adapter abstraction must be built here — not retrofitted after deployment features exist. Validate guardrails API surface here to unblock Phase 5 design.
-**Delivers:** `agents/deployer.md` subagent prompt; deploy logic replacing stub in `commands/deploy.md`; MCP/REST adapter pattern (single integration interface, session-start path detection, normalized error handling); idempotent create-or-update for tools and agents; sub-agent then orchestrator deployment ordering; deploy-verify-record pattern (architectural foundation); version tracking in deploy-log.json; deployment status reporting.
-**Uses:** `@orq-ai/node@^3.14.45` SDK, Orq.ai REST API (`/v2/agents`, `/v2/tools`), Orq.ai Workspace MCP server.
-**Avoids:** MCP state desync — deploy-verify-record built as foundation, not added later; MCP/API fallback chaos — single adapter interface with session-start detection; API key exposure — env var only in all curl fallback calls and audit logs.
-**Research flag:** Validate exact MCP tool names from `@orq-ai/node` SDK before writing subagent prompts (call `claude mcp list-tools orq` or inspect SDK source; record in a reference file). Validate agent lookup by key vs. by ID. Validate guardrails API surface on `/v2/agents` to unblock Phase 5 design decision — this cannot wait until Phase 5.
+**Rationale:** Auth is the access gate for everything; Supabase schema is what all UI reads and writes; the async pipeline execution pattern is the load-bearing architectural decision that cannot be changed later. All 5 critical pitfalls are addressed here or never.
+**Delivers:** Working M365 SSO login (Azure AD OAuth); Next.js project structure with strict Server/Client Component boundaries; Supabase schema with RLS enabled on all tables; Supabase CLI migrations in git (no manual dashboard schema changes); Inngest pipeline orchestration skeleton; prompt extraction adapter reading existing `.md` files; typed environment variable validation; isolated preview deployments with separate Supabase project; singleton Supabase browser client pattern; `components/realtime/` directory convention for subscription management.
+**Addresses:** M365 SSO authentication (P0), session persistence (P0), pipeline state machine.
+**Avoids:** Pitfalls 1 (timeout — Inngest from the start), 2 (subscription leaks — singleton + cleanup pattern), 3 (SSO lockout — monitoring + emergency bypass), 4 (logic divergence — shared prompt directory), 7 (RLS gaps — all tables secured at creation), 8 (Server/Client boundary — file structure enforces convention), 9 (implicit state machine — enum defined before first pipeline), 11 (env var sprawl — validated at startup), 12 (unversioned migrations), 13 (preview/production data contamination).
+**Research flag:** Validate Inngest step function + Supabase write pattern in Next.js 15 App Router via prototype before committing. The combination is new enough that edge cases in step retry behavior under Supabase write failure should be confirmed early.
 
-### Phase 3: Automated Testing
-**Rationale:** Depends on Phase 2 (needs deployed agents). Establishes evaluation harness with statistical robustness before any iteration is attempted. The train/test/holdout dataset split that prevents prompt overfitting must be enforced here, before the iteration loop is built. Results must be reliable before they can drive automated decisions.
-**Delivers:** `agents/tester.md` subagent prompt; test logic replacing stub in `commands/test.md`; dataset transformation pipeline (V1.0 markdown to Orq.ai row format, chunked at 5,000 rows); train/test/holdout split enforcement (minimum 30 examples required); role-based evaluator selection (structural: json_validity; conversational: coherence/helpfulness/relevance; all: instruction_following); experiment execution via evaluatorq with 3x median and variance tracking; test-results.json with confidence intervals and worst-case analysis; smoke-test subset definition (10-15 examples for iteration feedback, full suite for final validation).
-**Uses:** `@orq-ai/evaluatorq@^1.1.0`, `@orq-ai/evaluators@^1.1.0`, Orq.ai REST API (`/v2/datasets`, `/v2/evaluators`, `/v2/experiments`).
-**Avoids:** Non-deterministic eval results — 3x median built in from day one; prompt overfitting — train/test/holdout split enforced before iteration loop is built; evaluator proliferation — create once per agent type, reuse deterministically with consistent naming.
-**Research flag:** Validate experiment API request/response schema (`POST /v2/experiments` body for linking agent + dataset + evaluators) via test API call before writing tester. Validate evaluatorq SDK behavior for each custom evaluator type (LLM, Python, HTTP, JSON) with actual calls. Verify Orq.ai evaluator project-scoping migration status before creating evaluators — always create within project context.
+### Phase 2: Self-Service Pipeline UI and Real-Time Dashboard
 
-### Phase 4: Prompt Iteration Loop
-**Rationale:** Depends on Phase 3 (needs test results to analyze). Closes the feedback loop. HITL approval gates are non-negotiable for a 5-15 non-technical user audience. All four hard stopping conditions must be built from day one — not added after users hit runaway behavior.
-**Delivers:** `agents/iterator.md` subagent prompt; iterate logic replacing stub in `commands/iterate.md`; failure pattern analysis correlating low evaluator scores to specific XML-tagged prompt sections; diff-based change proposals with per-change reasoning tied to specific test failures; per-agent per-iteration approval flow with diff view before every change; hard stopping conditions (max 3 iterations / 50 API calls / 10 min / 5% improvement gate); re-deploy and re-test of changed agents only via orchestrator mediation; iteration-log.json accumulated per cycle; two-layer audit trail (user-facing summary + technical log); session summary at end of every run.
-**Avoids:** Runaway iteration loops — all four stopping conditions built from day one; lost user oversight — per-iteration approval enforced, plain-language summaries, diff view before every change, session summary at end; prompt overfitting — respects train/test/holdout split from Phase 3; surgical XML-section changes only, no full prompt rewrites.
-**Research flag:** Standard HITL pattern and audit trail design. No deep research needed. Validate that the iterator-to-orchestrator-to-deployer/tester handoff works cleanly before considering any direct iterator-to-subagent calls.
+**Rationale:** The pipeline UI is the critical path. Without pipeline execution via web, there is no data for the dashboard, graph, or performance views. Cost controls (Pitfall 5) must be built alongside the first pipeline features.
+**Delivers:** Use case text input form with guided examples and templates; pipeline step indicator and live status messages via Supabase Realtime Broadcast; structured output display (agent spec cards, collapsible detail); plain-language error handling with retry/back/restart; pipeline run list with status badges; step-by-step progress for active runs via Postgres Changes; duration tracking; one-click deploy to Orq.ai via `@orq-ai/node` SDK; per-user cost estimation displayed before execution; per-user daily/weekly quotas tracked in Supabase; Claude API request queue with 429/529 backoff and prompt caching for static pipeline prompts.
+**Uses:** Inngest functions (Phase 1), Supabase Realtime singleton client (Phase 1), `@anthropic-ai/sdk` streaming, `@orq-ai/node` SDK directly (not MCP).
+**Implements:** Prompt extraction adapter producing real pipeline output; async job queue pattern with immediate job ID return and Realtime subscription for progress.
+**Avoids:** Pitfall 5 (cost explosion — quotas and caching built in from the start, not after costs spike).
+**Research flag:** Standard patterns well-documented. No additional research phase needed. Confirm all V3.0-required Orq.ai deploy operations are available via `@orq-ai/node` REST SDK (not MCP-only) before this phase begins.
 
-### Phase 5: Guardrails and Hardening
-**Rationale:** Reuses evaluators from Phase 3 and deployment mechanism from Phase 2. No new platform primitives required. However, Phase 5 design is blocked on the Agents API guardrail surface validation from Phase 2 — build the design decision before starting implementation.
-**Delivers:** Threshold-based quality gates (configurable per-evaluator minimums as "production-ready" condition); evaluator-based guardrails — either via native Orq.ai evaluator attachment on agents (if API supports it) or application-layer post-execution gating (if it does not); incremental per-agent deployment option (deploy-test-iterate each agent, then wire orchestration); updated `SKILL.md` with new subagents indexed; updated `commands/help.md` with V2 capability discovery; edge case handling and error recovery for all three pipeline stages.
-**Avoids:** Shipping agents that pass some tests but fail critical evaluators; silent capability failures — every command checks requirements at startup with explicit error messages.
-**Research flag:** Design decision is blocked on Phase 2 API validation. If `/v2/agents` does not support evaluator attachment, implement application-layer guardrails rather than blocking on an unavailable feature. The implementation approach differs significantly — resolve before Phase 5 begins.
+### Phase 3: Agent Swarm Node Graph Visualization
+
+**Rationale:** Node graph depends on structured agent relationship data produced by the Phase 2 pipeline. Building after Phase 2 means real data is available for testing from day one, avoiding premature assumptions about the data model.
+**Delivers:** React Flow graph with node-per-agent auto-layout (dagre or elkjs for hierarchical swarm structure); directed edges showing data flow from `ORCHESTRATION.md` output; orchestrator node visually distinct (different color/size/icon); agent detail slide-out panel on click; pipeline execution overlay (nodes animate during Phase 2 pipeline runs via Realtime); zoom/pan/fit-to-view with minimap; status badges (gray/blue/green/red/yellow lifecycle); export graph as PNG.
+**Uses:** `@xyflow/react@^12.10.0`, `swarm_graph` Supabase table (Phase 1 schema), Realtime subscriptions on `pipeline_steps` (Phase 1 singleton client).
+**Implements:** `React.memo()` on all node and edge components; 1-second update batching for status overlays; separated layout state (rarely changes) from status state (changes frequently).
+**Avoids:** Pitfall 6 (React Flow performance — memoization and batching required from the start, not retrofitted when users report jank).
+**Research flag:** Verify update batching approach for the execution overlay — specifically how to coalesce `pipeline_steps` Postgres Changes into 1-second React Flow re-renders without dropping updates. Prototype before full implementation.
+
+### Phase 4: HITL Approval Flow (In-App + Email Notifications)
+
+**Rationale:** HITL depends on the pipeline being able to write approval requests and pause execution (the Inngest `waitForEvent` pattern established in Phase 1). Email notifications via Microsoft Graph require Azure app permission grants that may need IT coordination — placing Phase 4 after Phase 3 provides buffer time if that process is slow.
+**Delivers:** Approval queue in navigation with badge count; approval card UI with diff view (proposed changes + affected test cases); approve/reject/request-changes actions with inline comments stored in audit log; approval status tracking via Inngest `step.waitForEvent()` — pipeline suspends on approval request, resumes when Supabase row changes; approval history/audit log (non-deletable, required for enterprise trust); email notifications via Microsoft Graph `sendMail` API using the authenticated user's M365 token; 30-minute reminder and 2-hour auto-expire with re-initiate notification; prominent pending approval indicators in dashboard.
+**Uses:** `approval_requests` Supabase table (Phase 1 schema); Inngest `step.waitForEvent()` for pipeline suspension; Microsoft Graph API (new dependency — requires Azure app `Mail.Send` permission).
+**Avoids:** Pitfall 10 (HITL blocking indefinitely — timeouts, reminders, and multi-channel paths required from the start, not added when a pipeline stalls for 8 hours).
+**Research flag:** Verify Microsoft Graph `sendMail` token scope requirements within the existing Azure AD OAuth session. Delegated permissions (`Mail.Send`) vs. application permissions have different admin consent flows. Confirm whether Moyne Roberts IT needs to grant consent before Phase 4 begins — this could add lead time.
+
+### Phase 5: Agent Performance Dashboard
+
+**Rationale:** The performance dashboard is read-only in V3.0 scope — it displays results from V2.0 CLI runs stored in Supabase. It depends on the Phase 1 schema and real Phase 2 pipeline data. Building last allows accumulated data to validate the views before shipping. It can be deferred without blocking V3.0 launch if schedule pressure arises.
+**Delivers:** Per-agent score summary cards (green >0.80, yellow 0.60–0.80, red <0.60); per-evaluator score breakdown table and bar chart; swarm-level aggregate health summary ("4/5 agents passing all evaluators"); guardrail status indicator per agent (badge showing guardrail count and types); read-only test results from V2.0 runs stored in Supabase; "View in Orq.ai" link per agent for production observability.
+**Uses:** `agent_specs` and test results data in Supabase (Phase 1 schema); Recharts for score charts; shadcn/ui cards, tables, badges.
+**Research flag:** Standard read-only dashboard patterns. No additional research phase needed. V3.1+ test-triggering and iteration from the web UI will add complexity — defer that research to V3.1 planning.
 
 ### Phase Ordering Rationale
 
-- **v0.3 Foundation already shipped:** Phase 1 is done. All subsequent phases build on a working install, API key, MCP registration, and command stubs. Implementation phases start at Phase 2.
-- **Strictly dependency-driven sequence:** Deployer before tester (experiments require deployed agents — platform-enforced); tester before iterator (iteration requires test results); guardrails reuse Phase 3 evaluators (so must follow).
-- **Standalone commands before orchestrator wiring:** Each subagent is independently testable via its slash command before being integrated into the full pipeline. This mirrors V1.0's proven development pattern, catches bugs early, and reduces integration risk.
-- **Adapter layer in Phase 2, not later:** If MCP and REST paths are built separately per feature and unified retroactively, the adapter never fully abstracts the differences. It must be the first thing built in Phase 2.
-- **Validate guardrails API surface in Phase 2:** The Phase 5 design decision depends on whether `/v2/agents` supports evaluator attachment. This cannot wait until Phase 5 begins — the architecture differs fundamentally between native attachment and application-layer.
+- Auth and schema are hard blockers — no UI feature works without them; they cannot be added incrementally.
+- Inngest async pipeline pattern is the load-bearing architectural decision — building any pipeline features before this is established means full rewrites. It is cheaper to build it right in Phase 1 than to retrofit.
+- The pipeline UI (Phase 2) is the critical path — the graph (Phase 3), HITL (Phase 4), and performance dashboard (Phase 5) are all consumers of data the pipeline produces. None have meaningful content until Phase 2 runs.
+- HITL (Phase 4) has an external dependency on Microsoft Graph permissions that may require IT coordination; placing it after Phase 3 provides scheduling buffer.
+- Performance dashboard (Phase 5) is read-only and lower risk; it can slip to a V3.0 follow-up without affecting the core web UI value proposition.
 
 ### Research Flags
 
-Phases needing validation during implementation:
-- **Phase 2 (Deploy):** Validate exact MCP tool names from `@orq-ai/node` SDK via `claude mcp list-tools orq` before writing deployer prompt. Validate agent lookup by key (GET by key directly vs. list-and-filter). Validate guardrails API surface on `/v2/agents` to unblock Phase 5 design — cannot wait until Phase 5.
-- **Phase 3 (Test):** Validate experiment API schema (`POST /v2/experiments` body for linking agent + dataset + evaluators) via test API call before writing tester. Validate evaluatorq SDK behavior for each custom evaluator type with actual calls. Verify evaluator project-scoping migration status.
-- **Phase 5 (Guardrails):** Design decision blocked on Phase 2 validation. If Agents API lacks native evaluator attachment, full redesign to application-layer required. Do not start Phase 5 implementation without this decision made.
+Needs deeper research during planning:
+- **Phase 1 (Inngest):** Verify durable step execution + Supabase write pattern in Next.js 15 App Router. Build a prototype before committing the full architecture.
+- **Phase 3 (React Flow Realtime overlay):** Verify 1-second update batching approach for execution overlay with Postgres Changes. Prototype the batching mechanism before full graph implementation.
+- **Phase 4 (Microsoft Graph mail):** Verify token scope and admin consent requirements for `sendMail` within the existing Azure AD OAuth session. Determine if IT involvement is needed before Phase 4 begins.
 
-Phases with standard patterns (no additional research needed):
-- **Phase 4 (Iterate):** HITL approval flow, stopping conditions, and audit trail patterns are well-documented and clearly specified. Surgical XML-section changes are straightforward given V1.0's XML-tagged spec format.
-- **Phase 5 orchestrator wiring and polish:** Standard component composition. V1.0 established the pattern; V2.0 appends three stages to an existing workflow.
+Standard patterns (skip research phase):
+- **Phase 2 (Pipeline UI):** Next.js App Router + Supabase Realtime patterns thoroughly documented with official examples. Inngest + Supabase has documented integration.
+- **Phase 5 (Performance Dashboard):** Standard read-only dashboard using Recharts + shadcn/ui. No novel integrations.
 
 ## Confidence Assessment
 
 | Area | Confidence | Notes |
 |------|------------|-------|
-| Stack | HIGH | All package versions verified via npm registry. v3 vs v4 MCP binary difference confirmed. evaluatorq peer dep confirmed. Two MCP servers clearly distinguished. Critical version constraints are well-evidenced. |
-| Features | MEDIUM-HIGH | Orq.ai platform capabilities verified via official docs. Feature dependencies and phase sequence are sound. MCP server tool coverage partially verified — exact tool names need runtime validation. Anti-features and deferred scope are well-reasoned. |
-| Architecture | MEDIUM-HIGH | Existing v0.3 architecture well understood (it shipped and is verified). V2 subagent structure is a clear extension of V1 patterns. Primary gap: exact MCP tool signatures need runtime validation before deployer and tester prompts can be finalized. Adapter abstraction and iteration patterns are standard. |
-| Pitfalls | HIGH | 9 critical pitfalls with detailed evidence, warning signs, recovery strategies, and phase-to-pitfall mapping. The guardrails API surface finding is the highest-value discovery — avoids building an entire phase toward a feature that may not exist on the target API surface. |
+| Stack | HIGH | Versions verified via npm registries and official docs. Supabase Azure AD integration, React Flow v12, and Next.js 15 all verified against official documentation. Only medium-confidence item: exact `@anthropic-ai/sdk` version — verify on npm before installing. |
+| Features | MEDIUM | Core UI patterns well-documented across industry. Supabase Realtime and React Flow verified via official docs. Microsoft Graph approval APIs verified. Feature priorities are opinionated recommendations based on the 5–15 non-technical user base — not empirical user research on Moyne Roberts employees specifically. |
+| Architecture | MEDIUM-HIGH | Supabase Realtime and Next.js App Router patterns well-documented. The novel integration — pipeline logic extraction from markdown to Claude API calls via Inngest — is architecturally sound but untested in this specific combination. The prompt adapter design is the highest-uncertainty element; a prototype spike is recommended before Phase 2. |
+| Pitfalls | MEDIUM-HIGH | All 5 critical pitfalls sourced from official documentation (Vercel timeout limits, Supabase Realtime connection limits, Azure AD OAuth docs, Claude API rate limit docs, React Flow performance docs). Severity ratings are conservative estimates based on team size and typical usage patterns. |
 
 **Overall confidence:** MEDIUM-HIGH
 
 ### Gaps to Address
 
-- **Exact MCP tool names from `@orq-ai/node` SDK:** Subagent prompts for the deployer and tester need to reference specific MCP tool names. Cannot finalize prompt wording without runtime introspection. Mitigation: call `claude mcp list-tools orq` as the first step of Phase 2 implementation and record tool names in a reference file.
-- **Guardrails on Agents API:** Whether `/v2/agents` supports evaluator attachment is unconfirmed. Phase 5 design is blocked on this. Mitigation: validate with a direct API call or Orq.ai support query during Phase 2 before Phase 5 is designed.
-- **Experiment API schema:** The exact request body for `POST /v2/experiments` (how to link agent key + dataset ID + evaluator IDs) needs hands-on validation. Mitigation: test API call as the first step of Phase 3 implementation.
-- **Orq.ai evaluator project-scoping migration:** Evaluators may be migrating from global to project scope. Creating evaluators globally may cause issues. Mitigation: check migration status at Phase 3 start; always create within project context from day one.
-- **Orq.ai API rate limits:** Not documented. Sequential deployment with retry-backoff is the safe default; parallelism is an optimization only after rate limit behavior is observed empirically.
-- **Iteration threshold calibration:** The 5% improvement gate and 3-iteration cap are reasonable defaults but may need calibration. Make both configurable and instrument them from day one.
+- **Inngest + Supabase step function behavior:** Confirm durable step retry behavior under Supabase write failure conditions with a prototype in Phase 1 before full pipeline commitment.
+- **Prompt adapter accuracy against real files:** The `loadSubagentPrompt()` design assumes stable, parseable markdown structure. Run a spike against actual `orq-agent/agents/*.md` files to confirm edge cases (nested `<files_to_read>`, YAML frontmatter variations) before Phase 2 pipeline work begins.
+- **`@orq-ai/node` REST SDK coverage for V3.0 operations:** V2.0 exclusively uses MCP for Orq.ai operations. Confirm all deploy/test operations needed by V3.0 are available via the REST SDK (`@orq-ai/node`) before Phase 2 — not MCP-only operations.
+- **Microsoft Graph `sendMail` admin consent:** Whether `Mail.Send` requires tenant-wide admin consent in the Moyne Roberts Azure AD tenant is unknown. This could block Phase 4 email notifications if IT involvement is needed. Verify before Phase 4 planning to avoid schedule surprise.
+- **Vercel Pro plan budget:** Vercel Pro ($20/mo) is required for 300s function timeouts. Confirm budget approval before architecture commits to Vercel serverless for pipeline execution.
 
 ## Sources
 
 ### Primary (HIGH confidence)
-- [@orq-ai/node on npm](https://www.npmjs.com/package/@orq-ai/node) — v3 vs v4 MCP binary difference, version compatibility, v3.14.45 current
-- [@orq-ai/evaluatorq on npm](https://www.npmjs.com/package/@orq-ai/evaluatorq) — peer dependency on `@orq-ai/node@^3.9.26`, experiment runner capabilities
-- [@orq-ai/evaluators on npm](https://www.npmjs.com/package/@orq-ai/evaluators) — OpenAI embedding dependency, evaluator functions
-- [Orq.ai Documentation](https://docs.orq.ai/) — platform API reference, evaluator types, datasets, prompts
-- [Orq.ai Evaluator Documentation](https://docs.orq.ai/docs/evaluator) — guardrail scope (Deployments only, NOT Agents API), project-scoping migration
-- [Orq.ai Function Evaluator](https://docs.orq.ai/docs/function-evaluator) — 19 built-in function evaluators
-- [Orq.ai LLM Guardrails Guide](https://orq.ai/blog/llm-guardrails) — guardrail patterns and platform capabilities
-- [Claude Code MCP docs](https://code.claude.com/docs/en/mcp) — `claude mcp add` syntax, scope options
-- [Anthropic: Building Effective Agents](https://www.anthropic.com/research/building-effective-agents) — evaluator-optimizer pattern, HITL design
-- [orq-ai/orq-node GitHub](https://github.com/orq-ai/orq-node) — SDK source, 102+ methods exposed as MCP tools
-- [ArXiv: When "Better" Prompts Hurt](https://arxiv.org/html/2601.22025) — prompt overfitting research evidence
+- [Next.js 15 release blog](https://nextjs.org/blog/next-15) — App Router stability, React 19, Turbopack
+- [Next.js 15.5 release](https://nextjs.org/blog/next-15-5) — TypeScript improvements, Turbopack compatibility
+- [@supabase/supabase-js on npm](https://www.npmjs.com/package/@supabase/supabase-js) — v2.98.0 verified Feb 2026
+- [@supabase/ssr on npm](https://www.npmjs.com/package/@supabase/ssr) — v0.8.0, replaces auth-helpers
+- [Supabase Azure OAuth docs](https://supabase.com/docs/guides/auth/social-login/auth-azure) — OAuth tenant restriction, redirect URI setup
+- [Supabase Realtime with Next.js](https://supabase.com/docs/guides/realtime/realtime-with-nextjs) — Postgres Changes + Broadcast patterns
+- [Supabase Realtime limits](https://supabase.com/docs/guides/realtime/limits) — Connection limits, Postgres Changes single-thread bottleneck
+- [Supabase Realtime benchmarks](https://supabase.com/docs/guides/realtime/benchmarks) — Throughput characteristics
+- [Supabase RLS best practices](https://supabase.com/docs/guides/troubleshooting/rls-performance-and-best-practices-Z5Jjwv) — Policy performance, auth.uid() usage
+- [@xyflow/react on npm](https://www.npmjs.com/package/@xyflow/react) — v12.10.1 verified Feb 2026
+- [React Flow performance docs](https://reactflow.dev/learn/advanced-use/performance) — Memoization, virtualization, state management
+- [xyflow spring 2025 update](https://xyflow.com/blog/spring-update-2025) — shadcn/ui component integration
+- [Recharts vs Tremor npm trends](https://npmtrends.com/@tremor/react-vs-chart.js-vs-d3-vs-echarts-vs-plotly.js-vs-recharts) — 9.5M vs 139K weekly downloads
+- [Vercel Supabase starter template](https://vercel.com/templates/next.js/supabase) — Reference implementation for Next.js + Supabase on Vercel
+- [Vercel KB: Serverless Function Timeouts](https://vercel.com/kb/guide/what-can-i-do-about-vercel-serverless-functions-timing-out) — Timeout limits by plan
+- [Vercel Docs: Functions](https://vercel.com/docs/functions) — Fluid Compute 800s limit on Pro/Enterprise
+- [Claude API Docs: Rate Limits](https://platform.claude.com/docs/en/api/rate-limits) — 429 vs 529 handling, Retry-After header
+- [Microsoft Graph Send Mail](https://learn.microsoft.com/en-us/graph/api/user-sendmail) — Email notification API
+- [Microsoft Graph Activity Feed Notifications](https://learn.microsoft.com/en-us/graph/teams-send-activityfeednotifications) — Teams notification delivery
+- [shadcn/ui dashboard example](https://ui.shadcn.com/examples/dashboard) — Production-ready dashboard layout
 
 ### Secondary (MEDIUM confidence)
-- [Orq.ai MCP documentation](https://docs.orq.ai/docs/common-architecture/mcp) — two MCP server distinction, workspace MCP setup via npx
-- [Orq.ai experiments overview](https://docs.orq.ai/docs/experiments/overview) — experiment workflow, dataset + model + evaluators
-- [orq-ai/orqkit GitHub](https://github.com/orq-ai/orqkit) — evaluatorq monorepo, Effect-based architecture
-- [Braintrust: Best Prompt Engineering Tools 2026](https://www.braintrust.dev/articles/best-prompt-engineering-tools-2026) — competitor landscape
-- [Stainless: Error Handling and Debugging MCP Servers](https://www.stainless.com/mcp/error-handling-and-debugging-mcp-servers) — MCP JSON-RPC error patterns
-- [Fast.io: MCP Server Rate Limiting](https://fast.io/resources/mcp-server-rate-limiting/) — 1,000 calls/minute runaway agent scenario evidence
-- [Flagsmith: 5 Feature Flag Management Pitfalls](https://www.flagsmith.com/blog/pitfalls-of-feature-flags) — capability flag complexity evidence
-- [Langfuse: Testing LLM Applications](https://langfuse.com/blog/2025-10-21-testing-llm-applications) — non-deterministic evaluation strategies
-- [Statsig: Prompt Regression Testing](https://www.statsig.com/perspectives/slug-prompt-regression-testing) — regression-safe prompt iteration
-- [Skywork.ai: Agentic AI Safety Best Practices 2025](https://skywork.ai/blog/agentic-ai-safety-best-practices-2025-enterprise/) — risk tiers and approval frameworks
+- [Inngest: Solving Next.js Timeouts](https://www.inngest.com/blog/how-to-solve-nextjs-timeouts) — Step-based pipeline decomposition pattern
+- [Inngest: Long-Running Background Functions on Vercel](https://www.inngest.com/blog/vercel-long-running-background-functions) — Background function patterns for serverless
+- [LangGraph Studio](https://changelog.langchain.com/announcements/langgraph-studio-the-first-agent-ide) — Competitor: agent IDE with visualization
+- [Dify](https://dify.ai/) — Competitor: agentic workflow builder
+- [MindStudio](https://www.mindstudio.ai/) — Competitor: no-code AI agent builder
+- [Smashing Magazine: UX Strategies for Real-Time Dashboards](https://www.smashingmagazine.com/2025/09/ux-strategies-real-time-dashboards/) — Dashboard UX patterns
+- [Knock Agent Toolkit HITL](https://docs.knock.app/developer-tools/agent-toolkit/human-in-the-loop-flows) — HITL notification patterns
+- [Microsoft Graph Approvals API](https://learn.microsoft.com/en-us/graph/approvals-app-api) — Teams approval workflow integration
 
 ### Tertiary (LOW confidence / needs validation)
-- Orq.ai API rate limits — not documented; assumed to exist; behavior needs empirical observation during Phase 2
-- Orq.ai agent lookup by key vs. by ID — whether `GET /v2/agents/{key}` works directly or requires list-and-filter needs test call confirmation
+- [AI Agent Interfaces with React Flow](https://damiandabrowski.medium.com/day-90-of-100-days-agentic-engineer-challenge-ai-agent-interfaces-with-react-flow-21538a35d098) — React Flow for agent UIs (single author, patterns need validation in our specific context)
 
 ---
-*Research completed: 2026-03-01*
+*Research completed: 2026-03-03*
 *Ready for roadmap: yes*

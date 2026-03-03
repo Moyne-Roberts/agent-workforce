@@ -1,259 +1,299 @@
-# Pitfalls Research
+# Domain Pitfalls
 
-**Domain:** Autonomous LLM Agent Deployment, Testing, and Prompt Iteration Pipeline (V2.0 Extension)
-**Researched:** 2026-03-01
+**Domain:** Real-time Web UI & Dashboard for Existing Agent Design Pipeline (V3.0 Extension)
+**Researched:** 2026-03-03
 **Confidence:** MEDIUM-HIGH
 
-**Scope:** Pitfalls specific to ADDING autonomous deployment, automated testing, prompt iteration, and modular install capabilities to the existing V1.0 spec generation skill. V1.0 pitfalls (over-engineering agent count, prompt quality, error cascading, model staleness, distribution friction, Task ID gotchas, synthetic data quality) remain valid and are not repeated here.
+**Scope:** Pitfalls specific to ADDING a Next.js web frontend, Supabase Realtime dashboard, M365 SSO, and dual-environment pipeline execution to the existing V2.0 CLI-based agent design skill. V1.0 pitfalls (over-engineering, prompt quality, error cascading) and V2.0 pitfalls (runaway loops, MCP state desync, API key exposure, prompt overfitting, non-deterministic evals, MCP/API fallback chaos) remain valid and are not repeated here.
 
 ---
 
 ## Critical Pitfalls
 
-### Pitfall 1: Evaluator-as-Guardrail Only Works on Deployments, Not Agents (The "Wrong API Surface" Trap)
+### Pitfall 1: Vercel Function Timeouts Kill Long-Running Pipelines (The "504 Wall" Trap)
 
 **What goes wrong:**
-The V2.0 roadmap includes "guardrails and hardening via evaluator-based quality gates." Research confirms that Orq.ai's evaluator-as-guardrail feature -- where evaluators block payloads that fail a score threshold -- is only available on **Deployments**, not on the **Agents API** (`/v2/agents`). The project explicitly targets the Agents API and has Deployments listed as out of scope. This means the core mechanism planned for guardrails does not exist on the chosen API surface. Building toward evaluator-as-guardrail attachment on Agents will hit a wall when the API simply does not support it.
+The agent design pipeline (use case analysis, architecture, spec generation, deployment, testing) takes 2-10 minutes end-to-end. Vercel serverless functions have hard timeout limits: 10 seconds on Hobby, 60 seconds on Pro (configurable up to 300 seconds with Fluid Compute, 800 seconds on Pro/Enterprise). A user clicks "Design My Agents" and the request times out mid-pipeline with a 504 Gateway Timeout. The pipeline state is lost. The user sees a cryptic error. Partially-created resources may exist on Orq.ai with no cleanup.
 
-Orq.ai documentation states: "Within a Deployment, you can use your LLM Evaluator as a Guardrail, effectively permitting a validation on input and output for a deployment generation." No equivalent language exists for the Agents API. The Agent API docs describe tools, memory, knowledge bases, and sub-agents but make no mention of evaluator attachment or guardrail configuration.
+The existing CLI pipeline runs as a long-lived Claude Code session with no timeout constraints. Moving this to Vercel serverless means every pipeline step must complete within the function timeout, or the architecture must fundamentally change.
 
 **Why it happens:**
-The term "guardrails" in the project context was assumed to map to Orq.ai's native guardrail feature. Orq.ai markets guardrails prominently (blog posts, platform pages), but the feature is scoped to their Deployments product, which is a simpler single-call pattern. The Agents API is a different product surface with different capabilities. This distinction is easy to miss because both are part of the same platform and share evaluator types.
+Developers build the pipeline as a single request-response cycle ("user submits form, server does work, server returns result") because that is the natural mental model. The pipeline works perfectly in local development (no timeout) and fails only in production on Vercel. Fluid Compute extends limits but 800 seconds (13 minutes) is still not infinite -- complex swarms with multiple agents, testing, and iteration can exceed this.
 
 **How to avoid:**
-- **Validate the API surface early.** Before building the guardrails phase, confirm via hands-on testing whether evaluators can be attached to Agents. If not, redesign the guardrails approach.
-- **Plan for application-layer guardrails.** If Orq.ai does not support evaluator-as-guardrail on Agents, implement guardrails at the skill level: run evaluators via the Experiments API against agent output, and block/flag results that fail thresholds. This is more work but fully within the skill's control.
-- **Consider a hybrid approach.** For agents that can be wrapped in a Deployment for production use, use Orq.ai's native guardrails on the Deployment layer while using the Agents API for development and testing.
-- **Do not assume Orq.ai will add this feature.** Building on an anticipated API addition is a recipe for indefinite blockers.
+- **Decompose the pipeline into discrete steps.** Each step (analyze input, architect, generate specs, deploy, test) must be a separate serverless function invocation, not one long-running function. Store intermediate state in Supabase between steps.
+- **Use a job queue pattern.** The web UI submits a pipeline request, gets back a job ID immediately, and subscribes to Supabase Realtime for status updates. A background worker (or chained serverless functions) executes the pipeline steps asynchronously.
+- **Set `maxDuration` explicitly.** In `vercel.json` or route config, set `maxDuration: 300` (Pro) for any API route that calls Claude or Orq.ai APIs. Never rely on the default 10-second timeout.
+- **Implement step-level checkpointing.** If a step fails or times out, the pipeline can resume from the last completed step rather than restarting from scratch. Store each step's output in Supabase.
+- **Stream responses for Claude API calls.** Use the Vercel AI SDK's streaming support so the function stays alive (streaming keeps the connection open) and the user sees incremental progress.
+- **Consider Inngest or QStash** for orchestrating multi-step pipelines with automatic retries and step-level execution. These tools are specifically designed for Vercel's serverless constraints.
 
 **Warning signs:**
-- No `guardrails` or `evaluators` field in the Agent create/update API response schema
-- Guardrail configuration docs only reference Deployments
-- Orq.ai MCP server has no tool for attaching evaluators to agents
-- The skill's guardrail feature requires a fundamentally different architecture than planned
+- Pipeline API route does not set `maxDuration` in its config
+- Single API route handles the entire pipeline end-to-end
+- No intermediate state storage between pipeline steps
+- Works in `next dev` but fails in production
+- No job queue or async execution pattern in the architecture
+- Claude API calls use non-streaming mode in serverless functions
 
 **Phase to address:**
-Phase 4 (Guardrails) -- but must be validated in Phase 1 (API surface validation). If confirmed that Agents API lacks guardrail support, the guardrails phase needs redesign before implementation begins. This is the highest-priority item to validate early.
+Phase 1 (Architecture) -- the async pipeline execution pattern must be the foundational architecture decision. Building a synchronous pipeline and "adding async later" means rewriting every pipeline step.
+
+**Severity:** CRITICAL -- this will block the entire product if not addressed in architecture.
 
 ---
 
-### Pitfall 2: Runaway Autonomous Loops (The "Infinite Iteration" Trap)
+### Pitfall 2: Supabase Realtime Subscription Leaks and Connection Exhaustion
 
 **What goes wrong:**
-The prompt iteration loop (analyze results -> propose changes -> update -> re-test) runs without adequate stopping conditions. Claude Code autonomously deploys a prompt change, runs an experiment, sees a marginal score improvement, proposes another tweak, deploys again, runs another experiment -- endlessly. Each cycle costs API tokens on both the Claude side (reasoning) and Orq.ai side (experiment execution). A single runaway session can burn through significant API budget before anyone notices. Research shows that without rate limiting, a single agent stuck in a retry loop can generate over 1,000 API calls per minute.
+The dashboard subscribes to Supabase Realtime channels for live pipeline status updates. React component mounts, subscribes to a channel, user navigates away, component unmounts -- but the subscription is not cleaned up. Over time, zombie subscriptions accumulate. With 5-15 users each running multiple pipelines, the project hits Supabase's concurrent connection limit. New users cannot connect. Existing dashboards stop receiving updates. The free tier allows 200 concurrent connections; Pro allows 500.
+
+A second failure mode: Postgres Changes subscriptions (listening for database row changes) are processed on a single thread in Supabase. If the pipeline writes many status updates rapidly, this single thread becomes a bottleneck, delaying all Realtime messages across the project.
 
 **Why it happens:**
-The iteration loop is designed to improve prompts, so "try again" is always a valid action. Without hard limits, the agent optimizes greedily -- any non-zero improvement justifies another cycle. LLMs are bad at deciding "good enough" because they lack cost awareness. The system has no concept of diminishing returns. Additionally, Orq.ai experiment execution is asynchronous, so the agent may poll repeatedly while waiting for results, compounding the API call count.
+React's component lifecycle makes it easy to subscribe in `useEffect` and forget to return a cleanup function. Next.js App Router's component model with Server Components and Client Components adds confusion about where subscriptions should live. Hot Module Replacement during development masks the problem (connections reset on code changes). The connection leak only manifests in production after sustained use.
 
 **How to avoid:**
-- Hard cap on iteration cycles per session: maximum 3 autonomous iterations before requiring explicit user approval to continue. This is non-negotiable.
-- Budget ceiling per session: track cumulative Orq.ai API calls and halt at a configurable threshold (default: 50 API calls per iteration session).
-- Diminishing returns gate: if score improvement between iterations is < 5% (configurable), halt and present results rather than iterating further.
-- Wall-clock timeout: maximum 10 minutes for any autonomous iteration session.
-- Every iteration must log its cost estimate to the audit trail before executing.
+- **Always return cleanup in useEffect.** Every `supabase.channel().subscribe()` must have a corresponding `supabase.removeChannel()` in the useEffect cleanup function. No exceptions.
+- **Use a singleton Supabase client.** Create one Supabase client per browser session, not per component. Multiple components can share channels on the same client. Use React context or a module-level singleton.
+- **Prefer Broadcast over Postgres Changes for high-frequency updates.** Pipeline status updates should use Supabase Broadcast (server pushes messages directly), not Postgres Changes (which requires database writes and single-threaded processing). Write status to the database periodically for persistence, but use Broadcast for real-time UI updates.
+- **Implement connection monitoring.** Track active subscriptions in application state. Log subscription count on mount/unmount. Alert if subscription count exceeds expected maximum (e.g., 5 per user session).
+- **Set channel-level presence tracking.** Use Supabase Presence to track which users are actively viewing which pipelines. Unsubscribe from pipelines no longer being viewed.
 
 **Warning signs:**
-- Iteration loop has no `maxIterations` parameter in its configuration
-- No cost tracking or budget awareness in the pipeline code
-- Agent can deploy and test without any user checkpoint
-- Audit logs show 5+ iterations in a single session with < 2% improvement per cycle
-- Orq.ai API usage spikes correlate with iteration sessions
+- useEffect hooks with `.subscribe()` but no cleanup return
+- Multiple Supabase client instances created across components
+- Realtime connection count grows over time without plateau
+- "Maximum number of allowed connections" errors in browser console
+- Status updates become delayed or stop arriving after extended use
+- Database CPU spikes correlate with Realtime subscription activity
 
 **Phase to address:**
-Phase 3 (Prompt Iteration Loop) -- the iteration controller must be built with hard limits from day one. Adding limits retroactively means the first users to test the feature will hit the runaway problem.
+Phase 1 (Foundation) -- Supabase client singleton and subscription management patterns must be established before any Realtime features are built.
+
+**Severity:** CRITICAL -- silent degradation that only manifests in production under real use.
 
 ---
 
-### Pitfall 3: MCP Server State Desync (The "Ghost Deployment" Problem)
+### Pitfall 3: Azure AD SSO Misconfiguration Locks Out All Users
 
 **What goes wrong:**
-The skill deploys an agent to Orq.ai via MCP, but the local state (audit trail, spec files) and Orq.ai's actual state diverge. Common scenarios: (1) MCP call succeeds but the local write fails -- Orq.ai has the agent, local files say it was not deployed. (2) MCP call fails partway -- Orq.ai created the agent but did not apply all settings. (3) User manually edits the agent in Orq.ai Studio after autonomous deployment -- local specs are now stale. (4) Agent versioning in Orq.ai creates a new version when the skill expected to update in-place. The result: the skill operates on stale assumptions about what is deployed, leading to experiments running against wrong configurations or prompt iterations applied to the wrong version.
+M365 SSO is the ONLY authentication method (no email/password fallback for Moyne Roberts employees). If Azure AD configuration breaks -- wrong tenant ID, expired client secret, misconfigured redirect URI, Entra ID admin policy change -- nobody can log in. The entire application is inaccessible. There is no backdoor. This is especially dangerous because Azure AD configuration is managed by Moyne Roberts IT, not by the application developer. An IT admin rotating credentials or changing conditional access policies can silently break the app.
+
+Supabase offers two Azure AD integration paths: OAuth (social login) and SAML 2.0 SSO. Choosing the wrong one creates different problems. OAuth is simpler but less enterprise-controlled. SAML requires Pro plan and is more complex to configure but gives IT admins more control.
 
 **Why it happens:**
-MCP tool calls are not transactional. There is no atomic "deploy agent + record result" operation. The Orq.ai MCP server exposes workspace management capabilities but the protocol itself (JSON-RPC 2.0 over stdio) has no built-in transaction or rollback mechanism. Each MCP invocation is a fresh context with no shared state between calls. Additionally, Orq.ai's agent versioning creates new versions when parameters differ on the same key -- the skill may not detect that it created version 3 when it expected to update version 2.
+SSO is configured once and forgotten. Client secrets expire (default: 2 years, but IT policies may enforce shorter). Redirect URIs must exactly match (including trailing slashes). Tenant restriction (`https://login.microsoftonline.com/<tenant-id>`) must be set to prevent non-Moyne-Roberts Microsoft accounts from logging in. Supabase's Auth configuration page has fields for "Azure Tenant URL" that are easy to misconfigure. Testing SSO requires an actual Azure AD account, so developers often skip thorough testing.
 
 **How to avoid:**
-- Implement a "verify after deploy" pattern: after every MCP deployment call, immediately read back the agent configuration from Orq.ai and compare against the intended spec. Log any discrepancies.
-- Store the Orq.ai agent version number in the local audit trail after each deployment. Before any subsequent operation, verify the current version matches the expected version.
-- Design all deployment operations as idempotent: deploying the same spec twice should produce the same result. Use agent keys deterministically (from the spec) and check for existing agents before creating.
-- Include a `--sync` command that reconciles local state with Orq.ai's actual state, surfacing any drift.
-- Never assume MCP success without verification. Treat every MCP call as potentially failed until confirmed.
+- **Use OAuth with tenant restriction, not SAML.** For 5-15 users in a single Azure AD tenant, OAuth with tenant URL restriction is simpler and sufficient. SAML adds complexity without benefit for a single-tenant scenario. Configure: `https://login.microsoftonline.com/<moyne-roberts-tenant-id>` in Supabase Auth Azure settings.
+- **Register the Azure AD app as "single tenant" (My organization only).** This prevents external Microsoft accounts from authenticating, even if tenant restriction is misconfigured.
+- **Set up client secret expiry monitoring.** Calendar reminders 30 days before expiry. Document the rotation procedure. Test rotation in a staging environment first.
+- **Configure redirect URIs for ALL environments.** Production (`https://app.example.com/auth/callback`), staging, and local development (`http://localhost:3000/auth/callback`) must all be registered in Azure AD. Missing any one blocks login in that environment.
+- **Build an admin bypass for emergencies.** A Supabase service role key can create sessions directly. Document this emergency access procedure (not in the app, in a secure runbook) for when SSO breaks.
+- **Test SSO monthly.** Add a synthetic login test that verifies the full OAuth flow works. Alert if it fails.
 
 **Warning signs:**
-- Deployment code does not read back state after writing
-- No version tracking in local audit files
-- Skill assumes "if no error was thrown, it worked"
-- No reconciliation mechanism between local specs and Orq.ai state
-- Users report "the agent in Orq.ai doesn't match what the skill says it deployed"
+- No documentation of Azure AD app registration details (client ID, tenant ID, secret expiry date)
+- Only production redirect URI registered (no staging/local)
+- Client secret created with default expiry and no rotation plan
+- No emergency access procedure documented
+- SSO tested once during initial setup and never again
+- IT admin changes not communicated to development team
 
 **Phase to address:**
-Phase 2 (Autonomous Deployment) -- the deploy-verify-record pattern must be the foundation of every deployment operation. This is architectural, not a feature to add later.
+Phase 1 (Auth Setup) -- SSO configuration must be the first thing validated, with monitoring and emergency access in place before any features depend on it.
+
+**Severity:** CRITICAL -- total application lockout with no self-service recovery.
 
 ---
 
-### Pitfall 4: Prompt Overfitting to Evaluation Dataset (The "Teaching to the Test" Trap)
+### Pitfall 4: Dual-Environment Pipeline Logic Divergence (The "Works in CLI, Broken in Web" Trap)
 
 **What goes wrong:**
-The automated prompt iteration loop optimizes prompts against a fixed evaluation dataset. After 3-5 iterations, the prompt scores 95% on the eval set but performs worse on real-world inputs. The prompt has learned the quirks of the test data (specific phrasings, consistent input lengths, predictable domains) rather than developing genuine capability. Research confirms this is a real and documented risk: "repeatedly optimizing against the same test cases improves scores without improving real-world performance."
+The pipeline logic (use case analysis, architecture, spec generation) exists in two execution environments: Claude Code (CLI skill, markdown-based subagents) and the Next.js web app (server-side Claude API calls). Over time, the two diverge. A prompt improvement made in the CLI skill is not reflected in the web app. A new feature added to the web app's pipeline does not exist in the CLI. Bug fixes are applied to one environment but not the other. Users get different results depending on whether they use the CLI or the web app for the same use case.
+
+The existing codebase is 10,628 lines of markdown and JSON files designed for Claude Code's agent-spawning model. This architecture fundamentally does not translate to server-side API calls -- Claude Code reads `.md` files as agent instructions and spawns subagents, while the web app must make structured API calls with those same instructions as system prompts.
 
 **Why it happens:**
-The iteration loop uses the same dataset for every evaluation cycle. The LLM doing the iteration can observe patterns in what the evaluator rewards and craft prompts that exploit those patterns rather than solving the general problem. This is the LLM equivalent of overfitting in ML. The problem is amplified when datasets are small (< 50 examples) and when evaluators use simple metrics (exact match, keyword presence) rather than semantic evaluation.
+The two environments have different execution models. Claude Code interprets markdown instructions and spawns autonomous subagents via its agent loop. The web app makes Claude API calls with system/user prompts and parses structured responses. The "same logic" must be expressed in two fundamentally different ways. Developers naturally focus on the environment they are actively building (the web app) and neglect the other (the CLI skill). There is no automated test that verifies parity between environments.
 
 **How to avoid:**
-- Split datasets into train/test/holdout: use the training set for iteration, the test set for progress measurement, and the holdout set (never seen during iteration) for final validation. The holdout set must never be used during iteration.
-- Require a minimum dataset size of 30 examples before allowing automated iteration. Below this threshold, show results but do not auto-iterate.
-- After every iteration cycle, run a "generalization check": test the new prompt against 5 randomly generated novel inputs (not from the dataset) and flag if performance drops.
-- Cap iteration count (see Pitfall 2) -- fewer iterations means less opportunity to overfit.
-- Use semantic evaluators (LLM-as-judge) rather than exact-match evaluators for iteration feedback. Orq.ai supports LLM-as-judge evaluators natively.
-- Periodically refresh the evaluation dataset with new examples to prevent the prompt from memorizing patterns.
+- **Extract pipeline prompts into a shared format.** Create a `pipeline/prompts/` directory with prompt templates that both environments consume. The CLI skill reads them as subagent instructions. The web app reads them as system prompts for API calls. The prompts are the single source of truth.
+- **Define a pipeline step interface.** Each step (analyze, architect, generate-spec, etc.) has: input schema, output schema, prompt template, and validation rules. Both environments implement the same interface using their respective execution models.
+- **Version the pipeline protocol.** When prompts or step interfaces change, bump a version number. Both environments check they are running the same protocol version. Warn users if versions mismatch.
+- **Do NOT try to make Claude Code and Claude API behave identically.** They will not. Claude Code has tool use, file system access, and multi-turn conversation. The web app has structured API calls. Design for "equivalent outcomes" not "identical execution."
+- **Automate parity testing.** For each pipeline step, maintain a set of golden input/output pairs. Run both environments against the same inputs and verify outputs are semantically equivalent (not identical, but equivalent).
+- **Accept that the web app pipeline will be simpler.** The CLI skill can do things the web app cannot (spawn subagents, read/write files, use MCP tools). The web app pipeline should be a curated subset, not a 1:1 port.
 
 **Warning signs:**
-- Eval scores climb steadily across iterations but user satisfaction does not improve
-- Prompt becomes increasingly specific (mentions exact phrases from test data)
-- Prompt grows significantly longer with each iteration (accumulating special cases)
-- Holdout set performance diverges from training set performance
-- Prompt includes conditions that only make sense for specific test examples
+- Pipeline prompts are hardcoded in both `orq-agent/*.md` files AND `app/api/pipeline/*.ts` files
+- No shared prompt directory or import mechanism
+- Bug fix applied to one environment with no corresponding change in the other
+- Users report different agent designs from CLI vs web for the same input
+- No tests comparing outputs between environments
+- Web app pipeline has features that do not exist in CLI (or vice versa)
 
 **Phase to address:**
-Phase 3 (Prompt Iteration) and Phase 2.5 (Automated Testing) -- dataset splitting must be designed into the testing pipeline, and the iteration loop must respect the split. These two phases are tightly coupled on this pitfall.
+Phase 1 (Architecture) -- the shared prompt format and pipeline step interface must be designed before any pipeline features are built in the web app.
+
+**Severity:** CRITICAL -- divergence is inevitable without explicit architectural prevention. This is the hardest pitfall to fix retroactively.
 
 ---
 
-### Pitfall 5: API Key Exposure in Audit Trails and Skill Files
+### Pitfall 5: Claude API Cost Explosion from Web App Usage
 
 **What goes wrong:**
-The Orq.ai API key ends up committed to git, logged in audit trail markdown files, displayed in Claude Code output, or hardcoded in skill configuration. Since V2.0 introduces API key onboarding as part of modular install, the key flows through multiple touchpoints: user input, configuration storage, MCP server config, API fallback calls, and audit logs. Any one of these can leak the key. With 5-15 users at Moyne Roberts, a single leaked key exposes the entire Orq.ai workspace.
+The CLI skill is used by 1-2 technical developers who understand API costs. The web app opens the pipeline to 5-15 non-technical users who do not. Each pipeline run involves multiple Claude API calls (input analysis, architecture, spec generation per agent, orchestration spec). A complex swarm with 5 agents could cost $2-5 per pipeline run in Claude API tokens. Non-technical users run the pipeline repeatedly ("let me try a different description"), experiment casually, or leave pipelines running. Monthly costs balloon from $50 (CLI-only) to $500+ (web app with casual usage). Additionally, Claude API rate limits (requests per minute and tokens per minute) are shared across all users hitting the same API key.
 
 **Why it happens:**
-The skill runs inside Claude Code, which outputs everything to the terminal. MCP server configuration in `claude_desktop_config.json` or `.mcp.json` stores keys in plaintext JSON. Audit trail files capture "what was done" including API call details. The skill generates configuration examples that may include real keys. Non-technical users may not recognize that an API key in a markdown file is a security issue and could share or commit it.
+Web UIs reduce friction by design -- that is the point. But reduced friction means more usage, more experimentation, and more cost. Users have no visibility into what each pipeline run costs. There is no throttling or quota system. All web app users share one Anthropic API key, so one user's heavy usage can rate-limit everyone else. The "try it and see" mentality of web apps is fundamentally different from the deliberate CLI workflow.
 
 **How to avoid:**
-- Store the API key ONLY as an environment variable (`ORQ_API_KEY`). Never write it to any file the skill generates.
-- MCP server configuration should reference the environment variable, not the key value: `"env": {"ORQ_API_KEY": "..."}` in `.mcp.json` with the value sourced from the user's shell profile, not stored in the config file.
-- Audit trail must NEVER log API keys, full request headers, or authentication tokens. Log the action, the result, and a redacted reference.
-- All generated configuration examples must use placeholder format: `ORQ_API_KEY=orq_sk_REPLACE_WITH_YOUR_KEY`.
-- Add a `.gitignore` entry for any config files that might contain keys during onboarding.
-- The onboarding flow should explicitly tell the user: "Add this to your shell profile (~/.zshrc), NOT to any project file."
+- **Show estimated cost before pipeline execution.** Based on input length and estimated complexity, show "This pipeline run will cost approximately $X in API usage." Make it visible, not hidden.
+- **Implement per-user quotas.** Each user gets N pipeline runs per day/week. Track usage in Supabase. When quota is reached, show a clear message, not a cryptic error. Start conservative (5 runs/day) and increase based on actual usage patterns.
+- **Use Claude's prompt caching.** Pipeline prompts (system prompts, reference material) are largely static. Enable prompt caching to reduce token costs for repeated runs. Cache the large context (pipeline instructions, Orq.ai reference material) and only send the variable parts (user input, generated specs) as uncached.
+- **Implement request queuing with rate limit awareness.** Track Claude API usage across all concurrent users. Queue requests when approaching rate limits rather than failing with 429 errors. Show users their position in the queue.
+- **Handle 429 and 529 errors gracefully.** Claude API returns 429 (rate limited) and 529 (overloaded) errors. Implement exponential backoff with jitter. Show users "Pipeline paused -- waiting for API availability" not a raw error. Use the `Retry-After` header from 429 responses.
+- **Use streaming for all Claude API calls.** Streaming provides earlier responses and keeps Vercel functions alive longer. It also gives users visible progress ("generating architecture...") rather than a blank loading screen.
 
 **Warning signs:**
-- API key appears anywhere in the git history
-- Audit trail files contain `Authorization` headers or key values
-- MCP config files contain inline key values rather than env var references
-- Install script asks user to paste key into a file rather than an env var
-- No `.gitignore` entries for configuration files
+- No cost estimation or display in the pipeline UI
+- No per-user usage tracking or quotas
+- All users share one API key with no request coordination
+- Claude API errors (429/529) surface as raw errors in the UI
+- Monthly Anthropic bill increases unexpectedly after web app launch
+- No prompt caching configured for static pipeline prompts
 
 **Phase to address:**
-Phase 1 (Modular Install / API Key Onboarding) -- the key management pattern must be established before any deployment or testing features that use the key. Getting this wrong early means every subsequent feature inherits the vulnerability.
+Phase 2 (Pipeline Integration) -- cost controls and rate limiting must be built alongside the first pipeline features, not added after costs spike.
+
+**Severity:** CRITICAL -- financial impact is immediate and compounds with each user added.
 
 ---
 
-### Pitfall 6: Non-Deterministic LLM Output Breaking Automated Evaluation
+## Moderate Pitfalls
+
+### Pitfall 6: React Flow Graph Performance Degrades with Real-Time Updates
 
 **What goes wrong:**
-The automated testing pipeline runs an experiment, gets results, compares them against expected outputs, and reports a score. The next day, the same experiment with the same prompt and same dataset produces different scores -- sometimes significantly different. The prompt iteration loop proposes a change based on results that are not reproducible. Teams waste time "fixing" prompts based on noise rather than signal. Even with temperature=0, LLM outputs can vary across runs due to hardware numerics, batching, and model updates.
+The node graph visualization shows agent swarm architecture with real-time status updates (nodes light up as pipeline steps complete). React Flow re-renders the entire graph on every state change. With a 5-agent swarm (5 nodes + edges + labels + status indicators), updates every 500ms cause visible jank. The graph becomes unresponsive during rapid pipeline progress updates. Users perceive the entire application as slow.
 
-**Why it happens:**
-LLMs are fundamentally non-deterministic. Even with temperature set to zero, factors like GPU parallelism, floating-point precision, and batch scheduling cause output variation. Orq.ai routes to different model providers/versions transparently. A test run today may hit a different GPU cluster than tomorrow's run. The variation is typically small for factual tasks but can be significant for creative or open-ended tasks -- exactly the kind of tasks agent prompts often handle.
+**Prevention:**
+- **Memoize node and edge components with `React.memo()`.** Declare custom node components outside the parent component or wrap with `React.memo`. React Flow re-renders every node on any state change unless components are memoized.
+- **Batch status updates.** Instead of updating node status on every Realtime message, batch updates into 1-second intervals. Use `requestAnimationFrame` or a debounce to coalesce rapid updates.
+- **Use React Flow's built-in viewport virtualization.** Only visible nodes are rendered. For large swarms, this prevents off-screen nodes from consuming render time.
+- **Separate graph structure from status state.** The graph layout (node positions, edges) rarely changes. Status (colors, progress indicators) changes frequently. Use separate state slices so layout changes do not trigger status re-renders and vice versa.
+- **Avoid storing React Flow state in Supabase or global state.** React Flow manages its own internal state efficiently. Sync only the data you need (node status) and let React Flow handle rendering.
 
-**How to avoid:**
-- Run every evaluation at least 3 times and use the median score, not a single-run score. This is non-negotiable for any automated decision-making (like "should we iterate?").
-- Set temperature to 0 for all evaluation runs (not just production runs). This reduces but does not eliminate variation.
-- Design evaluators that tolerate semantic equivalence, not exact match. Orq.ai's LLM-as-judge evaluator is better suited for this than function-based evaluators for most use cases.
-- Track score variance across runs. If variance exceeds a threshold (e.g., > 10% standard deviation), flag the result as unreliable and do not auto-iterate based on it.
-- Present results to users with confidence intervals, not point estimates: "Score: 82% (+/- 7%)" not just "Score: 82%".
-
-**Warning signs:**
-- Evaluation scores fluctuate by > 10% between identical runs
-- Prompt iteration loop flip-flops between two prompt versions
-- "Improved" prompts show regression on re-test
-- Evaluators use exact string matching for open-ended outputs
-- Single-run scores drive automated decisions
-
-**Phase to address:**
-Phase 2.5 (Automated Testing) -- the evaluation harness must be designed for statistical robustness from the start. Single-run evaluation is a fundamental design flaw, not a minor issue.
+**Phase to address:** Phase 2 (Dashboard) -- performance optimization must be built in from the start, not retrofitted.
 
 ---
 
-### Pitfall 7: Modular Install Creates Broken Partial States
+### Pitfall 7: Supabase Row-Level Security (RLS) Gaps Expose Pipeline Data
 
 **What goes wrong:**
-V2.0 introduces capability selection (core/deploy/test/full). A user installs "core+test" without "deploy". Later, the prompt iteration loop (which requires both deploy and test) silently fails or produces confusing errors because it cannot deploy the iterated prompt. Or: a user installs "deploy" but not "test" and tries to use the iteration loop, which needs both. The combinatorial explosion of capability states (core, core+deploy, core+test, core+deploy+test) creates edge cases where features reference capabilities that are not installed.
+Supabase tables storing pipeline data (runs, specs, agent configs) are created without Row-Level Security policies or with policies that are too permissive. Any authenticated user can see (or modify) any other user's pipeline data. In a 5-15 user environment, this may seem low-risk, but it violates the principle of least privilege and becomes a real problem if the user base grows or if pipeline data contains sensitive business logic.
 
-**Why it happens:**
-Feature flags and modular install seem simple in design ("just check if the feature is enabled") but create exponential complexity in practice. Each capability combination is a different product configuration that must be tested. Code paths branch at every capability check, and the interaction between capabilities is harder to test than individual capabilities. Research shows feature flags "continue to contribute to the complexity of your code" and "pose a risk to the stability and security of your app."
+**Prevention:**
+- **Enable RLS on every table from creation.** Never create a table without `ALTER TABLE ... ENABLE ROW LEVEL SECURITY`. Supabase disables RLS by default on new tables.
+- **Default policy: users can only access their own data.** `CREATE POLICY "users_own_data" ON pipeline_runs FOR ALL USING (auth.uid() = user_id)`. Apply this to every table.
+- **Use Supabase's `auth.uid()` function in policies, not application-level checks.** RLS policies are enforced at the database level, making them impossible to bypass from the client.
+- **Test RLS policies explicitly.** Create test cases where User A tries to access User B's data. Verify it fails.
+- **Use the Supabase service role key ONLY in server-side code, never in client-side code.** The service role bypasses RLS entirely.
 
-**How to avoid:**
-- Design capabilities as a strict hierarchy, not independent flags: `core` < `core+deploy` < `core+deploy+test` (full). You cannot install "test" without "deploy" because testing requires deploying to have something to test. This reduces combinations from 8 to 4.
-- Every command must check its capability requirements at the START and produce a clear error: "This command requires the 'deploy' capability. Run `/orq-agent:install --capabilities deploy` to add it."
-- Include a `/orq-agent:status` command that shows which capabilities are installed and which commands are available.
-- Test every capability combination as part of the release process. With a hierarchical model, this is 4 configurations, not 8+.
-- The orchestrator must never silently skip steps because a capability is missing. Explicit failure is always better than silent degradation.
-
-**Warning signs:**
-- Commands fail with cryptic errors when a dependent capability is not installed
-- Users report features "not working" that actually require a different install tier
-- Code has nested `if (hasCapability)` checks that are hard to reason about
-- No clear documentation of which commands require which capabilities
-- Feature interactions are not tested (only individual features)
-
-**Phase to address:**
-Phase 1 (Modular Install) -- the capability hierarchy and dependency model must be designed before any features are implemented. Retrofitting a clean capability model onto ad-hoc feature flags is extremely painful.
+**Phase to address:** Phase 1 (Database Setup) -- RLS must be configured when tables are created, not retrofitted.
 
 ---
 
-### Pitfall 8: User Loses Oversight of Autonomous Operations
+### Pitfall 8: Next.js Server/Client Component Boundary Confusion
 
 **What goes wrong:**
-The pipeline deploys agents, runs experiments, iterates prompts, and updates configurations -- and the user cannot tell what happened, what changed, or why. The audit trail exists but is a wall of technical detail that non-technical users cannot parse. Or worse: the pipeline makes a change that the user did not approve because the approval checkpoint was too permissive ("approve all iterations" rather than "approve each iteration"). The user discovers their production agents have been modified in ways they do not understand.
+Next.js App Router introduces Server Components (default) and Client Components (`"use client"`). Developers put Supabase Realtime subscriptions in Server Components (they do not work -- no browser WebSocket). Or they mark entire page trees as `"use client"` to make subscriptions work, losing Server Component benefits (streaming SSR, reduced bundle size). Or they pass non-serializable props (Supabase client instances, callback functions) from Server Components to Client Components, causing hydration errors.
 
-**Why it happens:**
-Autonomous pipelines optimize for efficiency, not transparency. The temptation is to minimize user interruptions ("just let it run"). Approval checkpoints feel like friction to the developer building the system. Audit trails are written for debugging, not for user comprehension. Non-technical users (the primary audience at Moyne Roberts) need fundamentally different reporting than developers. The "approve all" shortcut eliminates the very oversight that makes autonomous operation safe.
+**Prevention:**
+- **Clear boundary rule: anything with `useEffect`, `useState`, browser APIs, or Supabase Realtime goes in a Client Component.** Everything else defaults to Server Component.
+- **Create a `components/realtime/` directory** for all Client Components that use Supabase subscriptions. This makes the boundary explicit in the file system.
+- **Pass only serializable data across the boundary.** Server Components fetch initial data and pass it as props (plain objects, arrays, strings) to Client Components. Client Components handle Realtime subscriptions for updates.
+- **Use Supabase SSR helpers** (`@supabase/ssr`) for server-side auth and data fetching. Use the browser Supabase client only in Client Components.
 
-**How to avoid:**
-- Every autonomous operation must produce a human-readable summary, not just a technical log. Format: "I changed [what] in [which agent] because [why]. The score went from [X] to [Y]."
-- Approval granularity must be per-iteration, not per-session. Users can approve individual changes after seeing the proposed diff and the rationale. No "approve all and walk away" option in the initial release.
-- Before any deployment or update, show the user a clear diff: "Current prompt: [truncated]. Proposed prompt: [truncated]. Changes: [highlighted]."
-- Implement a "dry run" mode that shows what WOULD happen without actually making changes. This should be the default for first-time users.
-- The audit trail must have two layers: a technical log (for debugging) and a user-facing summary (for oversight). The summary is shown by default.
-- Every session ends with a "Session Summary" that lists all changes made, all experiments run, and all approvals given.
-
-**Warning signs:**
-- Users cannot explain what the pipeline did in their last session
-- Audit trail is only readable by developers
-- "Approve all" or "auto-approve" option exists in the first release
-- No diff view before deployment or updates
-- Users ask "what did it change?" after a session completes
-- No dry-run mode available
-
-**Phase to address:**
-Phase 2-3 (Deployment + Iteration) -- user oversight must be designed into every phase that performs autonomous operations. This is a cross-cutting concern, not a feature to add at the end.
+**Phase to address:** Phase 1 (App Structure) -- component boundary conventions must be established before building features.
 
 ---
 
-### Pitfall 9: Orq.ai MCP Server Availability and Fallback Chaos
+### Pitfall 9: Pipeline State Machine Becomes Implicit and Ungovernable
 
 **What goes wrong:**
-The skill is designed as "MCP-first with API fallback." In practice, the MCP server may be unavailable (not installed, misconfigured, Orq.ai updates break it, version mismatch), and the fallback to direct API calls introduces a completely different code path. Now there are two ways to do everything -- MCP and API -- and they have subtly different behaviors, error modes, and response formats. Bug reports become impossible to reproduce because "it depends on whether MCP was available." The fallback path gets less testing because developers always have MCP configured.
+Pipeline execution has many states: submitted, analyzing, architecting, generating-specs, deploying, testing, awaiting-approval, completed, failed, timed-out, cancelled. These states are managed implicitly through database columns, boolean flags, and conditional logic scattered across multiple API routes. There is no single place that defines valid state transitions. Invalid transitions happen silently (e.g., a pipeline goes from "analyzing" to "completed" skipping intermediate steps). The dashboard shows inconsistent status because different parts of the code have different ideas about what state the pipeline is in.
 
-**Why it happens:**
-MCP is still a relatively new protocol. The Orq.ai MCP server documentation does not detail rate limits, error handling patterns, or versioning strategy. MCP servers communicate via stdio (JSON-RPC 2.0) with each invocation being a fresh process instance, meaning connection state is not preserved. The API fallback uses HTTP with different error semantics (status codes vs. JSON-RPC errors). Maintaining feature parity between two integration paths doubles the testing surface.
+**Prevention:**
+- **Define an explicit state machine.** Use a library (XState, or a simple enum + transition map) to define all valid states and transitions. Every state change goes through the state machine, which rejects invalid transitions.
+- **Store the state machine state in Supabase.** A single `status` column with enum values. State transitions are database updates, which trigger Realtime notifications to the dashboard.
+- **Log every state transition** with timestamp, previous state, new state, and reason. This creates an audit trail for debugging and for the user-facing pipeline history.
+- **Handle failure and timeout as first-class states.** Every state must have a failure transition. Every long-running state must have a timeout transition. Define what happens on failure at each state (retry? skip? abort?).
+- **Pipeline cancellation must be supported.** Users must be able to cancel a running pipeline. This means every pipeline step must check for cancellation before proceeding.
 
-**How to avoid:**
-- Abstract both MCP and API behind a single interface with identical behavior contracts. The skill code should never know which path is being used. All differences (error format, response shape, authentication) are handled in the adapter layer.
-- Choose a primary path and make the other a true fallback, not an equal alternative. Recommendation: make API the primary path (more stable, better documented, HTTP semantics well-understood) and MCP an optimization for users who have it configured.
-- Test the fallback path explicitly in every release. The fallback path must be a first-class citizen in testing, not an afterthought.
-- Detect MCP availability at session start (not per-call) and log which path is active. Do not silently switch mid-session.
-- When MCP fails, fail the current operation cleanly and switch to API for the remainder of the session, not per-call. Flip-flopping between paths mid-session creates inconsistent state.
+**Phase to address:** Phase 1 (Architecture) -- the state machine is the backbone of the pipeline execution model.
 
-**Warning signs:**
-- Two separate code paths for MCP and API with different error handling
-- Fallback path has fewer tests than primary path
-- Bug reports that cannot be reproduced depend on MCP availability
-- MCP errors surface as raw JSON-RPC messages to the user
-- No detection of which path is active at session start
+---
 
-**Phase to address:**
-Phase 2 (Autonomous Deployment) -- the adapter abstraction must be the first thing built before any deployment features. If MCP and API paths are built separately and unified later, the adapter will never fully abstract the differences.
+### Pitfall 10: HITL Approval Flow Blocks Pipeline Indefinitely
+
+**What goes wrong:**
+The pipeline reaches an approval step (e.g., approve agent specs before deployment). It sends a notification (email/Teams). The user is in a meeting. The pipeline sits in "awaiting-approval" state indefinitely. No timeout. No reminder. No escalation. Other pipelines queue behind it. The user returns hours later, approves, and the pipeline resumes -- but downstream services (Claude API context, Orq.ai state) may have changed in the interim.
+
+**Prevention:**
+- **Set approval timeouts.** If no response within 30 minutes, send a reminder. After 2 hours, auto-expire the approval request and notify the user that they need to re-initiate.
+- **Allow approval via multiple channels.** In-app approval button, email link, and Teams notification with action buttons. Do not require the user to return to the app.
+- **Decouple approval from pipeline execution.** The pipeline step completes and stores its output. Approval is a gate before the NEXT step, not a pause in the current step. This means the pipeline state is cleanly saved and can resume even if the server restarts.
+- **Show pending approvals prominently in the dashboard.** A badge, notification count, or dedicated "Awaiting Your Review" section.
+
+**Phase to address:** Phase 3 (HITL Approvals) -- but the architecture for async approval gates must be designed in Phase 1.
+
+---
+
+## Minor Pitfalls
+
+### Pitfall 11: Environment Variable Sprawl Across Vercel + Supabase + Azure AD + Claude + Orq.ai
+
+**What goes wrong:**
+The application requires environment variables from 4+ services: Supabase (URL, anon key, service role key), Azure AD (client ID, client secret, tenant ID), Claude API (API key), Orq.ai (API key). Developers forget to set variables in Vercel's dashboard for production. Variables are set for production but not for preview deployments. Local `.env.local` files are out of sync. A missing variable causes a cryptic runtime error deep in the pipeline.
+
+**Prevention:**
+- **Validate all required environment variables at application startup.** Fail fast with a clear error message listing which variables are missing.
+- **Use a typed env config module** (e.g., `@t3-oss/env-nextjs` or a simple Zod schema) that validates env vars at build time.
+- **Document every required env var** in a `.env.example` file with descriptions and placeholder values.
+- **Set env vars for all Vercel environments** (production, preview, development) explicitly. Do not assume preview deployments inherit production variables.
+
+**Phase to address:** Phase 1 (Setup) -- must be configured before first deployment.
+
+---
+
+### Pitfall 12: Supabase Database Migrations Not Version-Controlled
+
+**What goes wrong:**
+Database schema changes are made directly in the Supabase dashboard during development. When deploying to production, the schema is out of sync. Manual schema changes are forgotten, leading to "works on my machine" problems. There is no rollback path for bad schema changes.
+
+**Prevention:**
+- **Use Supabase CLI migrations from day one.** `supabase migration new`, `supabase db push`. Never modify the schema through the dashboard in production.
+- **Store migrations in the git repository.** They deploy with the code.
+- **Include seed data for development** in migration files so new developers can set up quickly.
+
+**Phase to address:** Phase 1 (Database Setup).
+
+---
+
+### Pitfall 13: Vercel Preview Deployments Use Production Data
+
+**What goes wrong:**
+Every pull request creates a Vercel preview deployment. If preview deployments connect to the production Supabase instance, test pipeline runs create real agents on the production Orq.ai workspace, polluting production data. Or worse, a broken preview pipeline deletes or corrupts production pipeline data.
+
+**Prevention:**
+- **Use separate Supabase projects for production and development/preview.** Set environment variables per Vercel environment.
+- **If sharing one Supabase project, use separate schemas** or a `environment` column to isolate preview data.
+- **Never connect preview deployments to production Orq.ai API keys.** Use a test/staging Orq.ai workspace.
+
+**Phase to address:** Phase 1 (Infrastructure).
 
 ---
 
@@ -261,126 +301,135 @@ Phase 2 (Autonomous Deployment) -- the adapter abstraction must be the first thi
 
 | Shortcut | Immediate Benefit | Long-term Cost | When Acceptable |
 |----------|-------------------|----------------|-----------------|
-| Hardcoding Orq.ai evaluator types | Faster to build first experiments | New evaluator types require code changes; Orq.ai adds evaluator types regularly | Never -- use a configurable evaluator registry from day one |
-| Single-run evaluations | Faster iteration cycle, lower API cost | Decisions based on noise; prompt regressions not caught; user trust erodes | Only during initial development/debugging, never in user-facing iteration loops |
-| Inline API key in MCP config | Faster onboarding, one fewer setup step | Key exposure risk, cannot rotate without reinstalling, committed to git if .mcp.json is tracked | Never |
-| Skipping the adapter layer (calling MCP/API directly) | Faster initial development | Every feature has two code paths, doubled testing burden, inconsistent error handling | Only if committing to one path permanently (no fallback) |
-| "Approve all" batch approval mode | Faster autonomous iteration, less user friction | Users lose oversight, unexpected changes in production, trust erosion | Never in V2.0 initial release; consider for V2.1 after trust is established |
-| Storing experiment results only in Orq.ai (no local copy) | Simpler architecture, no state sync | Audit trail incomplete, cannot debug offline, Orq.ai becomes single point of failure for history | Never -- always write local audit files as the system of record |
-| Building guardrails assuming Agents API support | Faster implementation, less architecture work | Complete rework when Agents API lacks guardrail attachment; wasted phase | Never -- validate API surface before building |
+| Synchronous pipeline execution (no job queue) | Faster initial development | 504 timeouts in production for any non-trivial pipeline; requires full architecture rewrite | Never -- async execution is architectural, not a feature |
+| Single Supabase client per component | Simpler component code | Connection leaks, hitting connection limits, zombie subscriptions | Never -- singleton pattern is trivial to implement upfront |
+| Hardcoding prompts in API routes instead of shared templates | Faster to get pipeline working | Immediate divergence between CLI and web environments; double maintenance | Only for prototyping; extract to shared format before any user testing |
+| Skipping RLS on Supabase tables | Faster development, fewer auth headaches | Any user can read/modify any pipeline data; security vulnerability | Only on truly public data (none in this project) |
+| Using Postgres Changes for all Realtime updates | Simpler than Broadcast; automatic | Single-threaded processing bottleneck; delayed updates under load | For low-frequency updates (pipeline completion); use Broadcast for high-frequency (step progress) |
+| No cost tracking or user quotas | Faster launch, less infrastructure | Unpredictable and escalating API costs; one user can exhaust rate limits for all users | Only during internal beta with 1-2 users |
+| Implicit pipeline state (boolean flags) | Faster to implement first pipeline | Invalid state transitions, inconsistent dashboard display, impossible to debug | Never -- state machine is simple to implement and prevents entire classes of bugs |
+| Preview deployments sharing production data | One less Supabase project to manage | Test data pollutes production; risk of production data corruption | Never |
 
 ## Integration Gotchas
 
 | Integration | Common Mistake | Correct Approach |
 |-------------|----------------|------------------|
-| Orq.ai Agents vs Deployments | Assuming evaluator-as-guardrail works on Agents API | Guardrails are Deployments-only; for Agents, implement application-layer guardrails (run evaluator post-execution, gate on results) |
-| Orq.ai MCP Server | Assuming MCP server is always available and configured | Detect at session start, fall back gracefully, log which path is active |
-| Orq.ai MCP Server | Not handling JSON-RPC error format (different from HTTP errors) | Build adapter that normalizes errors from both MCP (JSON-RPC) and API (HTTP status) into a common error type |
-| Orq.ai MCP Server | Assuming MCP CRUD coverage matches REST API coverage | MCP server may not expose all REST API operations; validate each required operation exists before depending on MCP for it |
-| Orq.ai Datasets API | Sending > 5,000 datapoints in a single request | Batch uploads to max 5,000 datapoints per request; implement chunking for larger datasets |
-| Orq.ai Evaluators | Assuming evaluators exist globally -- they are being migrated to project scope | Always create evaluators within a project context; check for the project-scoping migration |
-| Orq.ai Experiments | Polling for experiment completion without backoff | Use exponential backoff when polling experiment status; experiments can take minutes to complete |
-| Orq.ai Agent Versioning | Updating an agent and expecting in-place modification | Orq.ai creates new versions when parameters differ on the same key; track version numbers explicitly |
-| Orq.ai Evaluator SDK | Assuming evaluator creation API matches documentation exactly | Evaluator SDK behavior needs hands-on validation; test each evaluator type (LLM, Python, HTTP, JSON) with actual API calls before building automation around them |
-| Claude Code MCP Config | Storing API key directly in `.mcp.json` or `claude_desktop_config.json` | Reference environment variable in config; instruct user to set in shell profile |
-| Claude Code Permissions | Assuming Claude Code will auto-approve MCP tool calls | Claude Code requires user permission for tool calls; design for the approval flow, not around it |
+| Vercel + Claude API | Making non-streaming Claude API calls in serverless functions | Always use streaming; keeps function alive, provides user feedback, works with Vercel AI SDK |
+| Vercel + Long Pipelines | Treating pipeline as single request-response | Decompose into steps; use job queue pattern; store intermediate state in Supabase |
+| Supabase Realtime + React | Not cleaning up subscriptions in useEffect | Always return cleanup function; use singleton client; track active subscriptions |
+| Supabase Realtime + Postgres Changes | Using Postgres Changes for high-frequency status updates | Use Broadcast for real-time UI updates; Postgres Changes for persistence events only |
+| Supabase Auth + Azure AD | Using SAML for single-tenant 15-user scenario | Use OAuth with tenant URL restriction; simpler, sufficient, no Pro plan requirement for basic auth |
+| Supabase Auth + Azure AD | Not setting tenant URL restriction | Any Microsoft account can log in; must set `https://login.microsoftonline.com/<tenant-id>` |
+| Supabase + Vercel Previews | Preview deployments connecting to production database | Separate Supabase projects per environment; separate Orq.ai API keys |
+| Next.js App Router | Supabase Realtime in Server Components | Realtime requires browser WebSocket; must be in Client Components (`"use client"`) |
+| Next.js App Router | Passing Supabase client as prop from Server to Client Component | Not serializable; use `@supabase/ssr` for server, browser client in Client Components |
+| Claude API + Shared Key | All web app users sharing one API key with no coordination | Implement request queue with rate limit tracking; show queue position to users |
+| Claude API + Error Handling | Treating 429 (rate limit) and 529 (overloaded) the same | 429: back off using Retry-After header. 529: shorter backoff, transient server issue |
+| React Flow + Real-Time | Re-rendering entire graph on every status update | Memoize node components; batch updates; separate layout state from status state |
+| Pipeline Logic + Two Environments | Duplicating prompts in CLI `.md` files and web `api/*.ts` files | Extract to shared `pipeline/prompts/` directory; both environments read same source |
+| Orq.ai API + Web App | Using MCP for Orq.ai operations from web app | MCP is stdio-based, not HTTP; web app must use REST API directly; CLI keeps MCP |
 
 ## Performance Traps
 
 | Trap | Symptoms | Prevention | When It Breaks |
 |------|----------|------------|----------------|
-| Running full experiment suite on every iteration | 5+ minute wait per iteration cycle; high Orq.ai API costs | Use a "smoke test" subset (10-15 examples) for iteration; full suite only for final validation | Immediately -- users will not wait 5 minutes between iterations |
-| Polling Orq.ai experiment status without backoff | API rate limit hits; 429 errors; experiment results delayed | Exponential backoff starting at 2s, capping at 30s; max 20 polls before timeout | At scale when multiple experiments run concurrently |
-| Loading entire audit trail into Claude Code context | Context window exhaustion; slow responses; lost instructions | Only load the most recent iteration's audit summary; keep full trail on disk, not in context | After 3+ iterations when audit trail exceeds ~2000 tokens |
-| Creating new evaluators for every experiment run | Evaluator proliferation in Orq.ai workspace; management overhead | Create evaluators once per agent type, reuse across experiments; name deterministically | After 10+ experiment runs when workspace becomes cluttered |
+| Synchronous pipeline in serverless function | 504 timeouts after 10-60 seconds | Async job queue with step-level execution | Immediately in production for any real pipeline |
+| Unthrottled Supabase Realtime updates | Dashboard jank, dropped frames, unresponsive UI | Batch updates to 1-second intervals; debounce React Flow re-renders | With 3+ concurrent pipelines updating status |
+| React Flow re-renders on every state change | Visible jank on node status updates; slow graph interaction | `React.memo()` on node components; separate layout and status state | With 5+ node graphs and 500ms update intervals |
+| Full pipeline context in every Claude API call | High token costs; slow responses; approaching context limits | Cache static prompt content; send only variable data per call | After 3+ pipeline runs with large swarm specifications |
+| Supabase Postgres Changes for rapid updates | Delayed status updates; missed messages; database CPU spike | Use Broadcast for real-time; Postgres Changes for final state persistence | When pipeline updates exceed 10 messages/second |
+| No request queue for Claude API | 429 errors during concurrent usage; users see raw API errors | Queue requests; track RPM/TPM; show queue position | When 3+ users run pipelines simultaneously |
 
 ## Security Mistakes
 
 | Mistake | Risk | Prevention |
 |---------|------|------------|
-| API key stored in `.mcp.json` committed to git | Full Orq.ai workspace access for anyone who finds the repo | Environment variable only; `.mcp.json` in `.gitignore`; onboarding explicitly warns against file storage |
-| Audit trail logs containing full API responses with sensitive data | User data from experiments exposed in local markdown files | Sanitize all audit entries; log summaries not full responses; never log input data verbatim |
-| Iteration loop modifying production agents without staging | Prompt changes go directly to live agents serving real users | Always deploy to a staging/test version first; promote to production only with explicit user approval |
-| No key rotation strategy | Compromised key has unlimited lifetime | Document rotation procedure; onboarding mentions 90-day rotation; `/orq-agent:status` shows key age |
+| Supabase service role key in client-side code | Full database access bypassing RLS; any user can read/modify all data | Service role key only in server-side API routes; `NEXT_PUBLIC_` prefix only for anon key |
+| No RLS on pipeline data tables | Any authenticated user can access any pipeline run | Enable RLS on all tables; default policy: `auth.uid() = user_id` |
+| Azure AD client secret in client-side code | Anyone can impersonate the application | Client secret only in server-side environment variables |
+| No tenant restriction on Azure AD OAuth | Any Microsoft account holder can log in | Set tenant URL to Moyne Roberts tenant ID; register app as single-tenant |
+| Preview deployments with production API keys | Test actions affect production Orq.ai workspace | Separate API keys per Vercel environment |
+| Claude API key in `NEXT_PUBLIC_` env var | API key exposed in browser; anyone can use your API quota | Claude API calls must go through server-side API routes only |
 
 ## UX Pitfalls
 
 | Pitfall | User Impact | Better Approach |
 |---------|-------------|-----------------|
-| Autonomous operations with no progress feedback | User thinks the tool is broken during 2-3 minute experiment runs | Show step-by-step progress: "Deploying agent... Running experiment (12/30 cases)... Analyzing results..." |
-| Technical experiment results without interpretation | Non-technical users see "Score: 0.73, F1: 0.81" and do not know if that is good | Present results in plain language: "Your agent answered correctly 73% of the time. This is below the recommended 85% threshold." |
-| Prompt diffs shown as raw text without highlighting | Users cannot see what actually changed between iterations | Show side-by-side or inline diff with additions/removals clearly marked |
-| Capability install requires re-running full install script | Users lose existing config or customization when upgrading capabilities | Additive install: `/orq-agent:install --add deploy` adds capability without touching existing setup |
-| No "undo" for autonomous operations | User approves a change, regrets it, cannot revert | Every deployment creates a rollback point; `/orq-agent:rollback` restores previous version |
-| Guardrails described in Orq.ai terms users do not understand | Non-technical users confused by "evaluator thresholds" and "score gates" | Present guardrails as "safety checks": "Before your agent responds to customers, it will be checked for [harmful content / off-topic responses / etc.]" |
+| Pipeline progress shows only "Processing..." | User thinks app is frozen during 2-5 minute pipeline runs | Show step-by-step progress with estimated time: "Designing architecture (step 2 of 5, ~30s remaining)" |
+| Error messages show raw API errors | "429 Too Many Requests" means nothing to non-technical users | "The system is busy processing other requests. Your pipeline will resume in ~30 seconds." |
+| No cost visibility for pipeline runs | Users do not realize each run costs money; run pipelines casually | Show estimated cost before running; show cumulative usage in dashboard |
+| HITL approval requires returning to the app | User misses notification; pipeline stalls for hours | Allow approval via email link and Teams action button |
+| Node graph is decorative only | Users see a pretty graph but cannot interact with it | Click nodes to see agent details; click edges to see data flow; highlight current pipeline step |
+| Dashboard shows all historical runs equally | Users cannot find their recent pipeline runs | Default view: user's runs, sorted by recency; filter by status; archive old runs |
 
 ## "Looks Done But Isn't" Checklist
 
-- [ ] **Guardrails API surface:** Often assumed to work on Agents -- verify evaluator-as-guardrail attachment exists on `/v2/agents` (not just Deployments). If missing, confirm application-layer guardrail approach is implemented instead
-- [ ] **Deployment:** Often missing verify-after-deploy -- verify the skill reads back deployed state from Orq.ai after every write operation
-- [ ] **Iteration loop:** Often missing stopping conditions -- verify hard caps exist for iteration count, budget, wall-clock time, and diminishing returns
-- [ ] **Evaluation:** Often using single-run scores -- verify every automated evaluation uses median of 3+ runs
-- [ ] **Dataset splitting:** Often using full dataset for both iteration and validation -- verify train/test/holdout split is enforced
-- [ ] **API key onboarding:** Often stores key in a file -- verify key is stored as environment variable only, never written to any tracked file
-- [ ] **MCP fallback:** Often untested -- verify the API fallback path has equal test coverage to the MCP primary path
-- [ ] **MCP CRUD coverage:** Often assumed complete -- verify each required MCP operation (create/read/update/delete for agents, datasets, evaluators, experiments) actually exists in the MCP server before building features that depend on it
-- [ ] **Evaluator SDK:** Often assumed to match docs -- verify each custom evaluator type (LLM, Python, HTTP, JSON) can be created and configured via the API with actual test calls
-- [ ] **Capability checks:** Often fail silently -- verify every command checks its required capabilities at startup and errors explicitly
-- [ ] **Audit trail:** Often only technical -- verify a user-facing summary exists alongside the technical log
-- [ ] **Approval flow:** Often allows batch approval -- verify per-iteration approval is the only option in V2.0
-- [ ] **Evaluator scope:** Often created globally -- verify evaluators are created within project scope (Orq.ai migration)
+- [ ] **Vercel timeout:** Pipeline API routes set `maxDuration` explicitly and use async execution pattern (not synchronous request-response)
+- [ ] **Supabase Realtime cleanup:** Every `useEffect` with `.subscribe()` has a corresponding `.removeChannel()` cleanup
+- [ ] **Supabase client singleton:** Only one Supabase client instance per browser session, shared across components
+- [ ] **RLS enabled:** Every Supabase table has Row-Level Security enabled with appropriate policies
+- [ ] **Azure AD tenant restriction:** OAuth configured with tenant URL limiting access to Moyne Roberts accounts only
+- [ ] **Azure AD secret rotation:** Client secret expiry date documented; rotation procedure tested; monitoring in place
+- [ ] **Claude API rate limiting:** Request queue with backoff; 429/529 errors handled gracefully; user-friendly error messages
+- [ ] **Cost tracking:** Per-user usage tracked; quotas enforced; estimated cost shown before pipeline execution
+- [ ] **Pipeline state machine:** Explicit states and transitions defined; invalid transitions rejected; all states visible in dashboard
+- [ ] **Shared prompts:** Pipeline prompts in shared directory consumed by both CLI and web app; no duplication
+- [ ] **Parity testing:** Golden input/output pairs tested against both CLI and web app environments
+- [ ] **Environment variables:** All required vars validated at startup; set for all Vercel environments; `.env.example` maintained
+- [ ] **Preview isolation:** Preview deployments use separate Supabase project and Orq.ai API keys from production
+- [ ] **Subscription monitoring:** Active Realtime subscription count tracked; alerts on unexpected growth
+- [ ] **Emergency access:** SSO bypass procedure documented in secure runbook for Azure AD outages
 
 ## Recovery Strategies
 
 | Pitfall | Recovery Cost | Recovery Steps |
 |---------|---------------|----------------|
-| Guardrails built for wrong API surface | HIGH | Redesign guardrails as application-layer checks; refactor from "attach evaluator to agent" to "run evaluator after agent execution and gate on result"; may require rethinking the entire guardrails phase |
-| Runaway iteration loop | LOW-MEDIUM | Kill the session; review audit trail for changes made; rollback any deployed changes to last known-good version; add/tighten iteration limits |
-| MCP state desync | MEDIUM | Run sync command to reconcile local vs Orq.ai state; manually verify each deployed agent; update local audit trail to match reality |
-| Prompt overfitting | MEDIUM | Revert to pre-iteration prompt; create new holdout dataset with real-world examples; re-iterate with proper train/test split; may need to discard multiple iterations of "improvement" |
-| API key exposure | HIGH | Immediately rotate key in Orq.ai; audit git history for exposure; force-push to remove from history (if committed); notify affected users; review all systems that used the key |
-| Non-deterministic eval results | LOW | Re-run evaluations 3x and use median; adjust evaluators to use semantic matching; increase dataset size; flag high-variance results in reporting |
-| Broken partial install state | LOW | Run `/orq-agent:status` to identify installed capabilities; re-run install with desired capability tier; capability hierarchy prevents most invalid states |
-| Lost user oversight | MEDIUM-HIGH | Audit all changes made by the pipeline; revert any unapproved modifications; review and tighten approval checkpoints; may need to manually restore agent configurations in Orq.ai |
-| MCP/API fallback chaos | MEDIUM | Standardize on one path for the session; rebuild adapter layer if paths diverge; add integration tests for both paths; log which path is active |
+| Synchronous pipeline hitting timeouts | HIGH | Rewrite pipeline architecture to async job queue; add state persistence between steps; update all API routes; rebuild progress tracking |
+| Realtime connection exhaustion | MEDIUM | Add cleanup to all useEffect hooks; implement singleton client; restart Supabase Realtime connections; may require user refresh |
+| Azure AD SSO lockout | LOW-MEDIUM | Use emergency service role key access; fix Azure AD configuration; communicate resolution to users |
+| Pipeline logic divergence (CLI vs web) | HIGH | Audit both environments; extract shared prompts; establish parity tests; ongoing maintenance cost |
+| Claude API cost overrun | LOW | Implement quotas immediately; review and optimize prompts; enable caching; costs already incurred are sunk |
+| React Flow performance degradation | MEDIUM | Add memoization to all node components; implement update batching; may require separating state management |
+| RLS not configured | MEDIUM | Audit all tables; add RLS policies; test with multiple users; data exposure may have already occurred |
+| Pipeline stuck in invalid state | LOW | Manually update state in Supabase; add state machine to prevent recurrence; may need to restart individual pipeline runs |
+| Environment variable missing in production | LOW | Add to Vercel dashboard; redeploy; add startup validation to prevent recurrence |
 
 ## Pitfall-to-Phase Mapping
 
 | Pitfall | Prevention Phase | Verification |
 |---------|------------------|--------------|
-| Guardrails wrong API surface | Phase 1: API Validation (validate early) + Phase 4: Guardrails (implement correctly) | Verify: hands-on test confirms whether `/v2/agents` supports evaluator attachment; if not, application-layer guardrail design documented before Phase 4 begins |
-| Runaway autonomous loops | Phase 3: Prompt Iteration | Verify: iteration loop has hard caps on count (3), budget (50 calls), time (10 min), and diminishing returns (5%) |
-| MCP state desync | Phase 2: Autonomous Deployment | Verify: every deploy operation includes a read-back verification step; version numbers tracked in audit trail |
-| Prompt overfitting | Phase 2.5 + 3: Testing + Iteration | Verify: datasets are split into train/test/holdout; holdout never used during iteration; iteration loop respects split |
-| API key exposure | Phase 1: Modular Install | Verify: API key stored as env var only; no key values in any generated file; `.gitignore` covers config files |
-| Non-deterministic evals | Phase 2.5: Automated Testing | Verify: evaluation harness runs 3+ times per evaluation; median score used; variance reported; single-run decisions blocked |
-| Broken partial install | Phase 1: Modular Install | Verify: capabilities follow strict hierarchy (core < deploy < test < full); every command checks requirements at startup |
-| Lost user oversight | Phase 2 + 3: Deployment + Iteration | Verify: per-iteration approval enforced; human-readable summaries generated; diff view before every change; session summary at end |
-| MCP/API fallback chaos | Phase 2: Autonomous Deployment | Verify: single adapter interface; detection at session start; integration tests for both paths; no mid-session path switching |
+| Vercel function timeouts | Phase 1: Architecture | Verify: pipeline uses async job queue pattern; no single-function pipelines; `maxDuration` set on all API routes |
+| Realtime subscription leaks | Phase 1: Foundation | Verify: singleton Supabase client; all useEffect subscriptions have cleanup; subscription count monitoring |
+| Azure AD SSO misconfiguration | Phase 1: Auth Setup | Verify: tenant restriction set; client secret expiry monitored; emergency access documented; redirect URIs for all environments |
+| Dual-environment divergence | Phase 1: Architecture | Verify: shared prompt directory exists; both environments import from it; parity tests exist |
+| Claude API cost explosion | Phase 2: Pipeline Integration | Verify: per-user quotas; cost estimation display; request queue with rate limit awareness; prompt caching enabled |
+| React Flow performance | Phase 2: Dashboard | Verify: node components memoized; updates batched; layout and status state separated |
+| RLS gaps | Phase 1: Database Setup | Verify: RLS enabled on all tables; policies tested with multi-user scenarios |
+| Server/Client boundary confusion | Phase 1: App Structure | Verify: clear component directory structure; Realtime only in Client Components; serializable props across boundary |
+| Pipeline state machine implicit | Phase 1: Architecture | Verify: explicit state enum; transition map; invalid transitions throw; all states in dashboard |
+| HITL approval blocking | Phase 3: Approvals | Verify: approval timeouts; multi-channel notifications; async gate pattern (not pipeline pause) |
+| Environment variable sprawl | Phase 1: Setup | Verify: typed env config with validation; `.env.example` maintained; all Vercel environments configured |
+| Database migrations not versioned | Phase 1: Database Setup | Verify: Supabase CLI migrations in git; no manual dashboard schema changes in production |
+| Preview deployments use production data | Phase 1: Infrastructure | Verify: separate Supabase projects; separate Orq.ai keys; env vars scoped per Vercel environment |
 
 ## Sources
 
-- [Orq.ai Docs: Evaluator Introduction](https://docs.orq.ai/docs/evaluator) -- Evaluator types, project-scoping migration, and guardrail scope (Deployments only)
-- [Orq.ai Docs: Creating Evaluators](https://docs.orq.ai/docs/evaluators/creating) -- Evaluator creation and guardrail attachment to Deployments
-- [Orq.ai Docs: Agent API](https://docs.orq.ai/docs/agents/agent-api) -- Agent API capabilities (no guardrail attachment documented)
-- [Orq.ai Changelog: HTTP and JSON Evaluators](https://docs.orq.ai/changelog/http-and-json-evals) -- Evaluator guardrail types for Deployments
-- [Orq.ai Docs: Datasets Overview](https://docs.orq.ai/docs/datasets/overview) -- Dataset format and 5,000 datapoint limit
-- [Orq.ai Platform: Evaluation](https://orq.ai/platform/evaluation) -- Experiment and evaluation capabilities
-- [Orq.ai Blog: API Rate Limiting](https://orq.ai/blog/api-rate-limit) -- Leaky bucket rate limiting approach
-- [Orq.ai Blog: LLM Guardrails](https://orq.ai/blog/llm-guardrails) -- Platform guardrail capabilities (marketing vs actual API surface)
-- [Orq.ai Blog: Model vs Data Drift](https://orq.ai/blog/model-vs-data-drift) -- Drift monitoring guidance
-- [Fast.io: MCP Server Rate Limiting](https://fast.io/resources/mcp-server-rate-limiting/) -- 1,000 calls/minute runaway agent scenario
-- [Stainless: Error Handling and Debugging MCP Servers](https://www.stainless.com/mcp/error-handling-and-debugging-mcp-servers) -- MCP error patterns and JSON-RPC debugging
-- [Claude Code Docs: MCP Integration](https://code.claude.com/docs/en/mcp) -- MCP server configuration in Claude Code
-- [Claude API Key Best Practices](https://support.claude.com/en/articles/9767949-api-key-best-practices-keeping-your-keys-safe-and-secure) -- API key security guidance
-- [Skywork.ai: Agentic AI Safety Best Practices 2025](https://skywork.ai/blog/agentic-ai-safety-best-practices-2025-enterprise/) -- Risk tiers and approval frameworks
-- [PromptEngineering.org: 2026 Playbook for Reliable Agentic Workflows](https://promptengineering.org/agents-at-work-the-2026-playbook-for-building-reliable-agentic-workflows/) -- Cost control and safety patterns
-- [ArXiv: When "Better" Prompts Hurt](https://arxiv.org/html/2601.22025) -- Evaluation-driven iteration pitfalls and overfitting
-- [Statsig: Prompt Regression Testing](https://www.statsig.com/perspectives/slug-prompt-regression-testing) -- Regression-safe prompt iteration
-- [Flagsmith: 5 Feature Flag Management Pitfalls](https://www.flagsmith.com/blog/pitfalls-of-feature-flags) -- Feature flag complexity and broken states
-- [Martin Fowler: Feature Toggles](https://martinfowler.com/articles/feature-toggles.html) -- Canonical reference on toggle complexity
-- [Langfuse: Testing LLM Applications](https://langfuse.com/blog/2025-10-21-testing-llm-applications) -- Non-deterministic evaluation strategies
+- [Vercel KB: Serverless Function Timeouts](https://vercel.com/kb/guide/what-can-i-do-about-vercel-serverless-functions-timing-out) -- Timeout limits by plan, Fluid Compute, workarounds
+- [Vercel Changelog: 5-Minute Functions](https://vercel.com/changelog/serverless-functions-can-now-run-up-to-5-minutes) -- Extended duration limits
+- [Vercel Docs: Functions](https://vercel.com/docs/functions) -- Fluid Compute duration limits (800s Pro/Enterprise)
+- [Inngest: Solving Next.js Timeouts](https://www.inngest.com/blog/how-to-solve-nextjs-timeouts) -- Step-based pipeline decomposition pattern
+- [Inngest: Long-Running Background Functions on Vercel](https://www.inngest.com/blog/vercel-long-running-background-functions) -- Background function patterns
+- [Supabase Docs: Realtime Limits](https://supabase.com/docs/guides/realtime/limits) -- Connection limits, message throughput, channel join limits
+- [Supabase Docs: Realtime Benchmarks](https://supabase.com/docs/guides/realtime/benchmarks) -- Postgres Changes single-thread bottleneck
+- [Supabase Docs: Login with Azure](https://supabase.com/docs/guides/auth/social-login/auth-azure) -- OAuth tenant restriction, configuration steps
+- [Supabase Docs: SAML 2.0 SSO](https://supabase.com/docs/guides/auth/enterprise-sso/auth-sso-saml) -- Enterprise SSO setup, attribute mapping pitfalls
+- [Supabase Docs: Set Up SSO with Azure AD](https://supabase.com/docs/guides/platform/sso/azure) -- Platform-level SSO configuration
+- [Claude API Docs: Rate Limits](https://platform.claude.com/docs/en/api/rate-limits) -- RPM, TPM limits, 429 vs 529 error distinction
+- [Claude API Docs: Errors](https://platform.claude.com/docs/en/api/errors) -- Error types and handling patterns
+- [React Flow: Performance](https://reactflow.dev/learn/advanced-use/performance) -- Memoization, virtualization, state management optimization
+- [Vercel: AI Cloud Platform](https://vercel.com/blog/the-ai-cloud-a-unified-platform-for-ai-workloads) -- Fluid Compute for AI workloads
+- [Vercel Templates: Monorepo Turborepo](https://vercel.com/templates/next.js/monorepo-turborepo) -- Monorepo structure for shared logic
 
 ---
-*Pitfalls research for: V2.0 Autonomous Orq.ai Pipeline (extending V1.0 Orq Agent Designer)*
-*Researched: 2026-03-01*
+*Pitfalls research for: V3.0 Web UI & Dashboard (extending V2.0 Orq Agent Designer)*
+*Researched: 2026-03-03*

@@ -1,358 +1,355 @@
-# Feature Research: V2.0 Autonomous Orq.ai Pipeline
+# Feature Research: V3.0 Web UI & Dashboard
 
-**Domain:** Autonomous LLM agent deployment, testing, and prompt iteration pipelines
-**Researched:** 2026-03-01
-**Confidence:** MEDIUM -- Orq.ai platform capabilities verified via official docs; industry patterns well-documented; MCP server tool coverage partially verified (specific tool list not fully enumerable without runtime introspection)
+**Domain:** Browser-based AI agent design pipeline with real-time dashboard, agent visualization, and HITL approval workflows
+**Researched:** 2026-03-03
+**Confidence:** MEDIUM -- UI patterns well-documented across industry; Supabase Realtime and React Flow verified via official docs; Microsoft Graph approval APIs verified; Orq.ai integration patterns proven in V2.0
 
 ## Context: What Already Exists
 
-V1.0 pipeline (COMPLETE): Full spec generation from natural language -- architect, researcher, spec-generator, orchestration-generator, dataset-generator, readme-generator, tool-resolver, KB-aware pipeline, discussion step, XML-tagged prompts.
+**V1.0 Pipeline (COMPLETE):** Full spec generation from natural language -- architect, researcher, spec-generator, orchestration-generator, dataset-generator, tool-resolver, KB-aware pipeline, discussion step, XML-tagged prompts.
 
-v0.3 Foundation (COMPLETE as of 2026-03-01):
-- Latest agentic framework references (Anthropic, OpenAI, Google A2A)
-- Orq.ai API endpoints and evaluator types references
-- V2.0 output templates (deploy-log, test-results, iteration-log)
-- Modular install with capability tier selection (core/deploy/test/full)
-- API key validation and MCP server auto-registration
-- Capability-gated commands with upgrade messaging
+**V2.0 Pipeline (COMPLETE):** Autonomous deploy/test/iterate/harden via Claude Code with MCP-first Orq.ai integration, HITL approval in terminal, local audit trail.
 
-This research covers ONLY the remaining V2.0 features: autonomous deployment, automated testing, prompt iteration, guardrails, and audit trail.
+**V3.0 scope:** Browser-based self-service pipeline + real-time dashboard. Core pipeline (use case to specs to deploy) first; test/iterate/harden deferred to V3.1+. This research covers ONLY the web UI features listed in PROJECT.md Active requirements.
 
 ## Feature Landscape
 
-### Table Stakes (Users Expect These)
+### Category 1: Self-Service Pipeline UI
 
-Features that any autonomous deployment and testing pipeline must have. Missing these means the automation feels broken or unsafe.
+#### Table Stakes
 
-#### Capability Area 1: Autonomous Deployment to Orq.ai
+| Feature | Why Expected | Complexity | Pipeline Dependency | Notes |
+|---------|--------------|------------|---------------------|-------|
+| Use case text input with guidance | Non-technical users need to describe what they want; empty text box is intimidating | LOW | Maps to V1.0 adaptive input handler | Placeholder text, example use cases, character guidance. Competitors (MindStudio, Lindy, Dify) all provide guided input with examples and templates. |
+| Pipeline step indicator | Users must see where they are in a multi-step process; no visibility = anxiety | LOW | Maps to V1.0 pipeline stages (discuss, architect, research, spec-gen, orchestrate, tools, datasets) | Horizontal stepper or vertical timeline. Each step: pending/active/complete/error. This is the most basic UX pattern for multi-step workflows. |
+| Live status messages per step | "What is it doing right now?" -- users need proof the system is working | MEDIUM | Requires Supabase Realtime to stream status from backend pipeline execution | Short descriptive messages: "Analyzing use case complexity...", "Generating agent specifications...". Update every 2-5 seconds. Without this, users assume it crashed. |
+| Output display (agent specs, orchestration) | Users must see what was generated, not just "done" | MEDIUM | V1.0 spec-generator output (18 Orq.ai fields per agent) | Formatted cards per agent showing role, model, key fields. Collapsible detail sections for full specs. Non-technical users need summary view; technical users need raw spec access. |
+| Error handling with recovery options | Pipeline failures must not dead-end the user | MEDIUM | Pipeline error states from each V1.0/V2.0 subagent | Show what failed, why (in plain language), and offer: retry this step, go back, start over. Never show raw error messages or stack traces to non-technical users. |
+| Session persistence | Closing the browser must not lose work in progress | MEDIUM | Supabase DB for pipeline state storage | Save pipeline state after each step completion. User returns to where they left off. Sessions expire after 7 days. Critical for a pipeline that can take 5-15 minutes. |
+| Authentication gate (M365 SSO) | Moyne Roberts employees only; no public access | MEDIUM | Supabase Auth with Azure AD provider | Single sign-on with Microsoft 365. No separate registration. User lands on login, redirects to M365, returns authenticated. Role = "user" for everyone (no admin needed at 5-15 users). |
 
-| Feature | Why Expected | Complexity | Existing Dependency | Expected Behavior |
-|---------|--------------|------------|---------------------|-------------------|
-| Agent creation via MCP/API | "Deploy" means actually creating agents in the platform, not generating config files | HIGH | V1.0 agent spec output (all 18 Orq.ai fields) | User runs `/orq-agent:deploy`. Deployer reads each agent spec from `Agents/[swarm]/agents/*.md`, extracts the 18 Orq.ai fields, calls `POST /v2/agents` (or MCP equivalent). Each agent appears in Orq.ai Studio within seconds. Deployer reports: "Created invoice-checker-agent (v1)". On re-run: "Updated invoice-checker-agent (v2)". |
-| Tool creation via REST API | Agents reference tools; tools must exist in Orq.ai before agents can use them | HIGH | V1.0 TOOLS.md output with JSON schemas | Before deploying any agent, deployer reads TOOLS.md, creates each tool via `POST /v2/tools`. Tools are created with deterministic keys matching the agent specs. If tool already exists, deployer updates it. Order: tools first, then agents, then orchestrator. |
-| Idempotent create-or-update | Running deploy twice must not create duplicates or error out | MEDIUM | Agent key naming convention from V1.0 (`[domain]-[role]-agent` kebab-case) | Deployer does GET-before-POST for every resource. If key exists: PATCH to update, creating a new version. If key does not exist: POST to create. V1.0's kebab-case naming convention provides stable, deterministic keys. Deploy is always safe to re-run. |
-| Orchestration wiring (agent-as-tool) | Multi-agent swarms need the orchestrator configured to discover and call sub-agents | HIGH | V1.0 ORCHESTRATION.md with agent sequence | After all sub-agents are deployed, deployer creates the orchestrator agent with `retrieve_agents` and `call_sub_agent` built-in tools in its tools array. The orchestrator's instructions reference sub-agent keys from the blueprint. Deploy order: sub-agents first, orchestrator last. |
-| Deployment status reporting | Users need to see what was created, updated, or failed | LOW | None -- new | After deployment completes, deployer writes `deploy-log.md` using the V2.0 template. Contains a table: agent key, status (created/updated/skipped/failed), version number, Orq.ai URL (if available), timestamp. Also prints a summary to Claude Code output. |
-| Local spec update after deployment | Local files should reflect deployed state for audit and re-deployment | LOW | V1.0 output directory structure | Deployer appends deployment metadata (agent ID, version, timestamp) to each agent's local spec file. Enables: "this spec was last deployed as v3 on 2026-03-15". |
-| Graceful degradation when MCP unavailable | Pipeline must work even without MCP server | MEDIUM | V1.0 copy-paste output pipeline | At session start, deployer checks MCP availability. If unavailable, all operations use REST API via the `@orq-ai/node` SDK. User sees: "MCP server not detected, using API directly." No functionality loss, just a different integration path. |
+#### Differentiators
 
-**Expected deployment flow:**
-```
-User: /orq-agent:deploy
-  1. Deployer checks MCP/API availability
-  2. Reads all agent specs from Agents/[swarm]/agents/*.md
-  3. Reads TOOLS.md for tool definitions
-  4. Creates/updates tools (tools before agents)
-  5. Creates/updates each sub-agent
-  6. Creates/updates orchestrator agent (last, with team_of_agents wiring)
-  7. Verifies each deployed resource by reading it back from Orq.ai
-  8. Writes deploy-log.md with status table
-  9. Returns structured result to orchestrator
-```
-
-#### Capability Area 2: Automated Testing Pipeline
-
-| Feature | Why Expected | Complexity | Existing Dependency | Expected Behavior |
-|---------|--------------|------------|---------------------|-------------------|
-| Dataset upload to Orq.ai | Cannot run experiments without test data in the platform | MEDIUM | V1.0 dataset-generator output (clean + edge case datasets) | Tester reads V1.0 dataset markdown files, transforms them into Orq.ai dataset format (rows with input, expected_output, metadata), uploads via `POST /v2/datasets` + `POST /v2/datasets/{id}/rows`. Handles the 5,000 datapoint limit per request by chunking. |
-| Evaluator creation | Experiments need evaluators to score results | MEDIUM | V1.0 dataset eval pairs, evaluator types reference | Tester creates evaluators appropriate to each agent's role. Uses a selection heuristic: structural agents get `json_validity` + `json_schema`; conversational agents get `relevance` + `coherence` + `helpfulness`; all agents get `instruction_following`. Custom LLM-as-judge evaluators for domain-specific criteria. Evaluators are created once and reused across experiment runs. |
-| Experiment execution | The core testing action: run agents against datasets with evaluators | HIGH | Deployed agents + uploaded datasets + created evaluators | Tester uses evaluatorq SDK to define a job (invoke deployed agent), attach dataset and evaluators, and run the experiment. Polls for completion with exponential backoff (2s initial, 30s cap, 20 polls max). Results automatically appear in Orq.ai platform. |
-| Results collection and presentation | Users must see results in readable format, not raw API data | MEDIUM | None -- new | Tester fetches experiment results, formats as markdown using the `test-results.md` template. Shows: per-agent score summary, per-evaluator breakdown, worst-performing test cases (bottom 5), pass/fail verdict against configurable thresholds. Writes to `Agents/[swarm]/test-results.md`. |
-
-**Expected testing flow:**
-```
-User: /orq-agent:test
-  1. Tester reads dataset files from Agents/[swarm]/datasets/
-  2. Uploads datasets to Orq.ai (creates or reuses existing)
-  3. Creates evaluators based on agent roles (structural + semantic + domain)
-  4. Runs experiment per agent via evaluatorq SDK
-  5. Polls for results with exponential backoff
-  6. Formats results in human-readable markdown
-  7. Writes test-results.md
-  8. Returns pass/fail per agent with scores to orchestrator
-```
-
-#### Capability Area 3: Prompt Iteration Loop
-
-| Feature | Why Expected | Complexity | Existing Dependency | Expected Behavior |
-|---------|--------------|------------|---------------------|-------------------|
-| Results analysis with actionable conclusions | Raw scores are useless; users expect "what went wrong and why" | MEDIUM | Test results from automated testing step | Iterator reads test-results.md, identifies agents scoring below threshold (default 0.80), analyzes failing test cases to find patterns (e.g., "fails on multi-language inputs", "loses formatting on long responses"). Produces a diagnosis per failing agent tied to specific prompt sections. |
-| Proposed prompt changes with reasoning | Users must see WHAT will change and WHY | MEDIUM | V1.0 spec-generator output (current prompts) | Iterator generates a diff-style view: "In agent X, section `<examples>`, ADD a multi-language example because test cases 7, 12, 15 all failed on non-English input." Each proposed change maps to specific test failures. Changes are shown as additions/modifications to XML-tagged prompt sections. |
-| User approval gate | No autonomous prompt changes without explicit human approval | LOW | None -- mirrors V1.0 HITL design pattern | Iterator presents all proposed changes for a single agent, waits for user to type "approve", "edit", or "skip". No "approve all" option in V2.0. Per-agent, per-iteration approval granularity. User can modify proposals before approving. |
-| Agent update after approval | Approved changes applied to both local specs and deployed agents | MEDIUM | Deploy capability (idempotent updates) | On approval: (1) update the local agent spec `.md` file on disk with new prompt sections, (2) re-deploy the changed agent to Orq.ai via deployer (creates new version), (3) log old and new versions in iteration-log. |
-| Re-test after iteration | Validate that changes actually improved performance | LOW | Automated testing pipeline | After updating, tester re-runs the experiment for the changed agent only (not the full swarm). Compares new scores to previous run. Shows delta: "relevance: 0.62 -> 0.78 (+25.8%)". |
-| Iteration loop with stopping conditions | Loop must terminate -- not run forever | LOW | None -- new | Loop runs: analyze -> propose -> approve -> update -> re-test. Stops when: (a) all agents pass thresholds, (b) max iterations reached (default 3), (c) improvement < 5% between iterations (diminishing returns), (d) user declines to continue, or (e) wall-clock timeout (10 min). |
-
-**Expected iteration flow:**
-```
-User: /orq-agent:iterate (or automatic after test)
-  Iteration 1:
-    1. Iterator reads test-results.md
-    2. Identifies agents below threshold (e.g., support-agent at 0.62)
-    3. Analyzes failing cases, correlates with prompt sections
-    4. Proposes specific changes with reasoning
-    5. User reviews, approves/edits/skips per agent
-    6. On approval: update local spec, re-deploy, re-test
-    7. Show score comparison (before vs after)
-  Iteration 2 (if still below threshold):
-    8. Repeat steps 1-7 for still-failing agents
-  Stops at: all pass, max iterations (3), <5% improvement, user declines
-```
-
-#### Capability Area 4: Audit Trail
-
-| Feature | Why Expected | Complexity | Existing Dependency | Expected Behavior |
-|---------|--------------|------------|---------------------|-------------------|
-| Deploy log | Record of what was deployed, when, and what version | LOW | Deployment status reporting | `deploy-log.md` in swarm directory. Appended on each deploy. Contains: timestamp, agent key, action (create/update), version number, status. Never contains API keys or auth tokens. |
-| Test results log | Record of experiment outcomes | LOW | Results presentation | `test-results.md` in swarm directory. Written on each test run. Contains: timestamp, dataset used, evaluator scores per agent, pass/fail, worst cases. |
-| Iteration log | Record of each iteration cycle | LOW | Prompt iteration loop | `iterations/iteration-N.md` per iteration. Contains: agent name, score before, proposed changes with reasoning, approval status, score after. Links to specific test failures that motivated changes. |
-| Session audit trail | Append-only log of all pipeline actions | LOW | All above | `audit-trail.md` in swarm directory. Append-only. One-line-per-action format: "[timestamp] [action] [target] [result]". Human-readable summary of everything the pipeline did. |
-
-### Differentiators (Competitive Advantage)
-
-Features that set V2.0 apart. Not expected by default, but create the "autonomous pipeline" value proposition.
-
-| Feature | Value Proposition | Complexity | Existing Dependency | Notes |
+| Feature | Value Proposition | Complexity | Pipeline Dependency | Notes |
 |---------|-------------------|------------|---------------------|-------|
-| End-to-end spec-to-production pipeline | No other tool goes from natural language through spec, deployment, testing, and iteration in a single workflow. Braintrust, Promptfoo, LangSmith handle individual stages. The full loop is the moat. | HIGH (integration) | Entire V1.0 pipeline + all V2.0 table stakes | Each stage alone is commodity; the integration creates the value. |
-| Smart evaluator selection from domain context | Auto-select evaluators based on agent role and domain. Customer support agent gets tone + helpfulness. Data extraction agent gets schema validation + accuracy. No manual evaluator configuration needed. | MEDIUM | V1.0 architect blueprint (agent roles), researcher output (domain knowledge) | Uses V1.0 pipeline context that no standalone testing tool has. The pipeline "knows" what the agent does and tests accordingly. |
-| Evaluator-based guardrails on deployed agents | Configure Orq.ai evaluators as runtime guardrails that block non-compliant outputs in production. Bridges testing to production safety. | MEDIUM | Evaluator creation from testing step | Orq.ai supports attaching evaluators to agents/deployments as guardrails. Promote test evaluators to production guardrails with thresholds. |
-| Threshold-based quality gates | Minimum scores before deployment is "production-ready". Prevents shipping agents that pass some tests but fail critical ones. | LOW | Automated testing results | "Agent must score >0.80 on helpfulness and >0.95 on safety." Configurable per evaluator. Simple to implement, high confidence boost. |
-| Incremental per-agent deployment | Deploy, test, and iterate each agent individually before wiring orchestration. Catches issues early, reduces blast radius. | MEDIUM | V1.0 orchestration spec (agent sequence) | Deploy agent 1 -> test -> iterate -> deploy agent 2 -> test -> iterate -> wire orchestration -> integration test. |
-| Diff-based prompt versioning with rollback | Track prompt changes as diffs, support rolling back to any previous version if performance degrades. | LOW | Local spec files from V1.0 | Store prompt history as ordered entries in iteration-log. Rollback = restore previous spec version + re-deploy. |
-| Full local audit trail with reasoning | Every iteration logged locally: what changed, why, scores before/after, user approval. User owns their data -- no cloud-only audit. | MEDIUM | V1.0 output directory structure | `iterations/` directory + `audit-trail.md`. Critical for enterprise trust. |
+| One-click deploy to Orq.ai | After reviewing specs, user clicks "Deploy" and agents appear in Orq.ai without touching a terminal | MEDIUM | V2.0 deployer subagent (already handles MCP/API deployment) | The killer feature for non-technical users. Triggers V2.0 deploy pipeline from web UI. Shows deployment progress per agent. |
+| Use case templates / recent runs | Pre-filled templates for common domains reduce friction; recent runs let users iterate on previous work | LOW | Supabase DB for template and session storage | "Customer support bot", "Document processor", "Data analyst" templates. Recent runs show last 5 sessions with re-run option. |
+| Complexity preview before pipeline runs | Show estimated pipeline depth (simple vs complex swarm) before committing to a 5-15 minute run | LOW | V1.0 architect complexity gate | "This will generate a 3-agent swarm with orchestration. Estimated time: 8 minutes." Sets expectations. Reduces abandonment. |
 
-### Anti-Features (Commonly Requested, Often Problematic)
+#### Anti-Features
 
-Features that seem valuable but create problems for a 5-15 user non-technical team.
+| Anti-Feature | Why Avoid | What to Do Instead |
+|--------------|-----------|-------------------|
+| Visual pipeline builder (drag-and-drop agent wiring) | Non-technical users cannot meaningfully wire agent architectures. This is what the AI pipeline does FOR them. Building a no-code agent builder duplicates Orq.ai Studio. | Keep the natural language input. The pipeline determines architecture. Show the result as a read-only graph. |
+| Editable spec fields in UI | Exposing 18 Orq.ai fields per agent to non-technical users creates confusion. They do not know what `max_iterations` should be. | Show specs as read-only summaries. If changes needed, user describes what is wrong in natural language and pipeline re-generates. |
+| Multi-user collaboration on same pipeline run | 5-15 users, solo pipeline runs. Collaboration adds state management complexity (conflict resolution, presence, permissions) for no real benefit. | One user per pipeline run. Share results via link after completion. |
 
-| Feature | Why Requested | Why Problematic | Alternative |
-|---------|---------------|-----------------|-------------|
-| Fully autonomous prompt iteration (no approval) | "Just fix the prompts automatically" | Non-technical users lose trust when agent behavior changes without knowledge. Autonomous changes compound errors. Anthropic agent guidelines recommend HITL for production changes. | Automate analysis and proposal generation, not the approval. Speed comes from faster diagnosis, not removing the human. |
-| Real-time production monitoring dashboard | "Show me live agent performance" | Duplicates Orq.ai native observability. Requires persistent infrastructure (webhooks, polling, storage). Massive scope increase for a CLI tool. | Reference Orq.ai's built-in traces and analytics. Use Orq.ai MCP `search` tools to pull trace data on-demand when iterating. |
-| Multi-environment deployment (dev/staging/prod) | "Deploy to staging first, then promote" | Orq.ai does not natively support environment-based agent separation. Simulating via naming creates fragile abstractions. | Use Orq.ai's native agent versioning (`@version-number`). New versions = staging. Promote by updating the active version tag. The version IS the environment boundary. |
-| Automated A/B testing in production | "Route 10% of traffic to the new prompt" | Requires traffic management infrastructure belonging in the application layer, not a spec tool. | Generate evaluator config and recommend A/B via Orq.ai deployment versioning. Provide instructions, not infrastructure. |
-| Custom evaluator code generation | "Write me a Python evaluator that checks X" | Generated code is untested code. Evaluator bugs create false confidence or false failures. | Compose from Orq.ai's 19 built-in function evaluators + LLM-as-judge. Only recommend custom evaluators when built-ins are insufficient, and require user review. |
-| Parallel multi-model comparison | "Test my prompt against 10 models at once" | Expensive (10x API costs), noisy results. Most users should pick 1-2 models and optimize prompts. | V1.0 already recommends models per role. Run experiments with 2-3 models max. Focus on prompt quality over model shopping. |
-| Webhook-based deployment triggers | "Deploy automatically when specs change" | Event-driven infrastructure in a CLI tool. Invisible dependencies. Non-technical users cannot debug webhook failures. | Explicit `/orq-agent:deploy` command. Deployment is a conscious action, not a side effect. |
-| Knowledge base automated provisioning | "Create and populate KBs automatically" | Massive scope expansion into data engineering. KB content requires human curation. | Deferred to V2.1. V2.0 deploys agents that reference KBs; V2.1 provisions the KBs themselves. |
+
+### Category 2: Real-Time Pipeline Progress Dashboard
+
+#### Table Stakes
+
+| Feature | Why Expected | Complexity | Pipeline Dependency | Notes |
+|---------|--------------|------------|---------------------|-------|
+| Pipeline run list with status | Users need to see all their runs: active, completed, failed | LOW | Supabase DB for run records | Table or card list: run name (derived from use case), status badge, started timestamp, duration. Sorted by recency. |
+| Step-by-step progress for active run | Granular visibility into what the pipeline is doing right now | MEDIUM | Supabase Realtime subscriptions on pipeline_steps table | Each pipeline step as a row/card: step name, status (queued/running/complete/failed), duration, optional detail message. Updates in real-time via Supabase Postgres Changes. |
+| Duration per step and total | "How long does this take?" -- expectation management | LOW | Timestamp tracking in pipeline execution | Show elapsed time per step and total. After first run, show comparison to average. Helps users know if something is stuck. |
+| Success/failure summary | At-a-glance outcome of completed runs | LOW | Pipeline completion state | Green checkmark or red X. Count of agents created. Link to view details. For failed runs: which step failed and the plain-language reason. |
+
+#### Differentiators
+
+| Feature | Value Proposition | Complexity | Pipeline Dependency | Notes |
+|---------|-------------------|------------|---------------------|-------|
+| Live log stream (expandable) | Technical users can see detailed pipeline output without switching to terminal | MEDIUM | Supabase Realtime streaming log entries | Collapsible panel showing pipeline logs in real time. Non-technical users ignore it; technical users love it. Auto-scroll with pause-on-hover. |
+| Pipeline stage timing breakdown | Visual bar chart showing time spent per stage across runs | LOW | Accumulated timing data in Supabase | Identifies bottlenecks. "Research step takes 40% of total time" informs optimization. Useful after 5+ runs. |
+| Cancel running pipeline | Ability to abort a pipeline mid-execution | MEDIUM | Backend must support graceful cancellation of Claude API calls | "Cancel" button on active runs. Cleans up partial state. Important when user realizes input was wrong 3 minutes in. |
+
+#### Anti-Features
+
+| Anti-Feature | Why Avoid | What to Do Instead |
+|--------------|-----------|-------------------|
+| Gantt chart or timeline visualization | Over-engineered for a 7-step sequential pipeline. Adds visual complexity without insight. Steps run sequentially, not in parallel. | Simple vertical step list with status indicators. |
+| Real-time token/cost counter | Creates anxiety about spending. Non-technical users do not understand token economics. Distracts from the goal. | Show cost summary after completion if needed. Do not show during execution. |
+
+
+### Category 3: Agent Swarm Node Graph Visualization
+
+#### Table Stakes
+
+| Feature | Why Expected | Complexity | Pipeline Dependency | Notes |
+|---------|--------------|------------|---------------------|-------|
+| Node-per-agent graph layout | Each agent as a visual node showing name, role, model | MEDIUM | V1.0 ORCHESTRATION.md (agent relationships, data flow) | React Flow is the standard library for this. Auto-layout with dagre or elkjs for hierarchical swarm structure. Orchestrator at top, sub-agents below. |
+| Directed edges showing data flow | Arrows between agents showing how they communicate | LOW | V1.0 ORCHESTRATION.md data flow specification | Edge labels optional but helpful: "passes extracted data", "returns validation result". Animated edges during active pipeline execution. |
+| Agent detail panel on click | Click a node to see that agent's full specification | LOW | V1.0 agent spec output | Slide-out panel or modal showing: role, model, description, tools, key instruction highlights. Non-editable. Link to Orq.ai Studio for that agent. |
+| Orchestrator node distinct from sub-agents | Users must visually distinguish the "boss" agent from workers | LOW | V1.0 orchestration spec (identifies orchestrator) | Different color, size, or icon for orchestrator node. Shows which tools it uses to coordinate (retrieve_agents, call_sub_agent). |
+
+#### Differentiators
+
+| Feature | Value Proposition | Complexity | Pipeline Dependency | Notes |
+|---------|-------------------|------------|---------------------|-------|
+| Pipeline execution overlay on graph | Nodes light up as the pipeline processes each agent -- "watch it build" | HIGH | Supabase Realtime streaming per-agent pipeline status | During spec generation: nodes appear one by one as architect designs the swarm. During deployment: nodes transition from "pending" to "deploying" to "deployed" with color changes. This is the "wow factor" feature. |
+| Status badges on nodes (deployed/tested/passing) | At-a-glance health of each agent in the swarm | MEDIUM | V2.0 deploy-log and test-results data in Supabase | Color-coded badges: gray (spec only), blue (deployed), green (tests passing), red (tests failing), yellow (iterating). Tells the full story without clicking. |
+| Zoom, pan, fit-to-view | Standard graph interaction for swarms with 5+ agents | LOW | React Flow built-in controls | React Flow provides this out of the box. Include minimap for large swarms. Fit-to-view button for quick reset. |
+| Export graph as image | Share swarm architecture in presentations or documentation | LOW | React Flow or html-to-image library | PNG or SVG export. Useful for stakeholder communication. Low effort, high perceived value. |
+
+#### Anti-Features
+
+| Anti-Feature | Why Avoid | What to Do Instead |
+|--------------|-----------|-------------------|
+| Drag-and-drop node rearrangement that persists | Users rearranging the graph creates a false sense of architectural control. The graph represents actual agent relationships, not a design canvas. | Allow temporary drag for readability but do not persist positions. Auto-layout is the source of truth. |
+| 3D graph visualization | Reagraph supports 3D but it adds cognitive load without insight for 3-8 node swarms. Looks impressive in demos, confusing in practice. | 2D hierarchical layout. Clean, readable, professional. |
+| Real-time message flow animation between agents | Showing individual messages flowing between agents in production requires deep observability integration with Orq.ai traces. Massive scope. | Show static data flow arrows from ORCHESTRATION.md. Animate only during pipeline execution (build-time), not runtime. |
+
+
+### Category 4: Agent Performance Dashboard
+
+#### Table Stakes
+
+| Feature | Why Expected | Complexity | Pipeline Dependency | Notes |
+|---------|--------------|------------|---------------------|-------|
+| Per-agent score summary | Overall quality score per agent from latest test run | LOW | V2.0 test-results data | Card per agent: name, overall score (weighted average of evaluators), pass/fail badge, last tested timestamp. Color-coded: green >0.80, yellow 0.60-0.80, red <0.60. |
+| Per-evaluator score breakdown | Which specific qualities are strong/weak per agent | MEDIUM | V2.0 evaluator scores per agent | Table or bar chart: evaluator name, score, threshold, pass/fail. Helps users understand "good at relevance, weak at instruction following." |
+| Score trend across iterations | "Is it getting better?" -- the core question during prompt iteration | MEDIUM | V2.0 iteration-log data (scores per iteration) | Line chart showing score per evaluator across iteration 1, 2, 3. Visible improvement (or lack thereof) drives decisions to continue or stop iterating. |
+| Swarm-level summary | Aggregate health across all agents in a swarm | LOW | Aggregation of per-agent scores | "4/5 agents passing all evaluators. 1 agent needs iteration." Single number or progress bar for overall swarm readiness. |
+
+#### Differentiators
+
+| Feature | Value Proposition | Complexity | Pipeline Dependency | Notes |
+|---------|-------------------|------------|---------------------|-------|
+| Worst-performing test cases | Show the specific inputs where agents fail -- actionable debugging | MEDIUM | V2.0 test-results bottom-5 cases per agent | Table: input, expected output, actual output, evaluator scores. Helps users understand failure patterns without reading raw logs. Critical for trust-building. |
+| Prompt change diff viewer | See what changed in each iteration and the impact on scores | MEDIUM | V2.0 iteration-log prompt diffs | Side-by-side or inline diff of prompt changes per iteration. Connected to score delta. "This change improved relevance by 18%." |
+| Guardrail status indicator | Which agents have production guardrails attached and active | LOW | V2.0 hardener output data | Badge or icon showing guardrail count and types per agent. "2 guardrails: toxicity, instruction_following." Links to Orq.ai for configuration details. |
+| Historical run comparison | Compare results across different pipeline runs (not just iterations within one run) | MEDIUM | Supabase DB with multiple run records | "Run from March 1 vs Run from March 3" comparison table. Useful when re-running pipeline after use case refinement. |
+
+#### Anti-Features
+
+| Anti-Feature | Why Avoid | What to Do Instead |
+|--------------|-----------|-------------------|
+| Real-time production metrics (latency, throughput, error rate) | Orq.ai handles production observability natively. Duplicating it creates a stale, inferior copy and requires persistent polling infrastructure. | Link to Orq.ai's native traces and analytics. Show a "View in Orq.ai" button per agent. |
+| Custom evaluator creation from dashboard | Evaluator design requires understanding scoring criteria, prompt engineering for LLM judges, and testing the evaluator itself. Not a self-service task. | Use V2.0's role-based evaluator selection. Surface which evaluators were auto-selected and why. |
+| Cost analytics per agent | Token costs are Orq.ai's domain. Requires billing API access and creates anxiety about spending. | If needed, link to Orq.ai billing. Do not replicate cost data in the dashboard. |
+
+
+### Category 5: HITL Approval Flow (Web-Based)
+
+#### Table Stakes
+
+| Feature | Why Expected | Complexity | Pipeline Dependency | Notes |
+|---------|--------------|------------|---------------------|-------|
+| In-app approval UI | "Approve" / "Reject" / "Request Changes" buttons for pipeline decisions | MEDIUM | V2.0 iteration loop approval gate (currently terminal-based) | Approval card showing: what is being proposed (prompt change diff), why (linked to failing test cases), score impact prediction. Three clear actions. Must be mobile-friendly for approvals on the go. |
+| Approval queue / pending items list | Users must see all items awaiting their approval in one place | LOW | Supabase DB for approval records with status tracking | Badge count on navigation. List view: item description, requested timestamp, urgency indicator. Sorted by oldest first. |
+| Approval status tracking | Pipeline must pause until approval and resume on decision | HIGH | Supabase Realtime for approval state changes, backend pipeline suspension/resumption | Most complex HITL feature. Pipeline writes approval request to Supabase, subscribes to changes. When user approves in UI, pipeline resumes. Requires reliable pub/sub and timeout handling (auto-reject after 24h?). |
+| Approval history / audit log | Record of who approved what and when | LOW | Supabase DB audit table | Timestamp, user, action (approved/rejected/modified), item description. Non-deletable. Required for enterprise trust. |
+
+#### Differentiators
+
+| Feature | Value Proposition | Complexity | Pipeline Dependency | Notes |
+|---------|-------------------|------------|---------------------|-------|
+| Email notifications for pending approvals | User is away from dashboard; email brings them back to approve | MEDIUM | Microsoft Graph API for sending mail (M365 integration already required for SSO) | Email contains: what needs approval, direct link to approval page, summary of proposed changes. Uses Microsoft Graph `sendMail` API since users already authenticate via M365. Batch digest option (one email per hour, not per approval). |
+| Teams notifications for pending approvals | Meet users where they already are -- Teams is Moyne Roberts' primary communication tool | HIGH | Microsoft Graph API for Teams activity feed notifications or Teams webhook | Teams Adaptive Card with approve/reject buttons inline. Users can approve without opening the dashboard. Requires Teams app registration in Azure AD. More complex than email but higher engagement. Consider webhook-based approach (simpler) vs full Teams app (richer). |
+| Approval with inline comments | Approver can add context: "Approved, but watch the tone in customer-facing responses" | LOW | Text field on approval UI, stored in Supabase | Simple text input alongside approve/reject buttons. Comments stored in audit log and visible in iteration history. Low effort, high value for team communication. |
+| Delegation / escalation | "I'm out of office, route approvals to X" | MEDIUM | User management in Supabase, delegation rules | Overkill for 5-15 users now. But as adoption grows, people go on holiday. Start with manual re-assignment by any user. Auto-escalation after timeout (24h no response -> notify all users). |
+
+#### Anti-Features
+
+| Anti-Feature | Why Avoid | What to Do Instead |
+|--------------|-----------|-------------------|
+| Approve-all batch action | Undermines the purpose of HITL. If users can bulk-approve without reading, the approval step is theater. | Per-item approval only. Make the approval UI fast (one click) but deliberate (one at a time). |
+| Slack notifications | Moyne Roberts uses Teams, not Slack. Adding Slack support is wasted effort for this user base. | Teams and email only. Both are already in the M365 ecosystem. |
+| SMS notifications | Over-engineering for 5-15 internal users. SMS requires additional provider (Twilio), phone number collection, opt-in flows. | Email and Teams cover all notification needs. Mobile Teams app handles on-the-go approvals. |
+| Approval workflow designer | Non-technical users do not need to design approval chains. The pipeline has exactly one approval point: before prompt changes are applied. | Hardcode the approval flow. One approver (the user who started the run). Expand later only if needed. |
+
 
 ## Feature Dependencies
 
 ```
-[V1.0 Spec Generation Pipeline] ---- COMPLETE
+[V1.0 Spec Generation] ---- COMPLETE
     |
     v
-[v0.3 Foundation] ---- COMPLETE
-    |  Modular install, API key, MCP registration,
-    |  references, templates, capability gating
+[V2.0 Deploy/Test/Iterate/Harden] ---- COMPLETE
     |
     v
-[Autonomous Deployment] (Phase 2)
-    |-- requires --> [Tool Creation] (tools before agents)
-    |-- requires --> [Agent Creation via MCP/API]
-    |                    |-- requires --> [V1.0 Agent Specs]
-    |-- requires --> [Orchestration Wiring]
-    |                    |-- requires --> [All sub-agents deployed first]
-    |                    |-- requires --> [V1.0 ORCHESTRATION.md]
-    |-- requires --> [Deploy-Verify-Record pattern]
+[V3.0 Web UI Foundation]
+    |-- requires --> [M365 SSO Authentication]
+    |                    |-- requires --> Azure AD app registration
+    |                    |-- requires --> Supabase Auth with Azure AD provider
+    |-- requires --> [Supabase DB Schema]
+    |                    |-- stores --> pipeline runs, steps, approvals, results
+    |-- requires --> [Supabase Realtime Setup]
+    |                    |-- enables --> live status updates across all UI categories
     |
-    v
-[Automated Testing] (Phase 3)
-    |-- requires --> [Dataset Upload]
-    |                    |-- requires --> [V1.0 Dataset Generator output]
-    |-- requires --> [Evaluator Creation]
-    |                    |-- informed by --> [V1.0 Architect blueprint (agent roles)]
-    |-- requires --> [Experiment Execution]
-    |                    |-- requires --> [Deployed agents from Phase 2]
-    |                    |-- requires --> [Uploaded datasets]
-    |                    |-- requires --> [Created evaluators]
-    |-- produces --> [Test Results]
+    +---> [Self-Service Pipeline UI]
+    |         |-- requires --> [V1.0 pipeline logic exposed as API routes]
+    |         |-- requires --> [Supabase Realtime for live status]
+    |         |-- requires --> [Session persistence in Supabase DB]
     |
-    v
-[Prompt Iteration Loop] (Phase 4)
-    |-- requires --> [Test Results from Phase 3]
-    |-- requires --> [V1.0 Spec Generator output (current prompts)]
-    |-- requires --> [Deploy capability (for applying changes)]
-    |-- requires --> [Test capability (for re-testing)]
-    |-- produces --> [Updated specs + audit trail]
+    +---> [Pipeline Progress Dashboard]
+    |         |-- requires --> [Pipeline run data in Supabase DB]
+    |         |-- requires --> [Supabase Realtime for live step updates]
     |
-    v
-[Guardrails & Hardening] (Phase 5)
-    |-- requires --> [Evaluators from Phase 3]
-    |-- requires --> [Deployed agents from Phase 2]
-    |-- enhances --> [Prompt Iteration Loop] (quality gates inform iteration targets)
+    +---> [Agent Swarm Node Graph]
+    |         |-- requires --> [V1.0 ORCHESTRATION.md data (agent relationships)]
+    |         |-- requires --> React Flow library
+    |         |-- optional --> [Supabase Realtime for execution overlay]
+    |
+    +---> [Agent Performance Dashboard]
+    |         |-- requires --> [V2.0 test-results and iteration-log data]
+    |         |-- requires --> [Data stored in Supabase (not just local .md files)]
+    |         |-- deferred to V3.1 --> test/iterate/harden UI triggers
+    |
+    +---> [HITL Approval Flow]
+              |-- requires --> [Supabase DB for approval records]
+              |-- requires --> [Supabase Realtime for pipeline pause/resume]
+              |-- optional --> [Microsoft Graph API for email notifications]
+              |-- optional --> [Microsoft Graph API for Teams notifications]
+              |-- deferred to V3.1 --> prompt iteration approvals (need iterate UI)
 ```
+
+### Critical Dependency: Pipeline Logic as API
+
+The biggest technical dependency is exposing V1.0/V2.0 pipeline logic (currently Claude Code subagents reading/writing .md files) as API-callable services. The web UI backend (Next.js API routes) must be able to:
+
+1. Trigger the pipeline (currently `/orq-agent` Claude Code command)
+2. Stream progress updates (currently printed to terminal)
+3. Receive structured output (currently written to local files)
+4. Pause for approvals (currently terminal prompt)
+
+This is NOT a feature -- it is infrastructure. But every web UI feature depends on it. The V3.0 roadmap must address this before any UI work begins.
 
 ### Dependency Notes
 
-- **Phase 2 requires v0.3**: MCP server and API key must be configured before any Orq.ai API calls (DONE)
-- **Phase 3 requires Phase 2**: Cannot run experiments against agents that do not exist in Orq.ai
-- **Phase 4 requires Phase 3**: Cannot propose prompt changes without test results to analyze
-- **Phase 5 requires Phase 3 evaluators**: Runtime guardrails reuse evaluators created during testing
-- **Each phase builds on the previous**: Deploy -> Test -> Iterate -> Harden is a strict sequence for first use, but subsequent runs skip back to Deploy -> Test -> Iterate
-- **Standalone commands enable incremental testing**: `/orq-agent:deploy`, `/orq-agent:test`, `/orq-agent:iterate` can each be run independently once their prerequisites exist
+- **Auth is foundational**: Nothing works without M365 SSO. Must be first.
+- **Supabase schema is foundational**: All UI categories read/write pipeline data in Supabase. Schema design before any UI.
+- **Self-service pipeline UI is the critical path**: The dashboard, graph, and performance views are read-only consumers of data the pipeline produces. Without the pipeline running via web, there is nothing to display.
+- **HITL approvals depend on pipeline pause/resume**: The most complex integration. Pipeline must write an approval request, then wait for a Supabase row change before continuing.
+- **Performance dashboard is V3.0 read-only**: In V3.0 scope (core pipeline only), the performance dashboard shows results from V2.0 Claude Code runs stored in Supabase. V3.1 adds triggering test/iterate from the web UI.
+- **Teams notifications are Phase 2 of HITL**: Start with in-app + email. Teams requires Azure AD app registration and Teams app manifest -- separate workstream.
 
-## MVP Definition (V2.0 Scope)
 
-### Phase 1: Foundation -- COMPLETE (v0.3)
+## MVP Recommendation (V3.0 Core)
 
-Shipped 2026-03-01. All 10 requirements satisfied.
+### Must Build (Table Stakes + Core Differentiators)
 
-- [x] Update references with latest agentic framework research
-- [x] Modular install with capability selection
-- [x] API key onboarding and validation
-- [x] MCP server auto-registration
-- [x] V2.0 output templates (deploy-log, test-results, iteration-log)
-- [x] Capability-gated commands with upgrade messaging
+1. **M365 SSO authentication** -- gate everything behind Azure AD login
+2. **Self-service pipeline UI** -- text input, step indicator, live status, output display, error handling, session persistence
+3. **Pipeline progress dashboard** -- run list, step-by-step progress, duration tracking, success/failure summary
+4. **Agent swarm node graph** -- node-per-agent, directed edges, agent detail panel, orchestrator distinction
+5. **One-click deploy** -- the differentiator that justifies the web UI for non-technical users
+6. **In-app HITL approval UI** -- approve/reject/request changes with diff view
+7. **Email notifications for approvals** -- catch away users via M365 Graph API
 
-### Phase 2: Autonomous Deployment -- NEXT
+### Should Build (High-Value Differentiators)
 
-The first major automation step. Deploy specs generated by V1.0 to Orq.ai.
+8. **Pipeline execution overlay on graph** -- nodes light up during execution (the "wow factor")
+9. **Per-agent and per-evaluator score display** -- read-only performance data from V2.0 runs
+10. **Use case templates** -- reduce friction for common patterns
+11. **Cancel running pipeline** -- escape hatch for wrong inputs
+12. **Approval with inline comments** -- low effort, high team communication value
 
-- [ ] Tool creation via REST API -- tools must exist before agents reference them
-- [ ] Agent creation/update via MCP/API -- core deployment
-- [ ] Orchestration wiring (team_of_agents, retrieve_agents, call_sub_agent) -- multi-agent support
-- [ ] Idempotent create-or-update via GET-before-POST -- safe re-runs
-- [ ] Deploy-verify-record pattern -- read back every resource after writing
-- [ ] Deployment status reporting (deploy-log.md) -- user feedback
-- [ ] Graceful MCP fallback to API -- reliability
+### Defer to V3.1+
 
-### Phase 3: Automated Testing
+- **Teams notifications** -- requires Teams app registration, Adaptive Cards, separate workstream
+- **Score trend charts** -- needs multiple test runs; not useful until iterate is web-enabled
+- **Prompt change diff viewer** -- needs iterate capability in web UI
+- **Worst-performing test cases display** -- needs test triggering from web UI
+- **Historical run comparison** -- needs accumulated data over time
+- **Live log stream** -- nice-to-have for technical users who have Claude Code anyway
+- **Delegation/escalation** -- premature for 5-15 users
 
-Validate deployed agents with real data.
+### Explicitly Do NOT Build
 
-- [ ] Dataset transformation and upload -- get V1.0 datasets into Orq.ai format
-- [ ] Evaluator creation with role-based selection heuristic -- appropriate scoring
-- [ ] Experiment execution via evaluatorq SDK -- run tests
-- [ ] Results collection and markdown presentation -- readable output
-- [ ] Multi-run evaluation (3x median) -- statistical robustness
+- Visual pipeline builder / drag-and-drop agent wiring
+- Editable spec fields in the UI
+- Real-time production metrics (Orq.ai handles this)
+- 3D graph visualization
+- Slack notifications
+- Approve-all batch action
+- Custom evaluator creation from dashboard
 
-### Phase 4: Prompt Iteration Loop
-
-Close the feedback loop.
-
-- [ ] Results analysis with pattern identification -- diagnose failures
-- [ ] Proposed prompt changes with reasoning tied to test failures -- transparent proposals
-- [ ] Per-agent, per-iteration user approval gate -- HITL safety
-- [ ] Agent update (local spec + re-deploy) -- apply changes
-- [ ] Re-test with score comparison -- validate improvements
-- [ ] Iteration stopping conditions (max 3, <5% improvement, 10min timeout) -- prevent runaway loops
-- [ ] Local audit trail (iteration-log.md, audit-trail.md) -- track all changes
-
-### Phase 5: Guardrails and Hardening
-
-Production safety.
-
-- [ ] Promote test evaluators to runtime guardrails on deployed agents
-- [ ] Threshold-based quality gates (configurable per-evaluator minimums)
-- [ ] Incremental per-agent deployment option (deploy-test-iterate per agent, then wire orchestration)
-
-### Defer to V2.1+
-
-- [ ] Knowledge base automated provisioning -- massive scope, different skill set
-- [ ] Multi-environment deployment -- Orq.ai does not natively support this
-- [ ] Production monitoring integration -- Orq.ai handles natively
-- [ ] "Approve all" batch approval mode -- only after trust is established
 
 ## Feature Prioritization Matrix
 
-| Feature | User Value | Implementation Cost | Priority | Phase |
-|---------|------------|---------------------|----------|-------|
-| Tool creation via API | HIGH | MEDIUM | P1 | 2 |
-| Agent creation via MCP/API | HIGH | HIGH | P1 | 2 |
-| Orchestration wiring | HIGH | HIGH | P1 | 2 |
-| Idempotent create-or-update | HIGH | MEDIUM | P1 | 2 |
-| Deploy-verify-record | HIGH | MEDIUM | P1 | 2 |
-| Deployment status reporting | MEDIUM | LOW | P1 | 2 |
-| MCP fallback to API | HIGH | MEDIUM | P1 | 2 |
-| Local spec update after deploy | MEDIUM | LOW | P1 | 2 |
-| Dataset upload to Orq.ai | HIGH | MEDIUM | P1 | 3 |
-| Evaluator creation (role-based) | HIGH | MEDIUM | P1 | 3 |
-| Experiment execution | HIGH | HIGH | P1 | 3 |
-| Results presentation | HIGH | MEDIUM | P1 | 3 |
-| Multi-run evaluation (3x median) | MEDIUM | LOW | P2 | 3 |
-| Results analysis | HIGH | MEDIUM | P1 | 4 |
-| Proposed prompt changes | HIGH | MEDIUM | P1 | 4 |
-| User approval gate | HIGH | LOW | P1 | 4 |
-| Agent update + re-test | HIGH | LOW | P1 | 4 |
-| Iteration stopping conditions | HIGH | LOW | P1 | 4 |
-| Audit trail (iteration-log + audit-trail) | HIGH | LOW | P1 | 4 |
-| Evaluator-based guardrails | MEDIUM | MEDIUM | P2 | 5 |
-| Quality gates (thresholds) | MEDIUM | LOW | P2 | 5 |
-| Incremental per-agent deploy | MEDIUM | MEDIUM | P2 | 5 |
-| Smart evaluator selection (domain-aware) | MEDIUM | MEDIUM | P2 | 3 |
-| Diff-based prompt versioning | LOW | LOW | P3 | 4 |
-| Rollback support | LOW | MEDIUM | P3 | 4 |
+| Feature | User Value | Implementation Cost | Priority | Category |
+|---------|------------|---------------------|----------|----------|
+| M365 SSO | HIGH (blocker) | MEDIUM | P0 | Auth |
+| Use case text input with guidance | HIGH | LOW | P0 | Pipeline UI |
+| Pipeline step indicator | HIGH | LOW | P0 | Pipeline UI |
+| Live status messages | HIGH | MEDIUM | P0 | Pipeline UI |
+| Output display (agent specs) | HIGH | MEDIUM | P0 | Pipeline UI |
+| Error handling with recovery | HIGH | MEDIUM | P0 | Pipeline UI |
+| Session persistence | HIGH | MEDIUM | P0 | Pipeline UI |
+| Pipeline run list with status | HIGH | LOW | P0 | Dashboard |
+| Step-by-step progress for active run | HIGH | MEDIUM | P0 | Dashboard |
+| Node-per-agent graph | HIGH | MEDIUM | P0 | Graph |
+| Directed edges (data flow) | HIGH | LOW | P0 | Graph |
+| Agent detail panel on click | MEDIUM | LOW | P0 | Graph |
+| One-click deploy to Orq.ai | HIGH | MEDIUM | P1 | Pipeline UI |
+| In-app approval UI | HIGH | MEDIUM | P1 | HITL |
+| Approval queue | MEDIUM | LOW | P1 | HITL |
+| Approval status tracking (pause/resume) | HIGH | HIGH | P1 | HITL |
+| Approval history | MEDIUM | LOW | P1 | HITL |
+| Email notifications | HIGH | MEDIUM | P1 | HITL |
+| Pipeline execution overlay on graph | HIGH | HIGH | P1 | Graph |
+| Per-agent score summary | MEDIUM | LOW | P1 | Performance |
+| Per-evaluator score breakdown | MEDIUM | MEDIUM | P1 | Performance |
+| Swarm-level summary | MEDIUM | LOW | P1 | Performance |
+| Use case templates | MEDIUM | LOW | P2 | Pipeline UI |
+| Complexity preview | MEDIUM | LOW | P2 | Pipeline UI |
+| Cancel running pipeline | MEDIUM | MEDIUM | P2 | Dashboard |
+| Duration per step and total | MEDIUM | LOW | P2 | Dashboard |
+| Status badges on graph nodes | MEDIUM | MEDIUM | P2 | Graph |
+| Zoom/pan/fit-to-view | MEDIUM | LOW (built-in) | P2 | Graph |
+| Export graph as image | LOW | LOW | P2 | Graph |
+| Approval with comments | MEDIUM | LOW | P2 | HITL |
+| Score trend across iterations | MEDIUM | MEDIUM | P3 (V3.1) | Performance |
+| Worst-performing test cases | MEDIUM | MEDIUM | P3 (V3.1) | Performance |
+| Prompt change diff viewer | MEDIUM | MEDIUM | P3 (V3.1) | Performance |
+| Teams notifications | HIGH | HIGH | P3 (V3.1) | HITL |
+| Live log stream | LOW | MEDIUM | P3 (V3.1) | Dashboard |
+| Historical run comparison | LOW | MEDIUM | P3 (V3.1) | Performance |
+| Delegation/escalation | LOW | MEDIUM | P3 (V3.1+) | HITL |
 
 **Priority key:**
-- P1: Must have for V2.0 launch
-- P2: Should have, add when possible within V2.0
-- P3: Nice to have, can ship V2.0 without
+- P0: Must have for V3.0 launch -- without these the web UI is not viable
+- P1: Core value features -- these justify the web UI over Claude Code
+- P2: Polish features -- improve UX but not blocking launch
+- P3: Deferred to V3.1+ -- depend on accumulated data or test/iterate web support
 
-## Competitor Feature Analysis
 
-| Feature | Braintrust | Promptfoo | LangSmith | Orq.ai (native) | **Orq Agent Designer V2.0** |
-|---------|-----------|-----------|-----------|------------------|---------------------------|
-| Spec generation from NL | No | No | Partial (agent builder) | No | **Yes (V1.0)** |
-| Programmatic deployment | No (prompt mgmt only) | No (eval only) | Yes (LangGraph) | Yes (MCP + API) | **Yes (MCP-first, API fallback)** |
-| Dataset management | Yes | Yes (YAML/JSON) | Yes | Yes (API + Studio) | **Yes (auto-generated from V1.0 + uploaded)** |
-| Evaluator types | LLM + code | LLM + code + assertions | LLM + code | 19 built-in + LLM + HTTP + JSON + Python + RAGAS | **Compose from Orq.ai's 19 built-in + LLM-as-judge** |
-| Experiment execution | Yes | Yes (CLI) | Yes | Yes (Studio + API) | **Yes (automated via evaluatorq SDK)** |
-| Prompt iteration | Manual | Manual (with suggestions) | Manual | Manual | **Automated analysis + proposals + user approval** |
-| Guardrails | No (eval only) | Yes (assertions in CI) | No | Yes (evaluators as guardrails) | **Auto-configured from test evaluators** |
-| Audit trail | Cloud-based | Git-based | Cloud-based | Cloud-based | **Local `.md` files (user owns data)** |
-| Full pipeline integration | No | No | Partial | Partial (manual steps) | **Yes (NL -> spec -> deploy -> test -> iterate -> harden)** |
-| Non-technical user support | Low | Low | Low | Medium (Studio UI) | **High (CLI with approval gates, readable output)** |
+## Competitor Feature Analysis (Web UI Context)
 
-**Key insight:** No competitor offers the full loop from natural language input through deployment, testing, iteration, and hardening. Each handles 1-2 stages. The integration IS the product.
+| Feature | LangGraph Studio | Dify | MindStudio | n8n | **Orq Agent Designer V3.0** |
+|---------|-----------------|------|------------|-----|---------------------------|
+| Natural language to agents | No (code-first) | Partial (template-based) | Yes (guided builder) | No (visual wiring) | **Yes (full NL pipeline)** |
+| Agent graph visualization | Yes (state graph) | Yes (workflow canvas) | No | Yes (node editor) | **Yes (React Flow, read-only)** |
+| Real-time execution view | Yes (step debugger) | Yes (run logs) | No | Yes (execution view) | **Yes (Supabase Realtime)** |
+| Performance metrics | Yes (LangSmith traces) | Basic (run logs) | Basic | Basic (execution stats) | **Yes (Orq.ai evaluator scores)** |
+| HITL approval in UI | Yes (breakpoints) | No | No | No | **Yes (approval cards + email)** |
+| One-click deploy | No (infrastructure DIY) | Yes (built-in hosting) | Yes (built-in hosting) | Yes (self-hosted) | **Yes (to Orq.ai platform)** |
+| Non-technical user target | No | Partial | Yes | No | **Yes (primary audience)** |
+| SSO / enterprise auth | Yes (enterprise) | Yes (enterprise) | Yes | Yes (enterprise) | **Yes (M365 SSO)** |
 
-## Orq.ai Platform Capabilities (Verified)
+**Key insight:** No competitor combines natural language input, auto-generated agent architectures, visual graph output, evaluator-based performance scoring, AND HITL approval flows in a single non-technical-user-friendly interface. LangGraph Studio is closest but targets developers. Dify targets builders who understand workflow concepts. The non-technical self-service angle is the differentiator.
 
-### MCP Server (`@orq-ai/node`)
-
-Available as npm package. The SDK doubles as an MCP server. Requires Node.js v20+.
-
-| Capability | MCP Available | REST API Available | Notes |
-|------------|--------------|-------------------|-------|
-| Agent CRUD | Yes | Yes | Create, update (PATCH), delete, list agents |
-| Agent invocation | Yes | Yes | `POST /v2/agents/{key}/responses` with task continuation |
-| Tool CRUD | Yes (HTTP, function, MCP tools) | Yes | `POST /v2/tools` |
-| Dataset management | Yes | Yes | Create datasets, add rows |
-| Evaluator management | Via evaluatorq SDK | Yes | `POST /v2/evaluators` |
-| Experiment execution | Via evaluatorq SDK | Yes | `POST /v2/experiments` |
-| Prompt management | Yes | Yes | Create, update, version prompts |
-| Memory stores | Yes | Yes | Create, query, write |
-| Model listing | Yes | Yes | For API key validation |
-
-### REST API (verified endpoints)
-
-Full CRUD on: agents, tools, datasets, evaluators, experiments, prompts, memory stores. See `references/orqai-api-endpoints.md` for complete path reference.
-
-### Evaluator Types (41 total across 4 categories)
-
-- **19 built-in function evaluators** (deterministic): exactness, BLEU, ROUGE, cosine similarity, JSON validity, regex match, toxicity, readability, etc.
-- **10 pre-built LLM evaluators** (LLM-as-judge): coherence, relevance, fluency, groundedness, completeness, correctness, helpfulness, instruction_following, etc.
-- **12 RAGAS evaluators** (RAG-specific): faithfulness, answer_relevancy, context_precision, hallucination, etc.
-- **4 custom evaluator types**: LLM (custom judge prompt), Python (custom code), HTTP (external API), JSON (schema validation)
-
-All evaluators can be attached as runtime guardrails on agents/deployments.
 
 ## Sources
 
-- [Orq.ai Documentation](https://docs.orq.ai/) -- Platform API reference (HIGH confidence)
-- [Orq.ai Evaluator Documentation](https://docs.orq.ai/docs/evaluator) -- Evaluator types and configuration (HIGH confidence)
-- [Orq.ai Function Evaluator](https://docs.orq.ai/docs/function-evaluator) -- 19 built-in function evaluators (HIGH confidence)
-- [Orq.ai Datasets Overview](https://docs.orq.ai/docs/datasets/overview) -- Dataset structure and management (HIGH confidence)
-- [Orq.ai Prompts API](https://docs.orq.ai/docs/using-prompts-via-the-api) -- Prompt creation and versioning (HIGH confidence)
-- [@orq-ai/node on npm](https://www.npmjs.com/package/@orq-ai/node) -- v3.2.8, SDK + MCP server (HIGH confidence)
-- [@orq-ai/evaluatorq on npm](https://www.npmjs.com/package/@orq-ai/evaluatorq) -- v1.0.7, experiment runner (HIGH confidence)
-- [orq-ai/orq-node GitHub](https://github.com/orq-ai/orq-node) -- SDK source, 102+ methods (HIGH confidence)
-- [orq-ai/orqkit GitHub](https://github.com/orq-ai/orqkit) -- evaluatorq monorepo (MEDIUM confidence)
-- [Anthropic: Building Effective Agents](https://www.anthropic.com/research/building-effective-agents) -- Evaluator-optimizer pattern (HIGH confidence)
-- [Braintrust: Best Prompt Engineering Tools 2026](https://www.braintrust.dev/articles/best-prompt-engineering-tools-2026) -- Competitor landscape (MEDIUM confidence)
-- [Orq.ai LLM Guardrails Guide](https://orq.ai/blog/llm-guardrails) -- Guardrails patterns (HIGH confidence)
+- [React Flow](https://reactflow.dev/) -- Node-based UI library for agent graph visualization (HIGH confidence)
+- [Supabase Realtime with Next.js](https://supabase.com/docs/guides/realtime/realtime-with-nextjs) -- Official docs for live dashboard updates (HIGH confidence)
+- [Supabase Realtime](https://supabase.com/docs/guides/realtime) -- Postgres Changes, Broadcast, Presence features (HIGH confidence)
+- [Microsoft Graph Approvals API](https://learn.microsoft.com/en-us/graph/approvals-app-api) -- Teams approval workflow integration (HIGH confidence)
+- [Microsoft Graph Activity Feed Notifications](https://learn.microsoft.com/en-us/graph/teams-send-activityfeednotifications) -- Teams notification delivery (HIGH confidence)
+- [Microsoft Graph Send Mail](https://learn.microsoft.com/en-us/graph/api/user-sendmail) -- Email notification via M365 (HIGH confidence)
+- [LangGraph Studio](https://changelog.langchain.com/announcements/langgraph-studio-the-first-agent-ide) -- Competitor: agent IDE with visualization (MEDIUM confidence)
+- [Dify](https://dify.ai/) -- Competitor: agentic workflow builder (MEDIUM confidence)
+- [MindStudio](https://www.mindstudio.ai/) -- Competitor: no-code AI agent builder (MEDIUM confidence)
+- [Reagraph](https://reagraph.dev/) -- Alternative graph library, WebGL-based (MEDIUM confidence)
+- [Smashing Magazine: UX Strategies for Real-Time Dashboards](https://www.smashingmagazine.com/2025/09/ux-strategies-real-time-dashboards/) -- Dashboard UX patterns (MEDIUM confidence)
+- [Zapier HITL](https://zapier.com/blog/human-in-the-loop/) -- HITL workflow patterns (MEDIUM confidence)
+- [Relay.app HITL](https://docs.relay.app/human-in-the-loop/human-in-the-loop-steps) -- HITL notification patterns (MEDIUM confidence)
+- [Knock Agent Toolkit HITL](https://docs.knock.app/developer-tools/agent-toolkit/human-in-the-loop-flows) -- HITL notification infrastructure (MEDIUM confidence)
+- [AI Agent Interfaces with React Flow](https://damiandabrowski.medium.com/day-90-of-100-days-agentic-engineer-challenge-ai-agent-interfaces-with-react-flow-21538a35d098) -- React Flow for agent UIs (LOW confidence)
 
 ---
-*Feature research for: V2.0 Autonomous Orq.ai Pipeline (Orq Agent Designer)*
-*Researched: 2026-03-01*
+*Feature research for: V3.0 Web UI & Dashboard (Orq Agent Designer)*
+*Researched: 2026-03-03*
