@@ -1,11 +1,11 @@
 ---
 gsd_state_version: 1.0
-milestone: V3.0
-milestone_name: Web UI & Dashboard
-status: ready_to_plan
+milestone: V4.0
+milestone_name: Cross-Swarm Intelligence
+status: defining_requirements
 last_updated: "2026-03-03T00:00:00.000Z"
 progress:
-  total_phases: 5
+  total_phases: 0
   completed_phases: 0
   total_plans: 0
   completed_plans: 0
@@ -17,19 +17,16 @@ progress:
 
 See: .planning/PROJECT.md (updated 2026-03-03)
 
-**Core value:** Any colleague can go from a use case description to deployed, tested agents on Orq.ai -- through a browser UI with real-time visibility, visual agent graphs, and in-app approvals.
-**Current focus:** Phase 12 -- Foundation & Auth
-**Previous milestones:** v0.3 shipped 2026-03-01 (11 phases, 28 plans), V2.0 shipped 2026-03-02 (7 phases, 11 plans)
+**Core value:** Any colleague can go from a use case description to deployed, tested agents on Orq.ai -- with cross-swarm awareness ensuring swarms don't operate in silos.
+**Current focus:** Defining requirements for V4.0
+**Previous milestones:** v0.3 shipped 2026-03-01 (11 phases, 28 plans), V2.0 shipped 2026-03-02 (7 phases, 11 plans), V3.0 defined (5 phases, 34 requirements)
 
 ## Current Position
 
-Milestone: V3.0 Web UI & Dashboard
-Phase: 12 of 16 (Foundation & Auth)
-Plan: 0 of TBD in current phase
-Status: Ready to plan
-Last activity: 2026-03-03 -- Roadmap created (5 phases, 34 requirements mapped)
-
-Progress: [░░░░░░░░░░] 0%
+Phase: Not started (defining requirements)
+Plan: —
+Status: Defining requirements
+Last activity: 2026-03-03 — Milestone V4.0 started
 
 ## Accumulated Context
 

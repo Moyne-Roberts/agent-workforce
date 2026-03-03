@@ -39,15 +39,16 @@ Shipped in V2.0 (2026-03-02) — 23 requirements:
 
 ### Active
 
-<!-- V3.0 — Web UI & Dashboard -->
+<!-- V4.0 — Cross-Swarm Intelligence -->
 
-- [ ] Self-service web pipeline (use case → specs → deployed agents)
-- [ ] Real-time node graph visualization of agent swarms
-- [ ] Pipeline progress dashboard with live status updates
-- [ ] Agent performance dashboard (test scores, iteration improvements)
-- [ ] HITL approvals in-app + Email/Teams notifications
-- [ ] M365 SSO authentication (Azure AD)
-- [ ] GitHub-driven auto-deployment (push to repo → Vercel deploys)
+- [ ] Cross-swarm map pulling from local specs and live Orq.ai state
+- [ ] Drift detection between spec files and deployed agents
+- [ ] Overlap and blind spot analysis across swarms
+- [ ] Coordination gap identification (missing handoffs, shared data points)
+- [ ] Fix proposals with shared signals, data contracts, event triggers
+- [ ] Auto-apply low-risk fixes (shared context); escalate structural changes
+- [ ] Auto-trigger analysis on new swarm design
+- [ ] On-demand audit for existing swarm ecosystems
 
 ### Out of Scope
 
@@ -55,19 +56,18 @@ Shipped in V2.0 (2026-03-02) — 23 requirements:
 - Real-time agent monitoring/observability — Orq.ai handles this natively
 - Auto-update on launch — updates are manual via `/orq-agent:update`
 
-## Current Milestone: V3.0 Web UI & Dashboard
+## Current Milestone: V4.0 Cross-Swarm Intelligence
 
-**Goal:** Give non-technical colleagues a browser-based interface to the full agent design pipeline, with real-time visibility into what's happening and how agents perform.
+**Goal:** Give the agent design pipeline cross-swarm awareness so that swarms don't operate in silos — overlaps are surfaced, missing coordination is identified, and fixes are proposed or auto-applied.
 
 **Target features:**
-- Self-service web pipeline (use case input → specs → deploy) without Claude Code
-- Real-time node graph showing agent swarm architecture and pipeline progress
-- Dashboard with agent performance metrics (test scores, iterations, guardrails)
-- HITL approval flow in-app with Email/Teams notifications for away users
-- M365 SSO for Moyne Roberts colleagues
-- GitHub repo as single source of truth — push updates, Vercel auto-deploys
+- Cross-swarm ecosystem map from local specs + live Orq.ai state with drift reconciliation
+- Overlap and blind spot analysis (e.g., follow-up swarm unaware of dispute swarm state)
+- Fix proposals: shared signals, data contracts, event triggers between swarms
+- Auto-apply low-risk fixes; escalate structural rewiring to humans
+- Auto-trigger on new swarm design + on-demand audit command
 
-**V3.0 scope:** Core pipeline (use case → specs → deploy) + dashboard. Test/iterate/harden pipeline stages deferred to V3.1+.
+**V4.0 scope:** Cross-swarm map and analysis working end-to-end. Auto-fix proposals produced. Full automated rewiring loop is stretch/future.
 
 ## Context
 
@@ -75,10 +75,11 @@ Shipped in V2.0 (2026-03-02) — 23 requirements:
 - **Agent config surface:** key, role, description, model (`provider/model-name`), instructions, settings (max_iterations: 3-15, max_execution_time: ~300s), tools (built-in + function with JSON schema)
 - **V2.0 pipeline:** 4 commands (`deploy`, `test`, `iterate`, `harden`) with 4 subagents (deployer, tester, iterator, hardener). MCP-first with REST API fallback. Per-agent incremental operations via `--agent` flag.
 - **V3.0 stack:** Next.js on Vercel (frontend + API routes), Supabase (auth via M365 SSO, DB, Realtime), Claude API (pipeline prompts), Orq.ai API (agent deployment/testing)
+- **V4.0 context:** As swarms multiply across business processes (Invoice-to-Cash, etc.), they develop blind spots — overlapping work, missing handoffs, conflicting actions. The ultra architect layer provides cross-swarm awareness.
 - **Distribution model:** Web app (primary for non-technical users) + Claude Code skill (for technical users). Both share pipeline logic from the same GitHub repo.
 - **Users:** 5-15 Moyne Roberts employees, mostly non-technical. Web UI is the primary interface; Claude Code remains available for developers.
 - **Codebase:** 10,628 lines across orq-agent/ (markdown + JSON). 43 files: 11 agents, 5 commands, 8 references, 7 templates, SKILL.md, install script
-- **Shipped:** v0.3 (2026-03-01, 50 requirements), V2.0 (2026-03-02, 23 requirements)
+- **Shipped:** v0.3 (2026-03-01, 50 requirements), V2.0 (2026-03-02, 23 requirements), V3.0 (Web UI — defined, not yet shipped)
 
 ## Constraints
 
@@ -111,5 +112,9 @@ Shipped in V2.0 (2026-03-02) — 23 requirements:
 | Node graph for swarm visualization | Intuitive representation of agent relationships and data flow, lights up during pipeline execution | — Pending |
 | GitHub repo as single source of truth | Pipeline prompts shared between Claude Code skill and web app, auto-deploy on push | — Pending |
 
+| Cross-swarm intelligence layer | Swarms grow siloed; need ecosystem-level awareness to prevent overlaps and missing handoffs | — Pending |
+| Dual source of truth (specs + Orq.ai) | Drift detection requires reading both local specs and live deployed state | — Pending |
+| Auto-apply low-risk, escalate structural | Shared context additions are safe; rewiring agent relationships needs human judgment | — Pending |
+
 ---
-*Last updated: 2026-03-03 after V3.0 milestone start*
+*Last updated: 2026-03-03 after V4.0 milestone start*
