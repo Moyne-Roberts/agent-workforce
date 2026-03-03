@@ -1,215 +1,334 @@
 # Stack Research
 
-**Domain:** V4.0 Cross-Swarm Intelligence -- stack additions for ecosystem mapping, drift detection, overlap analysis, and automated fix proposals
+**Domain:** V5.0 Browser Automation -- Playwright script generation, VPS-hosted MCP server, script deployment pipeline, agent spec wiring
 **Researched:** 2026-03-03
-**Confidence:** HIGH (existing stack verified against deployed V2.0 codebase; no new dependencies required)
+**Confidence:** HIGH (versions verified against npm registry and official docs; architecture validated against MCP specification)
 
 ## Context: What Already Exists (DO NOT DUPLICATE)
 
 ### V1.0/V2.0 (Claude Code Skill -- Shipped)
 
 - **`@orq-ai/node@^3.14.45`** -- Orq.ai SDK + MCP server (agents CRUD, tools CRUD, datasets, experiments)
-- **`@orq-ai/evaluatorq@^1.1.0`** -- Experiment runner
-- **`@orq-ai/evaluators@^1.1.0`** -- Pre-built evaluator functions
-- **Subagent pattern:** `.md` instruction files consumed by Claude Code. LLM does all reasoning.
+- **Subagent pattern:** `.md` instruction files consumed by Claude Code
 - **MCP-first / REST-fallback:** Per-operation channel selection for all Orq.ai API calls
-- **MCP tool names:** `agents-list`, `agents-retrieve`, `agents-create`, `agents-update`, `tools-list`, `tools-retrieve`, `tools-create`, `tools-update`, `models-list`
-- **REST API:** `https://api.orq.ai/v2/` with Bearer auth for everything MCP does not cover (KBs, prompts, memory stores)
-- **Deployer read-back verification:** Phase 4 already diffs local spec vs. live Orq.ai state on allowlisted fields
-- **YAML frontmatter annotation:** `orqai_id`, `orqai_version`, `deployed_at`, `deploy_channel` written to spec files after deploy
 
 ### V3.0 (Web UI -- Defined, Not Yet Shipped)
 
-- Next.js 15, Supabase, Vercel, React Flow, Recharts, shadcn/ui, Anthropic SDK
-- Server-side pipeline execution via API routes (same Orq.ai SDK, no MCP)
+- Next.js 15, Supabase, Vercel, shadcn/ui, Anthropic SDK
 
-## Key Finding: Zero New npm Packages Required
+### V4.0 (Cross-Swarm Intelligence -- Defined, Not Yet Shipped)
 
-V4.0 cross-swarm intelligence is an **analytical layer** built entirely within the existing Claude Code skill paradigm. Every capability maps to infrastructure that already exists:
+- Zero new dependencies. Analytical layer using existing subagent patterns.
 
-| V4.0 Capability | How It Works | Existing Infrastructure |
-|-----------------|-------------|------------------------|
-| **Ecosystem mapping** | Read all `Agents/*/` directories, parse spec files + ORCHESTRATION.md | Glob, Read, Grep tools (available to all subagents) |
-| **Live state retrieval** | `GET /v2/agents?limit=200` via MCP (`agents-list`) or REST | Deployer already does this (Phase 0.3, Phase 1.1) |
-| **Drift detection** | Compare local spec fields against live Orq.ai agent state | Deployer Phase 4 read-back verification already implements field-level diffing |
-| **Overlap analysis** | LLM analyzes capabilities, instructions, tools across swarm specs | Pure reasoning -- same pattern as architect complexity gate |
-| **Coordination gap detection** | LLM identifies missing handoffs, shared data points | Pure reasoning -- same pattern as orchestration generator |
-| **Fix proposals** | LLM generates spec modifications (shared context, data contracts) | Same pattern as iterator generating prompt diffs |
-| **Auto-apply low-risk fixes** | Deployer creates/updates agents from modified specs | Deployer already handles idempotent create-or-update |
-| **Auto-trigger on new swarm** | Pipeline orchestrator invokes analysis after design completes | Orchestrator already chains subagents in sequence |
+## Key Finding: V5.0 Requires a NEW Runtime Environment
 
-**The technology stack is complete.** V4.0 adds new subagent `.md` files, command `.md` files, templates, and reference files -- but no new runtime dependencies, no new libraries, no new infrastructure.
+Unlike V4.0, V5.0 introduces real infrastructure -- a VPS running a Node.js process with headless Chromium. This is the first milestone that adds a separate server to the stack.
 
-## Recommended Stack: No Additions
+Three new packages are needed:
+1. **Playwright** -- Browser automation runtime
+2. **@modelcontextprotocol/sdk** -- MCP server framework
+3. **PM2** -- Process management on VPS
 
-### Why No New Libraries
+Plus a deployment mechanism (SSH/SCP via MCP tool or script).
 
-The Orq Agent Designer's architecture is fundamentally **LLM-native**: subagents are markdown instruction files, the LLM does all reasoning, and Claude Code provides file I/O + API access. Cross-swarm intelligence is analysis work -- the hardest part is prompt engineering, not technology selection.
+## Recommended Stack
 
-Specific reasons no new technology is needed:
+### Core Technologies
 
-1. **No graph database for ecosystem mapping.** The ecosystem is 2-20 swarms with 2-15 agents each. This is tens of nodes, not millions. An LLM can reason about this in its context window. A graph database would add infrastructure for no benefit at this scale.
+| Technology | Version | Purpose | Why Recommended |
+|------------|---------|---------|-----------------|
+| Playwright | `^1.58.0` | Headless browser automation on VPS | Microsoft-maintained, de facto standard for deterministic browser scripting. Chromium-only mode keeps VPS footprint small. Verified: latest stable is 1.58.2 (Feb 2026). |
+| @modelcontextprotocol/sdk | `^1.27.0` | MCP server framework exposing Playwright scripts as tools | Official TypeScript SDK from Anthropic/MCP org. McpServer + Streamable HTTP transport for remote access. Verified: latest is 1.27.1 (Feb 2026). V2 expected Q1 2026 but use v1.x for production stability. |
+| Node.js | `22.x LTS` | VPS runtime | Playwright 1.58 requires Node 20.x, 22.x, or 24.x. Use 22.x LTS for stability on VPS. Matches development environment. |
+| Express | `^4.21.0` | HTTP server wrapping MCP Streamable HTTP transport | MCP SDK provides `@modelcontextprotocol/sdk/express` middleware. Express is the simplest integration path for Streamable HTTP. |
 
-2. **No diffing library for drift detection.** The deployer already compares local spec fields against Orq.ai state using an allowlist approach (exclude server-added metadata, compare only spec-defined fields). The same logic applies to drift detection -- it is the same operation, just surfaced differently.
+### Supporting Libraries
 
-3. **No vector database for overlap analysis.** Semantic similarity between agent instructions could theoretically use embeddings, but with 2-20 swarms the LLM can read all specs simultaneously and reason about overlaps directly. Embedding-based similarity adds complexity without value at this scale.
+| Library | Version | Purpose | When to Use |
+|---------|---------|---------|-------------|
+| zod | `^3.24.0` | Tool input schema validation for MCP tools | Every MCP tool definition requires a Zod schema. Already used by MCP SDK internally. |
+| PM2 | `^6.0.0` | Process management on VPS | Keeps MCP server running, auto-restarts on crash, log rotation. Install globally on VPS (`npm i -g pm2`). |
+| dotenv | `^16.4.0` | Environment variable management on VPS | Credentials (Orq.ai API key, system login creds) stored in `.env` on VPS. |
+| winston | `^3.17.0` | Structured logging for MCP server | File-based logging on VPS. MCP stdio transport interferes with console.log -- must use file logger. |
 
-4. **No workflow engine for fix proposals.** Fix proposals are LLM-generated spec modifications (add shared context to instructions, add data contract tools, add event trigger patterns). The iterator subagent already generates prompt diffs with HITL approval -- fix proposals follow the same pattern.
+### Development Tools
 
-5. **No new Orq.ai API endpoints needed.** All required data is available via `GET /v2/agents` (list all agents) and `GET /v2/agents/{key}` (get single agent). The existing REST API reference covers everything.
+| Tool | Purpose | Notes |
+|------|---------|-------|
+| playwright install chromium | Install Chromium browser binary on VPS | Run once after deployment. Only Chromium needed -- skip Firefox/WebKit to save 500MB+. |
+| playwright codegen | Generate script scaffolding during development | Use locally for initial script creation, then refine for headless VPS execution. |
+| @playwright/mcp | NOT for production use -- for local development/testing only | Microsoft's Playwright MCP server (v0.0.67) is designed for local AI assistants, not remote VPS hosting. Build a custom MCP server instead. |
 
-## Existing Stack Components Used by V4.0
+## Architecture Decision: Custom MCP Server (NOT @playwright/mcp)
 
-### From Claude Code Skill Runtime
+**Decision:** Build a custom MCP server using `@modelcontextprotocol/sdk` that wraps individual Playwright scripts as MCP tools.
 
-| Component | V4.0 Usage | Notes |
-|-----------|-----------|-------|
-| Glob tool | Discover all `Agents/*/` swarm directories | Standard Claude Code tool |
-| Read tool | Parse agent spec `.md` files, ORCHESTRATION.md, TOOLS.md | Standard Claude Code tool |
-| Grep tool | Search across spec files for tool references, shared terms | Standard Claude Code tool |
-| Bash tool | Execute MCP tools or `curl` for REST API calls | Standard Claude Code tool |
+**Why NOT use `@playwright/mcp` (Microsoft's official Playwright MCP server):**
 
-### From Orq.ai API (Already Integrated)
+1. **Wrong abstraction level.** `@playwright/mcp` exposes generic browser primitives (navigate, click, type, screenshot) as individual MCP tools. The agent must orchestrate multi-step flows itself, consuming thousands of tokens per interaction.
+2. **Token cost.** A typical browser task via generic MCP tools costs ~114K tokens vs ~27K tokens via pre-scripted automation (4x overhead, per Cloudflare research).
+3. **Non-deterministic.** The V5.0 requirement is explicitly for "fixed/deterministic Playwright scripts" -- pre-scripted flows for known systems like NXT.
+4. **Security.** Generic browser tools on a VPS expose arbitrary web navigation. Pre-scripted tools expose only approved flows.
 
-| Endpoint | V4.0 Usage | Existing Integration |
-|----------|-----------|---------------------|
-| `GET /v2/agents` (or MCP `agents-list`) | Retrieve all deployed agents to build live state map | Deployer Phase 0.3 |
-| `GET /v2/agents/{key}` (or MCP `agents-retrieve`) | Retrieve specific agent for field-level drift comparison | Deployer Phase 2.1, Phase 4.1 |
-| `GET /v2/tools?limit=200` (or MCP `tools-list`) | Retrieve all deployed tools for cross-swarm tool overlap | Deployer Phase 1.1 |
-| `PATCH /v2/agents/{key}` (or MCP `agents-update`) | Auto-apply low-risk fixes (add shared context to instructions) | Deployer Phase 2.2 |
-| `POST /v2/tools` (or MCP `tools-create`) | Create shared data contract tools used across swarms | Deployer Phase 1.2 |
+**The custom MCP server exposes high-level, domain-specific tools:**
 
-### From Deployer Patterns (Already Proven)
+```typescript
+// GOOD: One MCP tool = one complete business flow
+server.tool("nxt-get-invoice", { invoiceId: z.string() }, async (params) => {
+  // Full Playwright script: login -> navigate -> extract -> return
+  return { content: [{ type: "text", text: JSON.stringify(invoiceData) }] };
+});
 
-| Pattern | V4.0 Reuse |
-|---------|-----------|
-| MCP-first / REST-fallback per operation | All V4.0 API calls follow same channel selection |
-| Allowlist field comparison (exclude server metadata) | Drift detection uses same field comparison logic |
-| YAML frontmatter read/write | Read `orqai_id` for faster lookups, write analysis metadata |
-| Idempotent create-or-update via key lookup | Auto-apply fixes without creating duplicates |
-| Retry with exponential backoff | Same retry strategy for all API calls |
+// BAD: Generic browser primitives (what @playwright/mcp does)
+server.tool("browser_navigate", ...);  // Agent must orchestrate
+server.tool("browser_click", ...);     // Multi-step, high token cost
+server.tool("browser_type", ...);      // Non-deterministic
+```
 
-### From Iterator Patterns (Already Proven)
+## Transport: Streamable HTTP
 
-| Pattern | V4.0 Reuse |
-|---------|-----------|
-| Diff-style change proposals with before/after | Fix proposals show what changes in each agent spec |
-| HITL approval before applying changes | Structural fixes require human approval |
-| Selective application (per-agent `--agent` flag) | Apply fixes to specific swarms, not all |
+**Decision:** Use Streamable HTTP transport (not SSE, not stdio).
 
-## What V4.0 Actually Needs (Non-Stack Items)
+| Transport | Use Case | Why Not for V5.0 |
+|-----------|----------|-------------------|
+| stdio | Local processes (Claude Desktop, CLI tools) | VPS is remote -- stdio requires local process |
+| SSE (deprecated) | Legacy remote servers | Deprecated in MCP spec 2025-03-26. Two endpoints, connection reliability issues. |
+| **Streamable HTTP** | **Remote servers, production** | **Single `/mcp` endpoint, stateless HTTP with optional streaming, load-balancer friendly** |
 
-V4.0 is a **content** deliverable, not a **technology** deliverable. The work is:
+The MCP SDK's Express middleware handles Streamable HTTP out of the box:
 
-### New Subagent `.md` Files
+```typescript
+import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
+import express from "express";
 
-| Subagent | Purpose | Model Recommendation |
-|----------|---------|---------------------|
-| Ecosystem Mapper | Reads all local specs + queries live Orq.ai state, produces unified ecosystem map | Inherit (quality profile default) |
-| Drift Detector | Compares local spec fields against live agent state, produces drift report | Inherit |
-| Overlap Analyzer | Identifies redundant capabilities, missing handoffs, coordination gaps across swarms | Inherit |
-| Fix Proposer | Generates fix proposals (shared signals, data contracts, event triggers) with risk classification | Inherit |
+const app = express();
+const server = new McpServer({ name: "moyne-browser-tools", version: "1.0.0" });
 
-### New Command `.md` Files
+// Register tools...
 
-| Command | Trigger | Purpose |
-|---------|---------|---------|
-| `/orq-agent:audit` | On-demand | Run full cross-swarm analysis on existing swarm ecosystem |
-| Auto-trigger hook | After `/orq-agent` completes | Automatically analyze new swarm in context of existing ecosystem |
+app.post("/mcp", async (req, res) => {
+  const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined });
+  await server.connect(transport);
+  await transport.handleRequest(req, res);
+});
 
-### New Templates
+app.listen(3100);
+```
 
-| Template | Purpose |
-|----------|---------|
-| Ecosystem map output | Structured format for the cross-swarm map (swarms, agents, tools, data flows, overlaps) |
-| Drift report | Per-agent drift entries with field-level diffs |
-| Fix proposal | Before/after spec changes with risk level and rationale |
+## VPS Requirements
 
-### New/Updated Reference Files
+### Minimum Server Specs
 
-| Reference | Purpose |
-|-----------|---------|
-| Cross-swarm analysis patterns | Heuristics for identifying overlaps, blind spots, coordination gaps |
-| Fix classification guide | Risk levels (low = shared context addition, high = agent rewiring) and auto-apply rules |
+| Resource | Minimum | Recommended | Notes |
+|----------|---------|-------------|-------|
+| RAM | 1 GB | 2 GB | Chromium headless uses ~300-500MB per instance. Leave room for Node.js + OS. |
+| CPU | 1 vCPU | 2 vCPU | Playwright scripts are I/O-bound (waiting for pages), not CPU-bound. |
+| Disk | 10 GB | 20 GB | Chromium binary ~400MB + Node.js + logs. |
+| OS | Ubuntu 22.04+ | Ubuntu 24.04 LTS | Playwright has best Linux support on Ubuntu. Chromium dependencies pre-packaged. |
+
+### Required System Dependencies
+
+```bash
+# Playwright's Chromium needs these on Ubuntu
+npx playwright install-deps chromium
+
+# This installs: libnss3, libatk1.0-0, libatk-bridge2.0-0, libcups2,
+# libdrm2, libxkbcommon0, libxcomposite1, libxdamage1, libxrandr2, libgbm1, etc.
+```
+
+## Deployment Pipeline
+
+### How Scripts Get to the VPS
+
+The pipeline generates Playwright scripts locally (Claude Code skill), then deploys them to the VPS. Two deployment approaches:
+
+**Recommended: Git-based deployment**
+
+```
+Local (Claude Code) -> Git push to repo -> VPS pulls + PM2 restart
+```
+
+1. Script generator subagent writes `.ts` files to `browser-tools/scripts/`
+2. Committed to repo (same repo or dedicated `browser-tools` repo)
+3. VPS runs `git pull && pm2 restart mcp-server` on deploy trigger
+4. Deploy trigger: MCP tool on VPS (`deploy-scripts`) or SSH command
+
+**Why git-based:** Audit trail, rollback capability, review before deploy. Matches the existing "GitHub repo as single source of truth" decision.
+
+### PM2 Configuration
+
+```javascript
+// ecosystem.config.cjs on VPS
+module.exports = {
+  apps: [{
+    name: "mcp-server",
+    script: "./dist/server.js",
+    node_args: "--max-old-space-size=1024",
+    env: {
+      NODE_ENV: "production",
+      PORT: 3100
+    },
+    max_restarts: 10,
+    restart_delay: 5000,
+    log_date_format: "YYYY-MM-DD HH:mm:ss Z"
+  }]
+};
+```
+
+## Installation
+
+### VPS Setup (One-Time)
+
+```bash
+# Node.js 22.x LTS
+curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash -
+sudo apt-get install -y nodejs
+
+# PM2 (global)
+sudo npm install -g pm2
+
+# Project
+git clone [repo] /opt/browser-tools
+cd /opt/browser-tools
+npm install
+
+# Playwright Chromium only (skip Firefox/WebKit)
+npx playwright install chromium
+npx playwright install-deps chromium
+
+# Start
+pm2 start ecosystem.config.cjs
+pm2 save
+pm2 startup  # auto-start on reboot
+```
+
+### Project Dependencies
+
+```bash
+# Core runtime (VPS package.json)
+npm install playwright @modelcontextprotocol/sdk express zod dotenv winston
+
+# Dev dependencies (local development)
+npm install -D typescript @types/node @types/express
+```
+
+### NOT Needed in VPS package.json
+
+```bash
+# These stay in the Claude Code skill, NOT on the VPS:
+# @orq-ai/node          -- Agent management is Claude Code's job
+# @orq-ai/evaluatorq    -- Testing is Claude Code's job
+# @playwright/mcp       -- Generic browser tools, wrong abstraction
+# playwright-core       -- Use full `playwright` (includes browser management)
+```
 
 ## Alternatives Considered
 
-| Category | Recommendation | Alternative | Why Not |
-|----------|---------------|-------------|---------|
-| Graph storage | LLM context window | Neo4j / graph database | 2-20 swarms, tens of agents. LLM handles this directly. Graph DB adds infra for no benefit. |
-| Semantic similarity | LLM direct comparison | Embedding vectors + cosine similarity | Same scale argument. LLM reads all specs and reasons about overlaps without embeddings. |
-| Diff engine | LLM-generated diffs | `deep-diff` / `json-diff` npm packages | Deployer already does field-level comparison. Adding a diff library means maintaining two diff approaches. |
-| Workflow orchestration | Subagent chaining (existing) | Temporal / Inngest / Bull queue | Cross-swarm analysis is a single-pass pipeline (map -> detect -> analyze -> propose). No long-running workflows, no retries across steps. Subagent chaining handles this. |
-| Caching layer | YAML frontmatter | Redis / in-memory cache | Frontmatter on spec files already stores `orqai_id` for fast lookups. Analysis results can be written to markdown files. No cache infra needed. |
-| Change detection trigger | Pipeline orchestrator hook | File watcher / chokidar | Auto-trigger on new swarm is a command-level hook, not a filesystem watcher. The orchestrator invokes analysis after design -- same as how it invokes dataset generation today. |
+| Category | Recommended | Alternative | Why Not |
+|----------|-------------|-------------|---------|
+| MCP server | Custom with @modelcontextprotocol/sdk | @playwright/mcp (Microsoft) | Generic browser primitives, 4x token cost, non-deterministic. V5.0 needs pre-scripted flows. |
+| MCP server | Custom with @modelcontextprotocol/sdk | @executeautomation/playwright-mcp-server | Same problem -- exposes generic browser tools. Also third-party, less maintained. |
+| Transport | Streamable HTTP | SSE | SSE deprecated in MCP spec. Two endpoints, connection issues. Streamable HTTP is the standard. |
+| Transport | Streamable HTTP | stdio + tunnel | Requires SSH tunnel or proxy. Adds complexity. Streamable HTTP works over plain HTTPS. |
+| Process manager | PM2 | systemd | PM2 offers log rotation, restart policies, ecosystem file, and `pm2 deploy` built in. systemd is more work for same result. |
+| Process manager | PM2 | Docker | Adds container runtime complexity. For a single Node.js process on a VPS, PM2 is simpler. Docker makes sense at scale. |
+| VPS hosting | Self-managed VPS | Cloudflare Workers + Browser Rendering | Cloudflare's browser rendering is serverless and session-based. Playwright scripts needing login state and multi-page flows are awkward in serverless. VPS gives persistent browser context. |
+| Browser | Chromium only | Multi-browser | Only automating internal systems. No cross-browser testing needed. Chromium-only saves 1GB+ disk. |
+| Script language | TypeScript | Python (Playwright-Python) | Existing stack is all Node.js/TypeScript. MCP SDK is TypeScript. No reason to add Python. |
 
-## What NOT to Add
+## What NOT to Use
 
 | Avoid | Why | Use Instead |
 |-------|-----|-------------|
-| Neo4j / graph database | Massive overkill for tens of nodes. Adds infrastructure, connection management, query language. | LLM reads all specs into context window and reasons directly. |
-| `deep-diff` / `json-diff` | Deployer already has field-level comparison logic. Adding a diff library creates two competing approaches. | Reuse deployer's allowlist comparison pattern in drift detector subagent instructions. |
-| LangGraph / CrewAI / agent framework | The existing subagent-as-markdown pattern works. Adding a framework means rewriting the entire skill. | Continue using `.md` instruction files with Claude Code's native subagent spawning. |
-| Embedding model for overlap detection | At 2-20 swarms, embedding-based similarity adds latency and API cost with no accuracy improvement over LLM direct reasoning. | LLM reads all agent instructions and identifies overlaps by reasoning. |
-| Separate analysis database | Analysis results (ecosystem maps, drift reports, fix proposals) are small, human-readable documents. | Write results as markdown files in the swarm ecosystem directory. |
-| Event bus / pub-sub | Auto-trigger is a simple sequential call after the design pipeline completes. No async event handling needed. | Orchestrator command calls analysis subagent as the last pipeline step. |
-| `@orq-ai/node` version upgrade | V4.0 does not need any SDK features beyond what `^3.14.45` provides. The agents list/retrieve/update endpoints are stable. | Stay on `@orq-ai/node@^3.14.45`. |
+| @playwright/mcp | Generic browser primitives expose arbitrary navigation, cost 4x more tokens, non-deterministic | Custom MCP server with domain-specific tool functions |
+| Puppeteer | Playwright supersedes it. Same team (Microsoft), better API, better reliability, native multi-browser. | Playwright |
+| Selenium | Legacy Java-era tool. Slower, more brittle, worse API. | Playwright |
+| playwright-core | Requires manual browser management. `playwright` package includes browser download commands. | `playwright` (full package) |
+| SSE transport | Deprecated in MCP specification. | Streamable HTTP |
+| Docker (initially) | Over-engineering for single process. Add later if needed. | PM2 on bare VPS |
+| Nginx reverse proxy (initially) | Direct Express on port 3100 is sufficient for single-client use (Orq.ai agents). Add Nginx only if TLS termination or multi-service routing needed. | Express directly, with Let's Encrypt certbot if HTTPS needed |
 
-## Integration Points with Existing Stack
+## Stack Patterns by Variant
 
-### With Deployer (Heaviest Reuse)
+**If deploying a single system (NXT only):**
+- Single MCP server process, single Playwright browser context
+- Scripts co-located in one directory
+- PM2 with single app config
 
-The drift detector is essentially the deployer's Phase 4 (read-back verification) extracted into a standalone subagent. Key reuse:
+**If deploying multiple systems (NXT + iController + Intelly):**
+- Still single MCP server process (tools namespaced by system: `nxt-*`, `icontroller-*`)
+- Separate script directories per system
+- Consider browser context pool (reuse login sessions per system)
+- May need 2GB+ RAM for concurrent browser contexts
 
-- **Same field allowlist:** Compare `instructions`, `model`, `fallback_models`, `settings.tools`, `team_of_agents`, `knowledge_bases`, `memory_stores`, `role`, `description`
-- **Same metadata exclusion:** Skip `_id`, `created`, `updated`, `workspace_id`, `project_id`, `status`, `created_by_id`, `updated_by_id`
-- **Same lookup pattern:** Use frontmatter `orqai_id` first, fall back to key-based lookup
-- **Same MCP/REST pattern:** MCP-first, REST-fallback per operation
-
-### With Iterator (Pattern Reuse)
-
-Fix proposals follow the iterator's change proposal pattern:
-
-- Diff-style before/after views for each proposed change
-- Risk classification (iterator uses test score deltas; fix proposer uses change scope)
-- HITL approval before applying
-- Selective application via `--agent` or per-swarm scoping
-
-### With Orchestrator Command (Hook Point)
-
-Auto-trigger analysis after new swarm design:
-
-- The `/orq-agent` command's post-generation phase already runs dataset-generator and readme-generator
-- Add ecosystem analysis as an optional post-generation step
-- Only triggers when other swarms exist in the `Agents/` directory
-
-### With V3.0 Web App (Future)
-
-When V3.0 ships, the cross-swarm intelligence layer should be accessible from both:
-
-- **Claude Code:** Via `/orq-agent:audit` command (V4.0 primary delivery)
-- **Web app:** Via a dashboard page that calls the same analysis logic from API routes
-
-The analysis prompts (subagent `.md` files) are the shared source of truth. The web app reads them and passes to `@anthropic-ai/sdk`, same as other pipeline prompts.
+**If adding HTTPS/TLS:**
+- Use Let's Encrypt with certbot for free TLS certificates
+- Either terminate TLS in Express (with `https` module) or add Nginx as reverse proxy
+- Orq.ai agents likely require HTTPS for MCP tool calls in production
 
 ## Version Compatibility
 
-No new packages, so no new compatibility concerns. Existing constraints remain:
+| Package | Version | Compatible With | Notes |
+|---------|---------|-----------------|-------|
+| playwright@^1.58.0 | Node 20.x, 22.x, 24.x | Use Node 22.x LTS | Playwright tracks Node LTS releases |
+| @modelcontextprotocol/sdk@^1.27.0 | Node 18+ | Use Node 22.x LTS | V2 expected Q1 2026; stay on v1.x until stable |
+| express@^4.21.0 | Node 18+ | MCP SDK express middleware | Express 5.x exists but MCP SDK middleware targets v4 |
+| PM2@^6.0.0 | Node 16+ | Global install on VPS | Does not need to be in package.json |
+| zod@^3.24.0 | TypeScript 5.0+ | MCP SDK peer dependency | Required for tool schema definitions |
 
-| Package | Pin | Reason |
-|---------|-----|--------|
-| `@orq-ai/node` | `^3.14.45` | v4 dropped MCP server binary. Must stay on v3. |
-| `@orq-ai/evaluatorq` | `^1.1.0` | Peer dependency alignment with evaluators package. |
-| `@orq-ai/evaluators` | `^1.1.0` | Peer dependency of evaluatorq. |
+## Integration Points with Existing Stack
+
+### With Agent Spec Generator (Spec Wiring)
+
+When the pipeline detects browser automation needs, agent specs must reference MCP tools on the VPS:
+
+```yaml
+# In agent spec, tools section:
+tools:
+  - type: mcp
+    server: moyne-browser-tools        # MCP server name
+    url: https://vps.example.com/mcp    # Streamable HTTP endpoint
+    tool: nxt-get-invoice               # Specific tool name
+```
+
+The spec generator subagent must know: (a) which tools exist on the MCP server, and (b) the MCP server URL. This comes from the application capabilities config file.
+
+### With Application Capabilities Config
+
+New reference file consumed by the pipeline:
+
+```yaml
+# references/application-capabilities.yaml
+systems:
+  nxt:
+    integration: browser-only
+    mcp_server: https://vps.example.com/mcp
+    tools:
+      - nxt-get-invoice
+      - nxt-search-customer
+      - nxt-create-credit-note
+  erp-system:
+    integration: api
+    base_url: https://api.erp.example.com
+```
+
+### With Deployer (Tool Registration)
+
+After Playwright scripts deploy to VPS, the deployer needs to register MCP tool references in Orq.ai agent configs. This extends the existing deployer's tool handling.
 
 ## Sources
 
-- Deployer subagent (`orq-agent/agents/deployer.md`) -- Field comparison logic, MCP/REST patterns, YAML frontmatter annotation. HIGH confidence (shipped and validated in V2.0).
-- Iterator subagent (`orq-agent/agents/iterator.md`) -- Change proposal pattern, HITL approval flow, diff-style views. HIGH confidence (shipped and validated in V2.0).
-- Orq.ai API endpoint reference (`orq-agent/references/orqai-api-endpoints.md`) -- All endpoints needed for V4.0 already documented. HIGH confidence.
-- SKILL.md (`orq-agent/SKILL.md`) -- Current codebase structure, subagent inventory, command registry. HIGH confidence.
-- PROJECT.md (`.planning/PROJECT.md`) -- V4.0 requirements, constraints, key decisions. HIGH confidence.
+- [Playwright npm registry](https://www.npmjs.com/package/playwright) -- Version 1.58.2, verified 2026-03-03. HIGH confidence.
+- [Playwright release notes](https://playwright.dev/docs/release-notes) -- Node.js 20/22/24 requirement. HIGH confidence.
+- [@modelcontextprotocol/sdk npm registry](https://www.npmjs.com/package/@modelcontextprotocol/sdk) -- Version 1.27.1, verified 2026-03-03. HIGH confidence.
+- [MCP TypeScript SDK GitHub](https://github.com/modelcontextprotocol/typescript-sdk) -- McpServer API, transport options. HIGH confidence.
+- [MCP Specification - Transports](https://modelcontextprotocol.io/specification/2025-03-26/basic/transports) -- Streamable HTTP as replacement for SSE. HIGH confidence.
+- [@playwright/mcp npm registry](https://www.npmjs.com/package/@playwright/mcp) -- Version 0.0.67, generic browser tools approach. HIGH confidence.
+- [MCP Hosting Guide 2026](https://www.agent37.com/blog/mcp-hosting-complete-guide-to-hosting-mcp-servers) -- VPS deployment patterns. MEDIUM confidence (third-party source, but consistent with official docs).
+- [Cloudflare Browser Rendering - token cost comparison](https://developers.cloudflare.com/browser-rendering/playwright/playwright-mcp/) -- 114K vs 27K token comparison. MEDIUM confidence (Cloudflare official docs).
+- [PM2 documentation](https://pm2.keymetrics.io/) -- Process management features. HIGH confidence.
 
 ---
-*Stack research for: V4.0 Cross-Swarm Intelligence -- additions to existing Orq Agent Designer pipeline*
+*Stack research for: V5.0 Browser Automation -- additions to existing Orq Agent Designer pipeline*
 *Researched: 2026-03-03*

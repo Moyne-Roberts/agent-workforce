@@ -1,326 +1,474 @@
-# Architecture Research: Cross-Swarm Intelligence Layer
+# Architecture Research: Browser Automation Integration
 
-**Domain:** Cross-swarm analysis and coordination for Orq.ai agent ecosystems
+**Domain:** Browser automation capabilities for Orq.ai Agent Designer pipeline
 **Researched:** 2026-03-03
-**Confidence:** HIGH (domain-specific architecture derived from existing codebase; no external dependencies)
+**Confidence:** HIGH (architecture derived from existing codebase analysis + verified external research)
 
 ## System Overview
 
 ```
-                         ENTRY POINTS
-  /orq-agent "..."       /orq-agent:audit        auto-trigger
-  (existing pipeline)    (new command)            (post-design hook)
-        |                      |                        |
-        v                      v                        v
-┌──────────────────────────────────────────────────────────────┐
-│                   CROSS-SWARM INTELLIGENCE                   │
-│                                                              │
-│  ┌──────────────┐  ┌───────────────┐  ┌──────────────────┐  │
-│  │  Ecosystem    │  │  Drift        │  │  Overlap &       │  │
-│  │  Mapper       │  │  Detector     │  │  Gap Analyzer    │  │
-│  └──────┬───────┘  └───────┬───────┘  └────────┬─────────┘  │
-│         │                  │                    │            │
-│         v                  v                    v            │
-│  ┌──────────────────────────────────────────────────────┐   │
-│  │              Cross-Swarm Model (in-memory)            │   │
-│  │  - unified agent registry                             │   │
-│  │  - tool/KB overlap index                              │   │
-│  │  - data flow graph                                    │   │
-│  │  - drift records                                      │   │
-│  └──────────────────────────┬───────────────────────────┘   │
-│                             │                               │
-│  ┌──────────────┐  ┌───────┴────────┐                       │
-│  │  Fix          │  │  Report        │                       │
-│  │  Proposer     │  │  Generator     │                       │
-│  └──────┬───────┘  └───────┬────────┘                       │
-│         │                  │                                │
-└─────────┼──────────────────┼────────────────────────────────┘
-          │                  │
-          v                  v
-  ┌──────────────┐    ┌──────────────┐
-  │ Auto-apply   │    │ ECOSYSTEM-   │
-  │ low-risk     │    │ REPORT.md    │
-  │ (edit specs) │    │ root level   │
-  └──────────────┘    └──────────────┘
+                    EXISTING PIPELINE (unchanged)
+  /orq-agent "..."
+        |
+        v
+  ┌─ Step 2: Discussion ──────────────────────────────────────────┐
+  │  2.1 Analyze Use Case                                         │
+  │  2.X NEW: Browser-Use Detection ◄── app-capabilities.json     │
+  │       "Does this use case need browser automation?"            │
+  │       If yes: tag agents with browser_automation: true         │
+  └────────────┬──────────────────────────────────────────────────┘
+               v
+  ┌─ Step 3: Architect ───────────────────────────────────────────┐
+  │  Blueprint now includes per-agent browser_automation flag      │
+  │  and integration_method per target system                      │
+  └────────────┬──────────────────────────────────────────────────┘
+               v
+  ┌─ Step 5: Tool Resolver ───────────────────────────────────────┐
+  │  For agents with browser_automation: true                      │
+  │  → Resolves VPS MCP server as the tool                        │
+  │  → Adds MCP tool config pointing to VPS endpoint              │
+  └────────────┬──────────────────────────────────────────────────┘
+               v
+  ┌─ Wave 1: Research ────────────────────────────────────────────┐
+  │  Researcher sees browser_automation flag                       │
+  │  → Researches target system UI patterns                        │
+  │  → Recommends Playwright script strategy per system            │
+  └────────────┬──────────────────────────────────────────────────┘
+               v
+  ┌─ Wave 2: Spec Generation ─────────────────────────────────────┐
+  │  Spec generator sees browser_automation tools in TOOLS.md      │
+  │  → Wires MCP tool reference into agent spec                   │
+  │  → Instructions include browser action context                 │
+  └────────────┬──────────────────────────────────────────────────┘
+               v
+  ┌─ NEW: Wave 2.5: Playwright Script Generation ─────────────────┐
+  │  NEW subagent: playwright-script-generator                     │
+  │  For each agent with browser_automation: true                  │
+  │  → Reads target system config from app-capabilities.json       │
+  │  → Generates deterministic Playwright scripts                  │
+  │  → Writes to {swarm-dir}/scripts/[system]-[action].ts          │
+  └────────────┬──────────────────────────────────────────────────┘
+               v
+  ┌─ Wave 3: Post-Generation (existing, unchanged) ──────────────┐
+  │  Orchestration, datasets, README                               │
+  └────────────┬──────────────────────────────────────────────────┘
+               v
+  ┌─ NEW: /orq-agent:deploy-scripts ──────────────────────────────┐
+  │  Deploys generated Playwright scripts to VPS MCP server        │
+  │  Registers scripts as MCP tools                                │
+  │  Returns tool_id for agent spec wiring                         │
+  └───────────────────────────────────────────────────────────────┘
 ```
-
-### How It Integrates With Existing Architecture
-
-The cross-swarm layer sits **above** the existing single-swarm pipeline. It does not modify the pipeline itself -- it reads outputs and Orq.ai state, then produces analysis artifacts. Integration points are narrow and additive.
-
-**Existing components that change:**
-
-| Component | Change | Scope |
-|-----------|--------|-------|
-| `commands/orq-agent.md` (orchestrator) | Add post-pipeline hook: after Step 7 (final summary), trigger ecosystem analysis if other swarms exist in `Agents/` | ~10 lines added to Step 7 |
-| `SKILL.md` | Register new command (`/orq-agent:audit`) and new agents (ecosystem-mapper, drift-detector, overlap-analyzer, fix-proposer) | Index entries only |
-| Output directory convention | Add `ECOSYSTEM-REPORT.md` at `Agents/` root level when cross-swarm analysis runs | Convention extension |
-
-**Existing components that do NOT change:**
-
-- All existing subagents (architect, researcher, spec-generator, etc.)
-- All existing templates
-- All existing references
-- The deploy/test/iterate/harden pipeline
-- The `.orq-agent/config.json` capability tier system
-- The MCP-first/REST-fallback pattern
-
-## New Components
-
-### New Commands
-
-| Command | File | Purpose |
-|---------|------|---------|
-| `/orq-agent:audit` | `commands/audit.md` | On-demand cross-swarm analysis. Reads all swarms in `Agents/`, queries Orq.ai live state, produces ecosystem report |
-
-### New Subagents (all .md instruction files, consistent with existing pattern)
-
-| Agent | File | Purpose |
-|-------|------|---------|
-| Ecosystem Mapper | `agents/ecosystem-mapper.md` | Reads local specs + Orq.ai live state, builds unified cross-swarm model |
-| Drift Detector | `agents/drift-detector.md` | Compares local specs against live Orq.ai state, flags divergences |
-| Overlap Analyzer | `agents/overlap-analyzer.md` | Finds duplicate capabilities, missing handoffs, shared data points across swarms |
-| Fix Proposer | `agents/fix-proposer.md` | Generates concrete fix proposals (shared signals, data contracts, event triggers) |
-
-### New Templates
-
-| Template | File | Purpose |
-|----------|------|---------|
-| Ecosystem Report | `templates/ecosystem-report.md` | Output template for cross-swarm analysis results |
-| Fix Proposal | `templates/fix-proposal.md` | Output template for individual fix proposals with risk classification |
-
-### New Output Artifacts
-
-| Artifact | Location | Purpose |
-|----------|----------|---------|
-| `ECOSYSTEM-REPORT.md` | `Agents/ECOSYSTEM-REPORT.md` (root level, not per-swarm) | Master cross-swarm analysis |
-| Per-swarm cross-swarm view | `Agents/[swarm]/CROSS-SWARM.md` | Per-swarm view of cross-swarm relationships and recommendations |
 
 ## Component Responsibilities
 
-| Component | Responsibility | Implementation |
-|-----------|----------------|----------------|
-| Audit Command | Entry point, orchestrates the 4 subagents sequentially, handles HITL for fix proposals | .md command file, same pattern as `orq-agent.md` orchestrator |
-| Ecosystem Mapper | Discovers all swarms (local + Orq.ai), builds unified registry of agents, tools, KBs, data flows | .md subagent, reads `Agents/*/` dirs + calls Orq.ai API via MCP/REST |
-| Drift Detector | Compares local spec fields against Orq.ai live state for each deployed agent | .md subagent, reuses deployer's diff logic (field-by-field comparison) |
-| Overlap Analyzer | Cross-references agent responsibilities, tool assignments, KB references, data flow graphs across swarms | .md subagent, LLM reasoning over the ecosystem map |
-| Fix Proposer | Generates actionable fix proposals with risk classification (low-risk auto-apply vs. structural escalation) | .md subagent, produces structured proposals |
-| Report Assembly | Assembles final report from subagent outputs | Built into audit command (not a separate agent) |
+### New Components
+
+| Component | Type | Responsibility | Communicates With |
+|-----------|------|---------------|-------------------|
+| `app-capabilities.json` | Reference file | Per-system config: integration method (API / browser-only / headed), login URLs, selectors, known flows | Discussion step, Architect, Playwright script generator |
+| Browser-use detection logic | Pipeline enhancement (Step 2) | Detects when a use case requires browser automation by consulting app-capabilities.json and discussion context | Discussion step output, Architect input |
+| `playwright-script-generator.md` | Subagent | Generates deterministic Playwright scripts from system config + agent requirements | Blueprint, app-capabilities.json, agent specs |
+| VPS MCP Server | External infrastructure | Runs Playwright scripts as MCP tools, exposes them via Streamable HTTP transport | Orq.ai agents (via MCP), deploy-scripts command |
+| `/orq-agent:deploy-scripts` | Command | Deploys generated scripts to VPS, registers them as MCP tools | VPS MCP server, Playwright scripts |
+
+### Modified Components
+
+| Component | What Changes | Why |
+|-----------|-------------|-----|
+| Discussion step (Step 2) | Adds browser-use detection substep after gray area discussion | Needs to identify browser automation needs before architect runs |
+| Architect (Step 3) | Blueprint gains `browser_automation` flag and `integration_method` per agent | Downstream stages need to know which agents need browser tools |
+| Tool Resolver (Step 5) | Recognizes browser automation flag, resolves VPS MCP server as tool type | Browser agents need MCP tool configs pointing to VPS |
+| Spec Generator (Wave 2) | Wires MCP tool references for browser automation into agent specs | Agent specs must include the correct MCP tool_id |
+| Orchestrator (orq-agent.md) | Adds Wave 2.5 (Playwright script generation) between Wave 2 and Wave 3 | Scripts must be generated after specs but before deployment |
+| SKILL.md | Lists new subagent, command, and reference file | Downstream consumers need the index |
+| Tool Catalog (tool-catalog.md) | Adds VPS Playwright MCP server entry | Tool resolver needs to find it in the catalog |
+| Deploy command | Gains awareness of script deployment as a pre-step | Scripts must be on VPS before agents can use them |
+
+### Unchanged Components
+
+| Component | Why Unchanged |
+|-----------|---------------|
+| Researcher | Already produces per-agent research briefs; browser context flows naturally through the existing research framework |
+| Dataset Generator | Generates test data from agent specs regardless of tool type |
+| Orchestration Generator | Agent-as-tool wiring is unchanged; MCP tools are just tools |
+| README Generator | Reads from generated files; adapts naturally |
+| Iterator, Tester, Hardener | Operate on deployed agents; tool type is transparent to them |
 
 ## Recommended Project Structure
 
+New files to add to `orq-agent/`:
+
 ```
 orq-agent/
-  commands/
-    audit.md                    # NEW: Cross-swarm audit command
-    orq-agent.md                # MODIFIED: Post-pipeline auto-trigger hook
   agents/
-    ecosystem-mapper.md         # NEW: Builds cross-swarm model
-    drift-detector.md           # NEW: Spec vs. live state comparison
-    overlap-analyzer.md         # NEW: Cross-swarm overlap/gap analysis
-    fix-proposer.md             # NEW: Generates fix proposals
-  templates/
-    ecosystem-report.md         # NEW: Report output template
-    fix-proposal.md             # NEW: Fix proposal template
+    playwright-script-generator.md   # NEW: generates Playwright scripts
+  commands/
+    deploy-scripts.md                # NEW: deploys scripts to VPS
   references/
-    (no new references needed)
+    app-capabilities.json            # NEW: per-system integration config
+  templates/
+    playwright-script.ts             # NEW: template for generated scripts
 ```
 
-### Structure Rationale
+Output directory additions per swarm:
 
-- **No new directories:** New agents go in `agents/`, new command in `commands/`, new templates in `templates/`. This follows the established convention exactly.
-- **No new references:** The cross-swarm layer reuses existing Orq.ai API knowledge. The ecosystem mapper needs `agents-list` and `tools-list` -- already documented in `orqai-api-endpoints.md`.
-- **Single new command:** `/orq-agent:audit` is the only user-facing entry point. The auto-trigger from the main pipeline is internal.
+```
+Agents/[swarm-name]/
+  scripts/                           # NEW: generated Playwright scripts
+    [system]-[action].ts             # e.g., nxt-login.ts, nxt-extract-invoices.ts
+    mcp-server-config.json           # VPS MCP server registration manifest
+  agents/
+    [agent-key].md                   # Existing, now with MCP tool refs for browser
+  ...existing files...
+```
 
 ## Architectural Patterns
 
-### Pattern 1: Read-Only Analysis Layer
+### Pattern 1: Application Capabilities Config File
 
-**What:** The cross-swarm layer reads specs and Orq.ai state but never modifies agents/tools on Orq.ai directly. All Orq.ai changes go through the existing deploy pipeline.
+**What:** A JSON reference file (`app-capabilities.json`) that maps known Moyne Roberts systems to their integration capabilities.
 
-**When to use:** Always. This is the core architectural constraint.
+**When to use:** During discussion step (Step 2) and by the Playwright script generator.
+
+**Why this approach:** The pipeline needs to know whether a system has an API, requires browser automation, or needs headed browser mode. Hardcoding this in subagent instructions would be brittle. A config file is editable, versionable, and extensible.
+
+**Structure:**
+
+```json
+{
+  "systems": {
+    "nxt": {
+      "name": "NXT",
+      "integration_method": "browser-only",
+      "base_url": "https://nxt.example.com",
+      "auth": {
+        "method": "form-login",
+        "login_url": "/login",
+        "username_selector": "#username",
+        "password_selector": "#password",
+        "submit_selector": "#login-btn"
+      },
+      "known_flows": [
+        {
+          "name": "extract-invoices",
+          "description": "Navigate to invoices page, extract invoice data",
+          "steps_hint": ["login", "navigate to /invoices", "wait for table", "extract rows"]
+        },
+        {
+          "name": "create-order",
+          "description": "Fill out new order form",
+          "steps_hint": ["login", "navigate to /orders/new", "fill form fields", "submit"]
+        }
+      ]
+    },
+    "icontroller": {
+      "name": "iController",
+      "integration_method": "browser-only",
+      "base_url": "https://icontroller.example.com",
+      "auth": {
+        "method": "sso-redirect",
+        "sso_provider": "azure-ad"
+      },
+      "known_flows": []
+    },
+    "intelly": {
+      "name": "Intelly",
+      "integration_method": "headed-browser",
+      "base_url": "https://intelly.example.com",
+      "auth": {
+        "method": "form-login"
+      },
+      "known_flows": [],
+      "notes": "Requires headed browser due to canvas-based UI elements"
+    }
+  },
+  "defaults": {
+    "headless": true,
+    "timeout_ms": 30000,
+    "viewport": { "width": 1280, "height": 720 }
+  }
+}
+```
 
 **Trade-offs:**
-- Pro: Cannot break deployed agents. Existing deploy pipeline remains the single write path.
-- Pro: Auto-apply "fixes" means editing local spec files, then user re-deploys. Existing deploy idempotency handles the rest.
-- Con: Auto-apply cannot push changes to Orq.ai directly -- requires a re-deploy step. This is acceptable because HITL approval already exists in the deploy flow.
+- Pro: Single source of truth for system capabilities; easy to extend for new systems
+- Pro: Discussion step can fall back to asking the user when a system is not in the config
+- Con: Must be maintained as systems change (login pages redesigned, etc.)
+- Con: Selectors may go stale -- but this is inherent to deterministic browser automation
 
-**Example:**
+### Pattern 2: Playwright Script Generator as Subagent
+
+**What:** A new `.md` subagent file that generates deterministic Playwright scripts from system config and agent requirements.
+
+**When to use:** Wave 2.5 -- after spec generation (so agent responsibilities are known) but before post-generation (so scripts are available for README and deploy).
+
+**Why a subagent (not a template):** Playwright scripts require reasoning about page structure, wait strategies, error handling, and data extraction patterns. An LLM subagent can adapt scripts to different system UIs. A static template cannot handle the variety of flows across NXT, iController, and Intelly.
+
+**Subagent design:**
+
+```markdown
+---
+name: orq-playwright-script-generator
+description: Generates deterministic Playwright scripts for browser automation flows
+tools: Read, Write, Glob
+model: inherit
+---
+
+# Playwright Script Generator
+
+You generate Playwright scripts for deterministic browser automation flows.
+
+Input:
+1. app-capabilities.json (system config with URLs, selectors, known flows)
+2. Agent spec (what the agent needs to do via browser)
+3. Blueprint (agent responsibilities and data flow)
+
+Output:
+- One .ts file per flow (e.g., nxt-login.ts, nxt-extract-invoices.ts)
+- Each script is self-contained, headless-compatible, error-handled
+- Scripts export a function matching MCP tool schema
+
+Rules:
+- Scripts MUST be deterministic (no AI/LLM calls within scripts)
+- Scripts MUST handle auth (login flow or session reuse)
+- Scripts MUST have explicit waits (not sleep-based)
+- Scripts MUST return structured JSON (not raw HTML)
+- Scripts MUST handle common failures (element not found, timeout, auth expired)
 ```
-Fix Proposer output:
-  "Add shared context variable 'dispute_status' to follow-up-orchestrator-agent"
-  Risk: LOW (additive, no behavioral change)
-  Action: Edit Agents/follow-up-swarm/agents/follow-up-orchestrator-agent.md
-          -> Add to Variables section: dispute_status = "{{dispute_status}}"
-  Then: User runs /orq-agent:deploy to push the change
-```
-
-### Pattern 2: Dual Source of Truth with Drift Reconciliation
-
-**What:** The system acknowledges two sources of truth -- local spec files (`Agents/[swarm]/agents/*.md`) and Orq.ai live state (`GET /v2/agents`). Drift between them is expected and detected, not prevented.
-
-**When to use:** Every time the ecosystem mapper runs.
 
 **Trade-offs:**
-- Pro: Handles the real-world case where someone edits an agent in Orq.ai Studio directly.
-- Pro: Drift detection is valuable even without cross-swarm analysis.
-- Con: Requires API calls to Orq.ai to build full picture. Rate limits apply.
+- Pro: LLM can reason about UI patterns and generate appropriate scripts
+- Pro: Follows existing subagent pattern (`.md` instruction file)
+- Con: Generated scripts need manual verification before deployment
+- Con: LLM may generate scripts with incorrect selectors (mitigated by app-capabilities.json providing known selectors)
 
-**How it works:**
-1. Ecosystem mapper reads all local spec files for agent keys, instructions, tools, KBs
-2. Ecosystem mapper calls `agents-list` (MCP) or `GET /v2/agents` (REST) to get live state
-3. Drift detector compares field-by-field (reuses the deployer's comparison logic from Phase 4)
-4. Drift records become part of the ecosystem model
+### Pattern 3: VPS MCP Server Architecture
 
-### Pattern 3: Risk-Classified Fix Proposals
+**What:** A Node.js MCP server running on a VPS that wraps Playwright scripts as MCP tools, exposing them via Streamable HTTP transport.
 
-**What:** Every fix proposal is classified as LOW, MEDIUM, or HIGH risk. Only LOW-risk changes can be auto-applied. MEDIUM and HIGH are presented for human decision.
+**When to use:** Production deployment of browser automation capabilities for Orq.ai agents.
 
-**When to use:** Whenever the fix proposer generates output.
+**Architecture:**
 
-**Risk classification:**
 ```
-LOW RISK (auto-applicable):
-- Adding a shared context variable to an agent's Variables section
-- Adding a cross-reference comment to an agent's instructions
-- Adding a data contract annotation to ORCHESTRATION.md
-
-MEDIUM RISK (human approval required):
-- Adding a new tool to an agent (e.g., adding call_sub_agent for cross-swarm delegation)
-- Modifying an agent's instructions to add awareness of another swarm
-- Adding a new agent-as-tool relationship
-
-HIGH RISK (human approval + architecture review):
-- Merging two agents from different swarms
-- Splitting a swarm into sub-swarms
-- Changing orchestration patterns
-- Removing agents or tools
+┌─────────────────────────────────────────────────┐
+│                   VPS (Linux)                     │
+│                                                   │
+│  ┌─────────────────────────────────────────────┐ │
+│  │          MCP Server (Node.js)                │ │
+│  │                                              │ │
+│  │  Transport: Streamable HTTP (:3000)          │ │
+│  │  Auth: Bearer token (API key)                │ │
+│  │                                              │ │
+│  │  ┌────────────────────────────────────────┐  │ │
+│  │  │         Tool Registry                  │  │ │
+│  │  │                                        │  │ │
+│  │  │  nxt-login         → scripts/nxt/      │  │ │
+│  │  │  nxt-extract-inv   → scripts/nxt/      │  │ │
+│  │  │  nxt-create-order  → scripts/nxt/      │  │ │
+│  │  │  icontroller-login → scripts/ictl/     │  │ │
+│  │  └────────────────────────────────────────┘  │ │
+│  │                                              │ │
+│  │  ┌────────────────────────────────────────┐  │ │
+│  │  │      Playwright Runtime                │  │ │
+│  │  │      (Chromium, headless)              │  │ │
+│  │  │      Session pool with auth caching    │  │ │
+│  │  └────────────────────────────────────────┘  │ │
+│  └─────────────────────────────────────────────┘ │
+│                                                   │
+│  Reverse proxy: Caddy/nginx (TLS termination)     │
+│  Process manager: PM2 or systemd                  │
+└─────────────────────────────────────────────────┘
+         │
+         │ HTTPS (Streamable HTTP)
+         v
+┌─────────────────────────┐
+│     Orq.ai Platform     │
+│                         │
+│  Agent calls MCP tool:  │
+│  { "type": "mcp",      │
+│    "server_url": "https://vps.example.com/mcp",
+│    "connection_type": "http" }
+└─────────────────────────┘
 ```
 
-### Pattern 4: Subagent-as-Markdown (Existing Pattern, Extended)
+**Key decisions:**
 
-**What:** All new cross-swarm agents are .md instruction files spawned via Task tool, consistent with existing architect, researcher, deployer, etc.
+1. **Transport: Streamable HTTP (not SSE)**
+   - SSE is deprecated as of MCP spec 2025-03-26
+   - Streamable HTTP supports session management, bidirectional communication
+   - Orq.ai uses `connection_type: "http"` -- compatible with Streamable HTTP
+   - Confidence: HIGH (verified via MCP spec and Orq.ai field reference)
 
-**When to use:** For all new agents. No exceptions.
+2. **Auth: Bearer token**
+   - Simple, stateless, compatible with Orq.ai's MCP config
+   - Token stored as `{{PLAYWRIGHT_MCP_API_KEY}}` placeholder in tool configs
+   - VPS validates token on every request
 
-**Why this matters for V4.0:** The cross-swarm analysis requires LLM reasoning to determine semantic overlap between agent responsibilities, identify missing handoffs, and propose coordination fixes. This is exactly what the .md subagent pattern excels at -- giving the LLM structured context and letting it reason.
+3. **Session pooling**
+   - Playwright browser contexts are expensive to create (~2-3s)
+   - Pool authenticated sessions per target system
+   - Session TTL: 30 minutes (re-auth on expiry)
+   - Max concurrent sessions: 5 per system (VPS resource limit)
+
+4. **Script hot-reload**
+   - Scripts deployed to `/opt/mcp-playwright/scripts/`
+   - File watcher detects new/updated scripts
+   - Tool registry refreshes without server restart
+   - Enables deploy-scripts command to push updates live
+
+**Trade-offs:**
+- Pro: Single VPS serves all browser automation needs across all swarms
+- Pro: Orq.ai agents call browser tools identically to any other MCP tool
+- Pro: Centralized auth management (system credentials stored on VPS only)
+- Con: Single point of failure (mitigated by health checks and auto-restart)
+- Con: VPS must have enough resources for concurrent Playwright instances
+- Con: Network latency between Orq.ai and VPS adds ~50-200ms per tool call
+
+### Pattern 4: Script Deployment via MCP (Meta-Pattern)
+
+**What:** The VPS MCP server exposes a management tool (`deploy-script`) alongside the automation tools. The `/orq-agent:deploy-scripts` command uses this management tool to push scripts to the VPS.
+
+**Why not SCP/SFTP:** Keeps the deployment channel consistent (MCP for everything). The management tool can validate scripts, register them in the tool registry, and return the tool_id -- all in one round-trip.
+
+**Management tools on VPS MCP server:**
+
+```
+deploy-script      # Upload a script file, register as tool, return tool_id
+list-scripts       # List all registered scripts with tool_ids
+remove-script      # Unregister and delete a script
+health-check       # Verify Playwright runtime and browser availability
+```
+
+**Trade-offs:**
+- Pro: Consistent MCP-based interface; no SSH keys needed
+- Pro: Script validation happens server-side before registration
+- Con: Larger script files may hit HTTP payload limits (mitigate with chunked upload)
+- Con: Must secure management tools separately from automation tools (different auth scope)
 
 ## Data Flow
 
-### Audit Command Flow (On-Demand)
+### Pipeline Data Flow (Browser Automation Path)
 
 ```
-User runs /orq-agent:audit
+User input: "Build agents that extract invoices from NXT and reconcile with iController"
     |
     v
-[1] Ecosystem Mapper
-    -> Reads: Agents/*/ directories (Glob for all swarm dirs)
-    -> Reads: Each swarm's agent specs, ORCHESTRATION.md, TOOLS.md
-    -> Calls: agents-list (MCP/REST) for live Orq.ai state
-    -> Calls: tools-list (MCP/REST) for live tool state
-    -> Produces: ecosystem-model.md (unified cross-swarm model)
+Discussion Step:
+    reads app-capabilities.json
+    finds NXT (browser-only) and iController (browser-only)
+    tags use case: browser_automation_needed = true
     |
     v
-[2] Drift Detector
-    -> Reads: ecosystem-model.md
-    -> Compares: local specs vs. live Orq.ai state (field-by-field)
-    -> Produces: drift-report section (appended to ecosystem model)
+Architect:
+    blueprint includes:
+    - nxt-invoice-extractor-agent (browser_automation: true, system: "nxt")
+    - icontroller-reconciler-agent (browser_automation: true, system: "icontroller")
+    - invoice-orchestrator-agent (browser_automation: false)
     |
     v
-[3] Overlap Analyzer
-    -> Reads: ecosystem-model.md (with drift annotations)
-    -> Analyzes: agent responsibility overlaps, tool duplication,
-               KB sharing opportunities, missing handoffs,
-               data flow gaps between swarms
-    -> Produces: overlap-analysis section
+Tool Resolver:
+    for browser_automation agents:
+    - resolves "playwright-mcp" tool from catalog
+    - config: { type: "mcp", server_url: "{{PLAYWRIGHT_VPS_URL}}", connection_type: "http" }
     |
     v
-[4] Fix Proposer
-    -> Reads: ecosystem-model.md + overlap analysis
-    -> Generates: concrete fix proposals with risk classification
-    -> Produces: fix-proposals section
+Spec Generator:
+    - nxt-invoice-extractor-agent spec includes MCP tool reference
+    - instructions mention: "Use the nxt-extract-invoices tool to retrieve invoice data"
     |
     v
-[5] Audit Command assembles ECOSYSTEM-REPORT.md
-    -> Writes: Agents/ECOSYSTEM-REPORT.md
-    -> Writes: Per-swarm Agents/[swarm]/CROSS-SWARM.md files
+Playwright Script Generator (Wave 2.5):
+    reads app-capabilities.json for NXT config
+    reads nxt-invoice-extractor-agent spec for requirements
+    generates: scripts/nxt-login.ts, scripts/nxt-extract-invoices.ts
     |
     v
-[6] HITL: User reviews fix proposals
-    -> "approve all low-risk" -> auto-apply edits to spec files
-    -> "approve [N]" -> apply specific proposals
-    -> "skip" -> report only, no changes
+Deploy Scripts (post-pipeline):
+    uploads scripts to VPS MCP server
+    registers as tools: nxt-login, nxt-extract-invoices
+    returns tool_ids for Orq.ai wiring
     |
     v
-[7] If changes applied -> suggest /orq-agent:deploy to push
+Deploy Agents (existing /orq-agent:deploy):
+    deploys agents with MCP tool references
+    tool_id points to VPS-hosted scripts
 ```
 
-### Auto-Trigger Flow (Post-Pipeline)
+### Runtime Data Flow (Agent Executing Browser Task)
 
 ```
-User runs /orq-agent "new use case"
+Orq.ai Agent (nxt-invoice-extractor-agent)
     |
+    | MCP tool call: nxt-extract-invoices
+    | params: { date_range: "2026-02-01 to 2026-02-28" }
     v
-[Existing pipeline runs normally: Steps 0-7]
+VPS MCP Server
     |
+    | 1. Validate auth token
+    | 2. Look up script: nxt-extract-invoices.ts
+    | 3. Get/create authenticated browser session for NXT
+    | 4. Execute script with params
+    | 5. Return structured JSON result
     v
-[Step 7.5 - NEW] Post-pipeline cross-swarm check
-    -> Glob for Agents/*/ directories
-    -> If only 1 swarm exists: skip (nothing to cross-reference)
-    -> If 2+ swarms exist: spawn ecosystem mapper + overlap analyzer
-       (lightweight mode: skip drift detection, skip fix proposals)
-    -> Append cross-swarm notes to the new swarm's output
-    -> Display: "Cross-swarm analysis found [N] coordination opportunities"
-    -> Suggest: "Run /orq-agent:audit for full analysis with fix proposals"
+Orq.ai Agent receives:
+    {
+      "invoices": [
+        { "id": "INV-001", "amount": 1234.56, "date": "2026-02-15", "status": "paid" },
+        ...
+      ],
+      "total_count": 47,
+      "extracted_at": "2026-03-03T10:30:00Z"
+    }
 ```
 
-### Key Data Flows
+## Scaling Considerations
 
-1. **Local spec ingestion:** `Glob("Agents/*/agents/*.md")` -> parse each spec for key, role, tools, KBs, instructions summary -> build agent registry
-2. **Live state ingestion:** `agents-list` + `tools-list` via MCP/REST -> build deployed agent registry
-3. **Drift detection:** For each agent in both registries, compare fields using deployer's diff logic
-4. **Overlap detection:** LLM reasons over full ecosystem model to find semantic overlaps in responsibilities, tool assignments, data flows
-5. **Fix generation:** LLM generates structured fix proposals referencing specific files and fields to change
+| Scale | Architecture Adjustments |
+|-------|--------------------------|
+| 1-3 systems (NXT only) | Single VPS, single Playwright instance, simple PM2 process management. This is the V5.0 target. |
+| 3-10 systems | Session pool per system, increase VPS resources (4 CPU, 8GB RAM), consider connection limits per system to avoid being rate-limited. |
+| 10+ systems | Multiple VPS instances behind a load balancer, or move to container-based deployment (Docker on a small Kubernetes cluster). Script deployment becomes a CI/CD pipeline. Unlikely needed for 5-15 Moyne Roberts users. |
 
-## Cross-Swarm Model Structure
+### Scaling Priorities
 
-The ecosystem mapper produces a structured model that downstream agents consume. This is a markdown file (consistent with all other pipeline artifacts).
+1. **First bottleneck: Concurrent Playwright sessions.** Playwright + Chromium uses ~200-300MB per browser context. A 4GB VPS supports ~10 concurrent sessions. Fix: increase VPS RAM or implement session queuing.
+2. **Second bottleneck: Auth session management.** If target systems have aggressive session timeouts, the pool may churn. Fix: implement session health checks and proactive re-auth.
 
-```markdown
-# Ecosystem Model
+## Anti-Patterns
 
-## Agent Registry
-| Swarm | Agent Key | Role | Model | Tools | KBs | Deployed | Drift |
-|-------|-----------|------|-------|-------|-----|----------|-------|
-(one row per agent across all swarms)
+### Anti-Pattern 1: Dynamic Browser-Use for Known Flows
 
-## Tool Registry
-| Tool Key | Type | Used By (agents) | Swarms |
-|----------|------|-------------------|--------|
-(one row per unique tool, with cross-swarm usage)
+**What people do:** Use AI-driven browser agents (browser-use, Stagehand) for flows that are predictable and repetitive (like "log into NXT and extract invoices every day").
 
-## KB Registry
-| KB Key | Type | Used By (agents) | Swarms |
-|--------|------|-------------------|--------|
-(one row per unique KB)
+**Why it's wrong:** Dynamic browser-use costs 15-30 seconds per action (vs. <2s for deterministic scripts), requires expensive LLM calls per browser interaction, and introduces non-determinism. For known, repetitive flows, this is wasteful and unreliable.
 
-## Data Flow Graph
-### Per-Swarm Flows
-(per swarm: user input -> agent chain -> output)
+**Do this instead:** Generate deterministic Playwright scripts for known flows. Reserve dynamic browser-use (already available via existing Orq.ai MCP tools) for exploratory or one-off tasks. This is the core V5.0 design decision.
 
-### Cross-Swarm Handoff Points
-(identified data that flows between business processes served by different swarms)
+### Anti-Pattern 2: Embedding Playwright in Agent Instructions
 
-## Drift Records
-| Agent Key | Field | Local Value (summary) | Live Value (summary) | Severity |
-|-----------|-------|----------------------|---------------------|----------|
-(one row per drift instance)
+**What people do:** Put Playwright code or browser interaction steps directly in agent system prompts, expecting the LLM to execute browser commands.
 
-## Overlap Matrix
-| Agent A (Swarm X) | Agent B (Swarm Y) | Overlap Type | Description |
-|--------------------|--------------------|--------------| ------------|
-(one row per detected overlap)
-```
+**Why it's wrong:** LLMs cannot execute code. The agent needs to call a tool that executes the script. Embedding code in instructions wastes tokens and confuses the agent.
+
+**Do this instead:** Agent instructions describe WHAT the browser tool does ("use the nxt-extract-invoices tool to retrieve invoice data"). The MCP tool handles HOW (executing the Playwright script on the VPS).
+
+### Anti-Pattern 3: One MCP Server Per System
+
+**What people do:** Deploy a separate MCP server for each target system (one for NXT, one for iController, one for Intelly).
+
+**Why it's wrong:** Multiplies infrastructure management. Each server needs its own process, monitoring, and deployment pipeline. With 5-15 users, this is over-engineered.
+
+**Do this instead:** Single VPS MCP server with a script registry that organizes scripts by system. One server, one process, one deployment target. Scripts are namespaced by system (e.g., `nxt-login`, `icontroller-login`).
+
+### Anti-Pattern 4: Storing System Credentials in Agent Specs or Config
+
+**What people do:** Put NXT/iController login credentials in app-capabilities.json or in agent spec variables.
+
+**Why it's wrong:** Credentials in the pipeline codebase get committed to Git. Agent specs are visible to non-technical users.
+
+**Do this instead:** System credentials live ONLY on the VPS, stored as environment variables or in a secrets manager. The MCP server reads them at runtime. The pipeline never sees or handles system passwords.
 
 ## Integration Points
 
@@ -328,110 +476,81 @@ The ecosystem mapper produces a structured model that downstream agents consume.
 
 | Service | Integration Pattern | Notes |
 |---------|---------------------|-------|
-| Orq.ai API (agents-list) | MCP-first, REST-fallback (existing pattern) | Rate limit: cache response, single call per audit run |
-| Orq.ai API (tools-list) | MCP-first, REST-fallback (existing pattern) | Same caching strategy as deployer |
-| Orq.ai API (knowledge-list) | REST-only (no MCP tools for KBs, as established) | Same pattern as deployer Phase 1.5 |
+| Orq.ai Platform | MCP tool calls from agents to VPS | Existing MCP integration pattern; `connection_type: "http"` |
+| NXT | Playwright scripts via VPS MCP server | Browser-only system; deterministic login + data extraction |
+| iController | Playwright scripts via VPS MCP server | Browser-only system; SSO auth may need special handling |
+| Intelly | Playwright scripts via VPS MCP server (headed mode) | Canvas-based UI may require headed browser; VPS needs Xvfb |
+| VPS hosting provider | Standard Linux VPS | Any provider (Hetzner, DigitalOcean, etc.); needs Chrome/Chromium |
 
 ### Internal Boundaries
 
 | Boundary | Communication | Notes |
 |----------|---------------|-------|
-| Audit Command <-> Subagents | Task tool (spawn .md agents) | Same as existing orchestrator pattern |
-| Audit Command <-> Existing Pipeline | Post-pipeline hook in orq-agent.md | Audit spawned as Task after Step 7 completes |
-| Cross-swarm agents <-> Local specs | Read tool (file system) | Read-only access to spec files |
-| Cross-swarm agents <-> Orq.ai | MCP/REST (read-only: list endpoints only) | Never writes to Orq.ai directly |
-| Fix Proposer <-> Local specs | Write/Edit tool (spec file modification) | Only after HITL approval; only for LOW-risk changes |
+| Pipeline <-> app-capabilities.json | File read | Discussion step and script generator read this reference file |
+| Pipeline <-> VPS MCP Server | Streamable HTTP (deploy-scripts command) | Management tools for script upload and registration |
+| Orq.ai Agent <-> VPS MCP Server | Streamable HTTP (runtime tool calls) | Standard MCP tool invocation; transparent to agent |
+| VPS MCP Server <-> Target Systems | Playwright (HTTP/browser) | Headless Chromium drives target system UIs |
 
-## Scaling Considerations
+## Build Order Recommendation
 
-| Scale | Architecture Adjustments |
-|-------|--------------------------|
-| 1-3 swarms | Single ecosystem mapper call reads everything. Fast, no optimization needed. |
-| 4-10 swarms | Ecosystem mapper still manageable. Consider caching the ecosystem model file between runs to skip Orq.ai API calls when specs haven't changed. |
-| 10+ swarms | Unlikely given 5-15 users. If reached: partition analysis by business domain. |
+Based on dependency analysis, the recommended build order is:
 
-### Scaling Priorities
+### Phase 1: Foundation (no pipeline changes yet)
+1. **app-capabilities.json** -- Create the reference file with NXT as the first system
+2. **VPS MCP server scaffold** -- Node.js + MCP SDK + Streamable HTTP transport, health check tool only
+3. **Manual Playwright script for NXT login** -- Prove the approach works end-to-end before automating
 
-1. **First bottleneck:** LLM context window when analyzing many swarms. The ecosystem model (summary registries) stays compact, but overlap analysis needs to reason about agent pairs. At 10 swarms x 3 agents = 30 agents = 435 unique pairs. Mitigation: pre-filter pairs by shared tools/KBs before LLM analysis.
-2. **Second bottleneck:** Orq.ai API rate limits when listing agents/tools. Mitigation: single `agents-list` call returns all agents; cache for the session.
+### Phase 2: Pipeline Integration
+4. **Browser-use detection in Discussion step** -- Modify Step 2 to consult app-capabilities.json
+5. **Architect blueprint enhancement** -- Add browser_automation flag to blueprint output format
+6. **Tool catalog update** -- Add VPS Playwright MCP server entry to tool-catalog.md
 
-## Anti-Patterns
+### Phase 3: Script Generation
+7. **Playwright script generator subagent** -- New agent file with template
+8. **Orchestrator Wave 2.5** -- Wire the new subagent into the pipeline between Wave 2 and Wave 3
+9. **Generated script template** -- TypeScript template with error handling, auth, structured output
 
-### Anti-Pattern 1: Direct Orq.ai Mutation
+### Phase 4: Deployment
+10. **deploy-scripts command** -- New command that pushes scripts to VPS and registers tools
+11. **VPS management tools** -- deploy-script, list-scripts, remove-script MCP tools
+12. **Deploy command integration** -- Existing deploy command gains awareness of script pre-deployment
 
-**What people do:** Have the cross-swarm layer directly PATCH agents on Orq.ai to "fix" overlaps.
-**Why it's wrong:** Bypasses the deploy pipeline, breaks spec-as-source-of-truth, no HITL approval, no verification read-back, no frontmatter annotation.
-**Do this instead:** Edit local spec files, then tell the user to run `/orq-agent:deploy`. The deploy pipeline handles idempotent create-or-update with verification.
-
-### Anti-Pattern 2: Full Spec Embedding in Ecosystem Model
-
-**What people do:** Copy entire agent spec contents (instructions, tool schemas, etc.) into the ecosystem model.
-**Why it's wrong:** Blows up context window. A 5-swarm ecosystem with 3 agents each = 15 full specs = easily 50K+ tokens just for the model.
-**Do this instead:** Ecosystem model contains summary registries (key, role, tools list, KB list). Full specs are loaded on-demand only when the overlap analyzer needs to compare specific agent pairs.
-
-### Anti-Pattern 3: Treating Drift as an Error
-
-**What people do:** Block the audit or flag drift as a critical issue requiring immediate resolution.
-**Why it's wrong:** Drift is expected and normal. Someone edited an agent in Orq.ai Studio -- that is fine. Drift detection is informational, not prescriptive.
-**Do this instead:** Report drift with severity levels (cosmetic, behavioral, structural). Let the user decide whether to sync local specs to live state or re-deploy to overwrite live state.
-
-### Anti-Pattern 4: Cross-Swarm Agent Wiring
-
-**What people do:** Create agents that belong to multiple swarms or build cross-swarm orchestration at the Orq.ai agent level.
-**Why it's wrong:** Orq.ai agents are flat (no hierarchy beyond team_of_agents within a single swarm). Cross-swarm coordination happens via shared data (variables, KBs, context) not via agent-to-agent calls across swarms.
-**Do this instead:** Fix proposals should recommend shared context variables, shared KBs, or data contracts -- not cross-swarm agent-as-tool wiring.
-
-### Anti-Pattern 5: Running Full Audit After Every Design
-
-**What people do:** Run the complete 4-stage audit (mapper + drift + overlap + fix proposer) as a mandatory post-pipeline step.
-**Why it's wrong:** Expensive (multiple LLM calls + Orq.ai API calls) and unnecessary when only one swarm exists. Also slows down the primary design flow.
-**Do this instead:** Post-pipeline hook runs lightweight mode only (mapper + overlap check, no drift or fix proposals). Full audit is on-demand via `/orq-agent:audit`.
-
-## Suggested Build Order
-
-Based on dependencies between components:
-
-```
-Phase 1: Foundation (Ecosystem Model)
-  [1] templates/ecosystem-report.md      # Define output format first
-  [2] agents/ecosystem-mapper.md         # Build the mapper against the template
-  [3] Manual test: run mapper against sample Agents/ directory
-
-Phase 2: Analysis Agents
-  [4] agents/drift-detector.md           # Depends on: mapper output format
-  [5] agents/overlap-analyzer.md         # Depends on: mapper output format
-  [6] Manual test: run each against mapper output
-
-Phase 3: Fix Proposals
-  [7] templates/fix-proposal.md          # Define fix proposal format
-  [8] agents/fix-proposer.md             # Depends on: overlap analyzer output
-  [9] Manual test: verify risk classification and spec edit accuracy
-
-Phase 4: Command Integration
-  [10] commands/audit.md                 # Wire all 4 agents together
-  [11] SKILL.md updates                  # Register command and agents
-  [12] End-to-end test: /orq-agent:audit
-
-Phase 5: Auto-Trigger
-  [13] Modify commands/orq-agent.md      # Add Step 7.5 post-pipeline hook
-  [14] End-to-end test: design new swarm, verify auto-trigger fires
-```
+### Phase 5: End-to-End Validation
+13. **NXT end-to-end test** -- Full pipeline: describe use case -> generate agents + scripts -> deploy -> agent calls browser tool
+14. **Second system (iController)** -- Add to app-capabilities.json, validate multi-system support
 
 **Phase ordering rationale:**
-- Templates before agents: agents need to know their output format
-- Mapper before analysis agents: analysis agents consume the ecosystem model
-- Analysis before fix proposer: fix proposer needs overlap/drift data
-- All agents before command: command orchestrates them
-- Audit command before auto-trigger: auto-trigger spawns a lightweight audit
+- Phase 1 must come first because everything depends on the VPS server existing and the config file being defined
+- Phase 2 depends on Phase 1 (config file must exist for detection logic)
+- Phase 3 depends on Phase 2 (architect must produce browser flags for script generator to consume)
+- Phase 4 depends on Phase 1 + Phase 3 (VPS must exist, scripts must be generated)
+- Phase 5 validates the full chain end-to-end
+
+## Key Technical Decisions
+
+| Decision | Rationale | Confidence |
+|----------|-----------|------------|
+| Streamable HTTP transport (not SSE) | SSE deprecated in MCP spec 2025-03-26; Streamable HTTP is the standard; Orq.ai `connection_type: "http"` is compatible | HIGH |
+| Single VPS MCP server for all systems | 5-15 users does not justify per-system infrastructure; script namespacing handles multi-system cleanly | HIGH |
+| Deterministic scripts only (no dynamic browser-use) | Dynamic browser-use already solved via existing Orq.ai MCP tools; deterministic scripts are 10x faster and cheaper for known flows | HIGH |
+| app-capabilities.json as config file | Extensible, versionable, readable by multiple pipeline stages; discussion step falls back to user input for unknown systems | HIGH |
+| Playwright script generator as subagent | Scripts require reasoning about UI patterns; static templates cannot handle flow variety across systems | MEDIUM |
+| Wave 2.5 placement in pipeline | Scripts need agent specs (generated in Wave 2) to understand requirements; scripts must exist before deployment | HIGH |
+| Credentials on VPS only | Security boundary: pipeline and agent specs never handle system passwords | HIGH |
+| Script hot-reload on VPS | Enables deploy-scripts to push updates without server restart; file watcher pattern is well-established | MEDIUM |
 
 ## Sources
 
-- Existing codebase: `orq-agent/SKILL.md`, `orq-agent/commands/orq-agent.md`, `orq-agent/agents/deployer.md`
-- Orq.ai API reference: `orq-agent/references/orqai-api-endpoints.md`
-- Agent spec template: `orq-agent/templates/agent-spec.md`
-- Orchestration template: `orq-agent/templates/orchestration.md`
-- PROJECT.md: V4.0 requirements and architectural context
+- [Microsoft Playwright MCP](https://github.com/microsoft/playwright-mcp) -- Official Playwright MCP server with headless mode, HTTP transport support
+- [MCP Specification - Transports](https://modelcontextprotocol.io/specification/2025-03-26/basic/transports) -- Streamable HTTP as the standard transport
+- [MCP TypeScript SDK](https://github.com/modelcontextprotocol/typescript-sdk) -- Official SDK for building MCP servers
+- [Streamable HTTP Starter](https://github.com/ferrants/mcp-streamable-http-typescript-server) -- TypeScript starter for Streamable HTTP MCP servers
+- [Stagehand vs Browser Use vs Playwright (2026)](https://www.nxcode.io/resources/news/stagehand-vs-browser-use-vs-playwright-ai-browser-automation-2026) -- Comparison confirming deterministic Playwright is 10x faster than AI browser-use
+- [Playwright MCP Field Guide](https://medium.com/@adnanmasood/playwright-and-playwright-mcp-a-field-guide-for-agentic-browser-automation-f11b9daa3627) -- Architecture patterns for agentic browser automation
+- [Orq.ai MCP Documentation](https://docs.orq.ai/docs/common-architecture/mcp) -- Orq.ai MCP integration (connection_type: "http")
+- Orq.ai Agent Fields Reference (local: `orq-agent/references/orqai-agent-fields.md`) -- MCP tool type: `{ "type": "mcp", "server_url": "...", "connection_type": "http" }`
+- Existing pipeline analysis (local: `orq-agent/commands/orq-agent.md`, `orq-agent/agents/spec-generator.md`, `orq-agent/agents/tool-resolver.md`)
 
 ---
-*Architecture research for: Cross-Swarm Intelligence Layer (V4.0)*
+*Architecture research for: V5.0 Browser Automation Integration*
 *Researched: 2026-03-03*
