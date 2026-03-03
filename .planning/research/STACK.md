@@ -1,343 +1,215 @@
 # Stack Research
 
-**Domain:** V3.0 Web UI & Dashboard -- stack additions for Next.js web app, Supabase backend, real-time dashboard, node graph visualization, M365 SSO, Vercel deployment
+**Domain:** V4.0 Cross-Swarm Intelligence -- stack additions for ecosystem mapping, drift detection, overlap analysis, and automated fix proposals
 **Researched:** 2026-03-03
-**Confidence:** HIGH (versions verified via npm registries and official docs; Supabase Azure AD integration verified via official documentation; React Flow verified as industry standard for node-based UIs)
+**Confidence:** HIGH (existing stack verified against deployed V2.0 codebase; no new dependencies required)
 
-## Context: What V1.0/V2.0 Already Has (DO NOT DUPLICATE)
+## Context: What Already Exists (DO NOT DUPLICATE)
 
-V1.0/V2.0 is a Claude Code skill with runtime dependencies for Orq.ai API integration. The existing stack covers:
+### V1.0/V2.0 (Claude Code Skill -- Shipped)
 
-- **`@orq-ai/node@^3.14.45`** -- Orq.ai SDK + MCP server (pin to v3, NOT v4)
+- **`@orq-ai/node@^3.14.45`** -- Orq.ai SDK + MCP server (agents CRUD, tools CRUD, datasets, experiments)
 - **`@orq-ai/evaluatorq@^1.1.0`** -- Experiment runner
 - **`@orq-ai/evaluators@^1.1.0`** -- Pre-built evaluator functions
-- **`@orq-ai/cli@^1.1.0`** -- CLI for running evaluations
-- Claude Code skills, subagents, templates distributed as markdown
+- **Subagent pattern:** `.md` instruction files consumed by Claude Code. LLM does all reasoning.
+- **MCP-first / REST-fallback:** Per-operation channel selection for all Orq.ai API calls
+- **MCP tool names:** `agents-list`, `agents-retrieve`, `agents-create`, `agents-update`, `tools-list`, `tools-retrieve`, `tools-create`, `tools-update`, `models-list`
+- **REST API:** `https://api.orq.ai/v2/` with Bearer auth for everything MCP does not cover (KBs, prompts, memory stores)
+- **Deployer read-back verification:** Phase 4 already diffs local spec vs. live Orq.ai state on allowlisted fields
+- **YAML frontmatter annotation:** `orqai_id`, `orqai_version`, `deployed_at`, `deploy_channel` written to spec files after deploy
 
-V3.0 adds a web application layer ON TOP of the existing pipeline. The web app calls the same Orq.ai APIs but from server-side Next.js, NOT from Claude Code subagents. The Claude Code skill continues working independently.
+### V3.0 (Web UI -- Defined, Not Yet Shipped)
 
-## Recommended Stack Additions
+- Next.js 15, Supabase, Vercel, React Flow, Recharts, shadcn/ui, Anthropic SDK
+- Server-side pipeline execution via API routes (same Orq.ai SDK, no MCP)
 
-### Core Framework
+## Key Finding: Zero New npm Packages Required
 
-| Technology | Version | Purpose | Why Recommended |
-|------------|---------|---------|-----------------|
-| `next` | ^15.5.0 | Web framework with App Router, Server Components, Server Actions | **Use Next.js 15, not 16.** Next.js 16 is production-ready but too new (released late 2025) for a small team. Next.js 15 has proven App Router stability, Turbopack dev support, React 19, and the widest ecosystem compatibility. The Supabase + Vercel starter template targets Next.js 15. Upgrade to 16 is straightforward later. |
-| `react` | ^19.0.0 | UI library | Next.js 15 ships with React 19. Server Components are the default rendering mode -- use for data fetching, keep Client Components for interactivity (graph, real-time subscriptions). |
-| `react-dom` | ^19.0.0 | React DOM renderer | Paired with React 19. |
-| `typescript` | ^5.7.0 | Type safety | Non-negotiable for a production app. Next.js 15 has excellent TypeScript support with typed routes. |
+V4.0 cross-swarm intelligence is an **analytical layer** built entirely within the existing Claude Code skill paradigm. Every capability maps to infrastructure that already exists:
 
-### Backend-as-a-Service
+| V4.0 Capability | How It Works | Existing Infrastructure |
+|-----------------|-------------|------------------------|
+| **Ecosystem mapping** | Read all `Agents/*/` directories, parse spec files + ORCHESTRATION.md | Glob, Read, Grep tools (available to all subagents) |
+| **Live state retrieval** | `GET /v2/agents?limit=200` via MCP (`agents-list`) or REST | Deployer already does this (Phase 0.3, Phase 1.1) |
+| **Drift detection** | Compare local spec fields against live Orq.ai agent state | Deployer Phase 4 read-back verification already implements field-level diffing |
+| **Overlap analysis** | LLM analyzes capabilities, instructions, tools across swarm specs | Pure reasoning -- same pattern as architect complexity gate |
+| **Coordination gap detection** | LLM identifies missing handoffs, shared data points | Pure reasoning -- same pattern as orchestration generator |
+| **Fix proposals** | LLM generates spec modifications (shared context, data contracts) | Same pattern as iterator generating prompt diffs |
+| **Auto-apply low-risk fixes** | Deployer creates/updates agents from modified specs | Deployer already handles idempotent create-or-update |
+| **Auto-trigger on new swarm** | Pipeline orchestrator invokes analysis after design completes | Orchestrator already chains subagents in sequence |
 
-| Technology | Version | Purpose | Why Recommended |
-|------------|---------|---------|-----------------|
-| `@supabase/supabase-js` | ^2.98.0 | Supabase client (auth, DB, Realtime, storage) | Isomorphic JS client. Use on both server (API routes, Server Actions) and client (Realtime subscriptions). v2 is stable and actively maintained. |
-| `@supabase/ssr` | ^0.8.0 | Server-side rendering auth helpers for Next.js | **Replaces deprecated `@supabase/auth-helpers-nextjs`.** Provides `createBrowserClient()` and `createServerClient()` for cookie-based session management in App Router. Required for SSR auth with Server Components and middleware. |
+**The technology stack is complete.** V4.0 adds new subagent `.md` files, command `.md` files, templates, and reference files -- but no new runtime dependencies, no new libraries, no new infrastructure.
 
-### Authentication (M365 SSO)
+## Recommended Stack: No Additions
 
-| Technology | Version | Purpose | Why Recommended |
-|------------|---------|---------|-----------------|
-| Supabase Auth (Azure OAuth provider) | Built into `@supabase/supabase-js` | M365 SSO via Azure AD OAuth 2.0 | **Use Azure as OAuth provider, NOT SAML SSO.** SAML requires Supabase Pro plan and is overkill for 5-15 users. Azure OAuth is free-tier compatible, uses `signInWithOAuth({ provider: 'azure' })`, and restricts to your tenant via `Azure Tenant URL` configuration. No additional npm packages needed. |
+### Why No New Libraries
 
-**Azure AD OAuth setup (verified from Supabase docs):**
-1. Register app in Azure AD portal (portal.azure.com)
-2. Set redirect URI: `https://<project-ref>.supabase.co/auth/v1/callback`
-3. Configure in Supabase Dashboard: Client ID, Client Secret, Azure Tenant URL (`https://login.microsoftonline.com/<tenant-id>`)
-4. Set Supported Account Types to "My organization only" (single-tenant) to restrict to Moyne Roberts employees
-5. Frontend calls `supabase.auth.signInWithOAuth({ provider: 'azure', options: { scopes: 'email' } })`
+The Orq Agent Designer's architecture is fundamentally **LLM-native**: subagents are markdown instruction files, the LLM does all reasoning, and Claude Code provides file I/O + API access. Cross-swarm intelligence is analysis work -- the hardest part is prompt engineering, not technology selection.
 
-**Tenant restriction is the security boundary.** By setting the Azure Tenant URL in Supabase, only accounts from the Moyne Roberts M365 tenant can authenticate. No allowlists or manual user management needed.
+Specific reasons no new technology is needed:
 
-### Node Graph Visualization
+1. **No graph database for ecosystem mapping.** The ecosystem is 2-20 swarms with 2-15 agents each. This is tens of nodes, not millions. An LLM can reason about this in its context window. A graph database would add infrastructure for no benefit at this scale.
 
-| Technology | Version | Purpose | Why Recommended |
-|------------|---------|---------|-----------------|
-| `@xyflow/react` | ^12.10.0 | Interactive node-based graph UI | **The industry standard for node-based UIs in React.** 20K+ GitHub stars, active development (12.10.1 released Feb 2026). Perfect fit: agent swarms are node graphs with edges representing data flow. Supports custom node types (agent nodes, tool nodes, dataset nodes), animated edges (pipeline progress), drag-and-drop, zoom/pan, and mini-map. Has official shadcn/ui component integration. MIT licensed for open-source use. |
+2. **No diffing library for drift detection.** The deployer already compares local spec fields against Orq.ai state using an allowlist approach (exclude server-added metadata, compare only spec-defined fields). The same logic applies to drift detection -- it is the same operation, just surfaced differently.
 
-**Why not alternatives:**
-- **Reagraph** -- WebGL-based, better for large network visualizations (1000+ nodes). Agent swarms have 2-15 nodes. Reagraph adds WebGL complexity for no benefit.
-- **Cytoscape.js** -- Academic graph theory library. Powerful but verbose API, poor React integration, no built-in UI components. Designed for bioinformatics, not application UIs.
-- **D3.js** -- Too low-level. Building interactive node editors from scratch takes weeks. React Flow gives this out of the box.
+3. **No vector database for overlap analysis.** Semantic similarity between agent instructions could theoretically use embeddings, but with 2-20 swarms the LLM can read all specs simultaneously and reason about overlaps directly. Embedding-based similarity adds complexity without value at this scale.
 
-### Dashboard UI Components
+4. **No workflow engine for fix proposals.** Fix proposals are LLM-generated spec modifications (add shared context to instructions, add data contract tools, add event trigger patterns). The iterator subagent already generates prompt diffs with HITL approval -- fix proposals follow the same pattern.
 
-| Technology | Version | Purpose | Why Recommended |
-|------------|---------|---------|-----------------|
-| `shadcn/ui` | Latest (copy-paste) | UI component library (buttons, cards, tables, dialogs, sidebar) | **Not an npm package -- copy-paste components.** Zero runtime overhead, full customization, Tailwind CSS native. Has official dashboard examples, data tables, and form components. The de facto standard for Next.js + Tailwind projects in 2026. |
-| `tailwindcss` | ^4.0.0 | Utility-first CSS framework | Next.js 15 has first-class Tailwind v4 support. Used by shadcn/ui components. |
-| `recharts` | ^2.15.0 | Chart library for dashboard metrics | **Use Recharts, not Tremor.** Recharts has 9.5M weekly downloads vs Tremor's 139K. shadcn/ui's official chart components are built on Recharts. Better customization for our specific needs (test score distributions, iteration improvement trends, pipeline timing). Tremor is built on Recharts anyway -- skip the abstraction layer. |
-| `lucide-react` | ^0.475.0 | Icon library | Used by shadcn/ui. Consistent icon set across the dashboard. |
+5. **No new Orq.ai API endpoints needed.** All required data is available via `GET /v2/agents` (list all agents) and `GET /v2/agents/{key}` (get single agent). The existing REST API reference covers everything.
 
-### Real-Time Infrastructure
+## Existing Stack Components Used by V4.0
 
-| Technology | Version | Purpose | Why Recommended |
-|------------|---------|---------|-----------------|
-| Supabase Realtime (Postgres Changes) | Built into `@supabase/supabase-js` | Live updates when pipeline status changes in DB | Subscribe to INSERT/UPDATE on pipeline runs, agent statuses, test results. Client Components listen via `supabase.channel().on('postgres_changes', ...)`. Server Components fetch initial state, Client Components handle live updates. |
-| Supabase Realtime (Broadcast) | Built into `@supabase/supabase-js` | Ephemeral events (pipeline step progress, log lines) | For transient UI updates that don't need DB persistence -- e.g., "Deploying agent 3/5..." progress messages. Broadcast is fire-and-forget, lower latency than Postgres Changes. |
+### From Claude Code Skill Runtime
 
-**Realtime architecture pattern:**
-```
-Server Action (pipeline execution)
-  -> Writes status to Supabase DB
-  -> Supabase Realtime broadcasts INSERT/UPDATE
-  -> Client Component receives via channel subscription
-  -> React state updates, UI re-renders
-```
+| Component | V4.0 Usage | Notes |
+|-----------|-----------|-------|
+| Glob tool | Discover all `Agents/*/` swarm directories | Standard Claude Code tool |
+| Read tool | Parse agent spec `.md` files, ORCHESTRATION.md, TOOLS.md | Standard Claude Code tool |
+| Grep tool | Search across spec files for tool references, shared terms | Standard Claude Code tool |
+| Bash tool | Execute MCP tools or `curl` for REST API calls | Standard Claude Code tool |
 
-### Server-Side Pipeline Execution
+### From Orq.ai API (Already Integrated)
 
-| Technology | Version | Purpose | Why Recommended |
-|------------|---------|---------|-----------------|
-| `@anthropic-ai/sdk` | ^0.39.0 | Claude API for pipeline prompts (discuss, architect, research, spec-gen) | The web app calls Claude directly from Next.js API routes/Server Actions -- NOT via Claude Code. Same prompts, different execution context. Streaming supported via `client.messages.stream()`. |
-| `@orq-ai/node` | ^3.14.45 | Orq.ai API for agent deployment, testing | **Same package as V2.0 but used server-side.** Import the SDK directly in API routes -- do NOT use the MCP server from the web app. MCP is for Claude Code; REST SDK is for the web app. |
+| Endpoint | V4.0 Usage | Existing Integration |
+|----------|-----------|---------------------|
+| `GET /v2/agents` (or MCP `agents-list`) | Retrieve all deployed agents to build live state map | Deployer Phase 0.3 |
+| `GET /v2/agents/{key}` (or MCP `agents-retrieve`) | Retrieve specific agent for field-level drift comparison | Deployer Phase 2.1, Phase 4.1 |
+| `GET /v2/tools?limit=200` (or MCP `tools-list`) | Retrieve all deployed tools for cross-swarm tool overlap | Deployer Phase 1.1 |
+| `PATCH /v2/agents/{key}` (or MCP `agents-update`) | Auto-apply low-risk fixes (add shared context to instructions) | Deployer Phase 2.2 |
+| `POST /v2/tools` (or MCP `tools-create`) | Create shared data contract tools used across swarms | Deployer Phase 1.2 |
 
-**Critical distinction:** The web app uses the Orq.ai SDK directly (`import Orq from '@orq-ai/node'`), NOT the MCP server. MCP is a Claude Code transport layer. The web app has its own server-side runtime.
+### From Deployer Patterns (Already Proven)
 
-### Deployment & Infrastructure
+| Pattern | V4.0 Reuse |
+|---------|-----------|
+| MCP-first / REST-fallback per operation | All V4.0 API calls follow same channel selection |
+| Allowlist field comparison (exclude server metadata) | Drift detection uses same field comparison logic |
+| YAML frontmatter read/write | Read `orqai_id` for faster lookups, write analysis metadata |
+| Idempotent create-or-update via key lookup | Auto-apply fixes without creating duplicates |
+| Retry with exponential backoff | Same retry strategy for all API calls |
 
-| Technology | Version | Purpose | Why Recommended |
-|------------|---------|---------|-----------------|
-| Vercel | Platform | Hosting, CI/CD, serverless functions | **GitHub integration for auto-deploy on push.** Free tier supports the 5-15 user base. Serverless functions for API routes (pipeline execution). Edge middleware for auth session validation. Native Next.js support (Vercel builds Next.js). |
-| Supabase (hosted) | Platform | PostgreSQL, Auth, Realtime, Row Level Security | **Free tier supports 5-15 users.** 500MB database, 50K monthly active users, Realtime connections. Pro plan ($25/mo) only needed if usage grows significantly. |
+### From Iterator Patterns (Already Proven)
 
-### Supporting Libraries
+| Pattern | V4.0 Reuse |
+|---------|-----------|
+| Diff-style change proposals with before/after | Fix proposals show what changes in each agent spec |
+| HITL approval before applying changes | Structural fixes require human approval |
+| Selective application (per-agent `--agent` flag) | Apply fixes to specific swarms, not all |
 
-| Library | Version | Purpose | When to Use |
-|---------|---------|---------|-------------|
-| `zod` | ^3.25.0 | Form validation, API response validation | Already a transitive dep of `@orq-ai/node`. Use for validating use case input forms and pipeline parameters. |
-| `@tanstack/react-query` | ^5.67.0 | Server state management, caching, polling | For non-Realtime data fetching (agent lists, historical results). Handles loading/error states, background refetching, optimistic updates. NOT needed for Realtime data -- use Supabase channels instead. |
-| `sonner` | ^2.0.0 | Toast notifications | Lightweight toast library used by shadcn/ui. For pipeline step completions, error notifications, HITL approval prompts. |
-| `nuqs` | ^2.4.0 | URL search params state management | Type-safe URL state for dashboard filters, pagination, active pipeline view. Keeps dashboard state shareable via URL. |
+## What V4.0 Actually Needs (Non-Stack Items)
 
-### Development Dependencies
+V4.0 is a **content** deliverable, not a **technology** deliverable. The work is:
 
-| Tool | Version | Purpose | Notes |
-|------|---------|---------|-------|
-| `eslint` | ^9.0.0 | Linting | Next.js 15 supports ESLint 9. Use `next/core-web-vitals` config. |
-| `prettier` | ^3.5.0 | Formatting | With `prettier-plugin-tailwindcss` for class sorting. |
-| `supabase` (CLI) | ^2.20.0 | Local Supabase dev, migrations, type generation | `supabase db diff` for migration generation, `supabase gen types` for TypeScript types from DB schema. |
+### New Subagent `.md` Files
 
-## Supabase Database Schema Considerations
+| Subagent | Purpose | Model Recommendation |
+|----------|---------|---------------------|
+| Ecosystem Mapper | Reads all local specs + queries live Orq.ai state, produces unified ecosystem map | Inherit (quality profile default) |
+| Drift Detector | Compares local spec fields against live agent state, produces drift report | Inherit |
+| Overlap Analyzer | Identifies redundant capabilities, missing handoffs, coordination gaps across swarms | Inherit |
+| Fix Proposer | Generates fix proposals (shared signals, data contracts, event triggers) with risk classification | Inherit |
 
-### Row Level Security (RLS) Strategy
+### New Command `.md` Files
 
-All tables MUST have RLS enabled. The security model is simple for this use case:
+| Command | Trigger | Purpose |
+|---------|---------|---------|
+| `/orq-agent:audit` | On-demand | Run full cross-swarm analysis on existing swarm ecosystem |
+| Auto-trigger hook | After `/orq-agent` completes | Automatically analyze new swarm in context of existing ecosystem |
 
-**Pattern:** Organization-level access (all authenticated users see all data)
-```sql
--- All authenticated Moyne Roberts users can read everything
-CREATE POLICY "Authenticated users can read" ON pipeline_runs
-  FOR SELECT TO authenticated USING (true);
+### New Templates
 
--- Only the user who started a pipeline can modify it
-CREATE POLICY "Owner can update" ON pipeline_runs
-  FOR UPDATE TO authenticated USING (auth.uid() = created_by);
-```
+| Template | Purpose |
+|----------|---------|
+| Ecosystem map output | Structured format for the cross-swarm map (swarms, agents, tools, data flows, overlaps) |
+| Drift report | Per-agent drift entries with field-level diffs |
+| Fix proposal | Before/after spec changes with risk level and rationale |
 
-**Why organization-level, not user-level:** 5-15 colleagues in one company. Everyone should see all pipeline runs, agent specs, and test results. No multi-tenancy needed. The Azure AD tenant restriction already limits access to Moyne Roberts employees.
+### New/Updated Reference Files
 
-**Performance:** Keep RLS policies simple -- avoid joins in policies. Use `auth.uid()` and `auth.jwt()` built-in functions. Add indexes on columns used in WHERE clauses.
-
-### Realtime-Enabled Tables
-
-Enable Realtime on tables that drive live UI updates:
-- `pipeline_runs` -- Status changes (pending -> running -> completed)
-- `pipeline_steps` -- Individual step progress
-- `agent_deployments` -- Deployment status
-- `test_results` -- Experiment scores as they arrive
-
-DO NOT enable Realtime on rarely-changing reference tables (agent specs, templates).
-
-## Vercel Deployment Configuration
-
-### Environment Variables
-
-```bash
-# Supabase (auto-injected by Vercel Supabase integration)
-NEXT_PUBLIC_SUPABASE_URL=https://<project-ref>.supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=<anon-key>
-SUPABASE_SERVICE_ROLE_KEY=<service-role-key>  # Server-side only, NEVER NEXT_PUBLIC_
-
-# Orq.ai (server-side only)
-ORQ_API_KEY=<orq-api-key>
-
-# Anthropic (server-side only)
-ANTHROPIC_API_KEY=<anthropic-api-key>
-
-# OpenAI (server-side only, for embedding evaluators)
-OPENAI_API_KEY=<openai-api-key>
-```
-
-**Security:** Only `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` are client-exposed. The anon key is safe because RLS protects data. All other keys are server-side only.
-
-### Vercel Configuration
-
-```json
-// vercel.json (minimal -- Next.js conventions handle most config)
-{
-  "framework": "nextjs",
-  "buildCommand": "next build",
-  "functions": {
-    "app/api/**/*.ts": {
-      "maxDuration": 300
-    }
-  }
-}
-```
-
-**Function timeout:** Pipeline execution (Claude API calls + Orq.ai deployment) can take 60-120 seconds per step. Set `maxDuration: 300` (5 min) on API routes. Free tier allows 60s; Pro ($20/mo) allows 300s. **Pro plan is likely needed for pipeline execution routes.**
-
-### Preview Deployments
-
-Add wildcard redirect URI in Supabase for Vercel preview deployments:
-```
-https://*-<vercel-project>.vercel.app/auth/callback
-```
+| Reference | Purpose |
+|-----------|---------|
+| Cross-swarm analysis patterns | Heuristics for identifying overlaps, blind spots, coordination gaps |
+| Fix classification guide | Risk levels (low = shared context addition, high = agent rewiring) and auto-apply rules |
 
 ## Alternatives Considered
 
-| Category | Recommended | Alternative | Why Not |
-|----------|-------------|-------------|---------|
-| Framework | Next.js 15 | Next.js 16 | Too new for small team. 15 is battle-tested, 16 migration is easy later. |
-| Framework | Next.js 15 | Remix / SvelteKit | Smaller ecosystems. Vercel optimizes for Next.js. Supabase starter templates target Next.js. |
-| BaaS | Supabase | Firebase | Firebase lacks Postgres (NoSQL only), no Row Level Security at SQL level, Azure AD integration is harder. Supabase is Postgres-native with built-in Azure OAuth. |
-| Auth | Supabase Azure OAuth | Supabase SAML SSO | SAML requires Pro plan, more complex setup, overkill for 5-15 users. OAuth is simpler and free-tier compatible. |
-| Auth | Supabase Auth | NextAuth.js / Auth.js | Extra dependency when Supabase Auth already handles Azure AD. Would need to sync sessions between NextAuth and Supabase client -- unnecessary complexity. |
-| Graph | @xyflow/react | Reagraph | WebGL overhead for 2-15 node graphs. React Flow is DOM-based, lighter, better for our scale. |
-| Graph | @xyflow/react | Cytoscape.js | Poor React integration, academic API, no built-in UI components for editors. |
-| Charts | Recharts | Tremor | Tremor is built on Recharts. shadcn/ui chart components use Recharts directly. Skip the abstraction. |
-| Charts | Recharts | Chart.js / react-chartjs-2 | Recharts is more React-idiomatic (declarative components). Chart.js uses imperative canvas API. |
-| State | @tanstack/react-query | SWR | TanStack React Query has richer features (mutations, infinite queries, devtools). SWR is simpler but we need mutation support for pipeline actions. |
-| State | Supabase Realtime | Socket.io / Pusher | Supabase Realtime is built-in -- zero additional infrastructure. Adding another realtime layer would duplicate what Supabase provides. |
-| Deployment | Vercel | Netlify / Railway | Vercel is the Next.js creator. Best DX, fastest builds, native framework support. GitHub integration auto-deploys on push. |
-| UI | shadcn/ui | Material UI / Chakra UI | shadcn/ui is copy-paste (no runtime dep), Tailwind-native, most popular in Next.js ecosystem. MUI and Chakra add heavy runtime JS. |
-| Claude SDK | @anthropic-ai/sdk | AI SDK (Vercel) | AI SDK adds abstraction over Claude. For a single-provider app (Claude only), the direct SDK is simpler and avoids version lag. |
+| Category | Recommendation | Alternative | Why Not |
+|----------|---------------|-------------|---------|
+| Graph storage | LLM context window | Neo4j / graph database | 2-20 swarms, tens of agents. LLM handles this directly. Graph DB adds infra for no benefit. |
+| Semantic similarity | LLM direct comparison | Embedding vectors + cosine similarity | Same scale argument. LLM reads all specs and reasons about overlaps without embeddings. |
+| Diff engine | LLM-generated diffs | `deep-diff` / `json-diff` npm packages | Deployer already does field-level comparison. Adding a diff library means maintaining two diff approaches. |
+| Workflow orchestration | Subagent chaining (existing) | Temporal / Inngest / Bull queue | Cross-swarm analysis is a single-pass pipeline (map -> detect -> analyze -> propose). No long-running workflows, no retries across steps. Subagent chaining handles this. |
+| Caching layer | YAML frontmatter | Redis / in-memory cache | Frontmatter on spec files already stores `orqai_id` for fast lookups. Analysis results can be written to markdown files. No cache infra needed. |
+| Change detection trigger | Pipeline orchestrator hook | File watcher / chokidar | Auto-trigger on new swarm is a command-level hook, not a filesystem watcher. The orchestrator invokes analysis after design -- same as how it invokes dataset generation today. |
 
 ## What NOT to Add
 
 | Avoid | Why | Use Instead |
 |-------|-----|-------------|
-| `@supabase/auth-helpers-nextjs` | Deprecated. Replaced by `@supabase/ssr`. | `@supabase/ssr@^0.8.0` |
-| NextAuth.js / Auth.js | Unnecessary when Supabase Auth handles Azure AD natively. Adds session sync complexity. | Supabase Auth with Azure OAuth provider |
-| Socket.io / Pusher / Ably | Supabase Realtime handles all real-time needs (Postgres Changes + Broadcast). No additional realtime infra needed. | Supabase Realtime (built into `@supabase/supabase-js`) |
-| Redux / Zustand | Server Components + React Query + Supabase Realtime cover all state needs. Global client state manager is overkill for a dashboard app. | React Server Components for server state, React Query for client cache, Supabase channels for realtime |
-| Prisma / Drizzle ORM | Supabase JS client handles all DB operations with type generation via CLI. Adding an ORM creates a second data access layer. | `@supabase/supabase-js` with generated types from `supabase gen types` |
-| Docker / self-hosted infra | Vercel + Supabase hosted = zero infrastructure management. Docker adds ops burden for a 5-15 user app. | Vercel (frontend) + Supabase (backend) managed services |
-| `reactflow` (old package) | Deprecated. Rebranded to `@xyflow/react`. Old package at 11.11.4, unmaintained. | `@xyflow/react@^12.10.0` |
-| LangChain.js | Same as V2.0 rationale -- wrong abstraction. The web app calls Claude directly for prompts and Orq.ai directly for deployment. No agent execution framework needed. | `@anthropic-ai/sdk` + `@orq-ai/node` directly |
+| Neo4j / graph database | Massive overkill for tens of nodes. Adds infrastructure, connection management, query language. | LLM reads all specs into context window and reasons directly. |
+| `deep-diff` / `json-diff` | Deployer already has field-level comparison logic. Adding a diff library creates two competing approaches. | Reuse deployer's allowlist comparison pattern in drift detector subagent instructions. |
+| LangGraph / CrewAI / agent framework | The existing subagent-as-markdown pattern works. Adding a framework means rewriting the entire skill. | Continue using `.md` instruction files with Claude Code's native subagent spawning. |
+| Embedding model for overlap detection | At 2-20 swarms, embedding-based similarity adds latency and API cost with no accuracy improvement over LLM direct reasoning. | LLM reads all agent instructions and identifies overlaps by reasoning. |
+| Separate analysis database | Analysis results (ecosystem maps, drift reports, fix proposals) are small, human-readable documents. | Write results as markdown files in the swarm ecosystem directory. |
+| Event bus / pub-sub | Auto-trigger is a simple sequential call after the design pipeline completes. No async event handling needed. | Orchestrator command calls analysis subagent as the last pipeline step. |
+| `@orq-ai/node` version upgrade | V4.0 does not need any SDK features beyond what `^3.14.45` provides. The agents list/retrieve/update endpoints are stable. | Stay on `@orq-ai/node@^3.14.45`. |
 
-## Installation
+## Integration Points with Existing Stack
 
-```bash
-# Core framework
-npm install next@^15.5.0 react@^19.0.0 react-dom@^19.0.0
+### With Deployer (Heaviest Reuse)
 
-# Supabase (auth, DB, Realtime)
-npm install @supabase/supabase-js@^2.98.0 @supabase/ssr@^0.8.0
+The drift detector is essentially the deployer's Phase 4 (read-back verification) extracted into a standalone subagent. Key reuse:
 
-# Node graph visualization
-npm install @xyflow/react@^12.10.0
+- **Same field allowlist:** Compare `instructions`, `model`, `fallback_models`, `settings.tools`, `team_of_agents`, `knowledge_bases`, `memory_stores`, `role`, `description`
+- **Same metadata exclusion:** Skip `_id`, `created`, `updated`, `workspace_id`, `project_id`, `status`, `created_by_id`, `updated_by_id`
+- **Same lookup pattern:** Use frontmatter `orqai_id` first, fall back to key-based lookup
+- **Same MCP/REST pattern:** MCP-first, REST-fallback per operation
 
-# Dashboard charts
-npm install recharts@^2.15.0
+### With Iterator (Pattern Reuse)
 
-# Claude API (server-side pipeline execution)
-npm install @anthropic-ai/sdk@^0.39.0
+Fix proposals follow the iterator's change proposal pattern:
 
-# Orq.ai SDK (server-side agent deployment -- already installed from V2.0)
-# npm install @orq-ai/node@^3.14.45  (already present)
+- Diff-style before/after views for each proposed change
+- Risk classification (iterator uses test score deltas; fix proposer uses change scope)
+- HITL approval before applying
+- Selective application via `--agent` or per-swarm scoping
 
-# UI utilities
-npm install lucide-react@^0.475.0 sonner@^2.0.0 nuqs@^2.4.0
-npm install @tanstack/react-query@^5.67.0
+### With Orchestrator Command (Hook Point)
 
-# Tailwind CSS (v4)
-npm install tailwindcss@^4.0.0
+Auto-trigger analysis after new swarm design:
 
-# Dev dependencies
-npm install -D typescript@^5.7.0 eslint@^9.0.0 prettier@^3.5.0
-npm install -D prettier-plugin-tailwindcss@^0.6.0
-npm install -D supabase@^2.20.0
+- The `/orq-agent` command's post-generation phase already runs dataset-generator and readme-generator
+- Add ecosystem analysis as an optional post-generation step
+- Only triggers when other swarms exist in the `Agents/` directory
 
-# shadcn/ui (init and add components -- not an npm install)
-npx shadcn@latest init
-npx shadcn@latest add button card table dialog sidebar sheet input textarea badge tabs chart
-```
+### With V3.0 Web App (Future)
 
-**Environment variables required:**
-```bash
-# Client-side (safe to expose)
-NEXT_PUBLIC_SUPABASE_URL=https://<project-ref>.supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=<anon-key>
+When V3.0 ships, the cross-swarm intelligence layer should be accessible from both:
 
-# Server-side only (NEVER expose to client)
-SUPABASE_SERVICE_ROLE_KEY=<service-role-key>
-ORQ_API_KEY=<orq-api-key>
-ANTHROPIC_API_KEY=<anthropic-api-key>
-OPENAI_API_KEY=<openai-api-key>
-```
+- **Claude Code:** Via `/orq-agent:audit` command (V4.0 primary delivery)
+- **Web app:** Via a dashboard page that calls the same analysis logic from API routes
 
-## Integration Points with Existing V2.0 Pipeline
+The analysis prompts (subagent `.md` files) are the shared source of truth. The web app reads them and passes to `@anthropic-ai/sdk`, same as other pipeline prompts.
 
-### Shared: Orq.ai SDK
+## Version Compatibility
 
-The web app and Claude Code skill both use `@orq-ai/node@^3.14.45`. The difference:
-- **Claude Code skill:** Uses the SDK via MCP server (`npx ... mcp start`)
-- **Web app:** Imports the SDK directly in API routes (`import Orq from '@orq-ai/node'`)
+No new packages, so no new compatibility concerns. Existing constraints remain:
 
-Same API calls, different transport. Pipeline logic (which agents to create, what specs to generate) can be shared as TypeScript modules imported by both contexts.
-
-### Shared: Pipeline Prompts
-
-The agent design prompts (discuss, architect, research, spec-gen) are currently markdown files in `orq-agent/`. The web app needs to call Claude with these same prompts. Strategy:
-- Keep prompts as markdown files in the repo
-- Web app reads them at build time or runtime and passes to `@anthropic-ai/sdk`
-- Single source of truth -- update once, both interfaces use updated prompts
-
-### NOT Shared: MCP Server
-
-The web app does NOT use the Orq.ai MCP server. MCP is a Claude Code transport protocol. The web app calls APIs directly. Do not register MCP servers for the web app.
-
-### NOT Shared: Claude Code Subagents
-
-The web app replaces Claude Code subagent orchestration with its own server-side pipeline. The pipeline steps are equivalent but execution is via API routes + Server Actions, not Claude Code skill invocations.
-
-## Version Compatibility Matrix
-
-| Package | Compatible With | Notes |
-|---------|-----------------|-------|
-| `next@^15.5.0` | React 19, Node.js >= 20, Turbopack | Use App Router exclusively. Pages Router not needed. |
-| `@supabase/supabase-js@^2.98.0` | `@supabase/ssr@^0.8.0`, Supabase platform | v2 is stable. v3 does not exist yet. |
-| `@supabase/ssr@^0.8.0` | Next.js 14/15, `@supabase/supabase-js@^2.x` | Cookie-based auth for SSR. Replaces auth-helpers. |
-| `@xyflow/react@^12.10.0` | React 18/19 | Requires `reactflow` peer dep to NOT be installed (conflicts). |
-| `recharts@^2.15.0` | React 18/19 | SVG-based. Works in Server Components for static charts, Client Components for interactive. |
-| `@anthropic-ai/sdk@^0.39.0` | Node.js >= 18 | Server-side only. Never import in Client Components. |
-| `@orq-ai/node@^3.14.45` | Node.js >= 20 | Server-side only in web app context. Same version as V2.0. |
-| Vercel (Pro plan) | Next.js 15, 300s function timeout | Free tier limits functions to 60s -- likely insufficient for pipeline execution. Budget $20/mo for Pro. |
-| Supabase (Free tier) | 500MB DB, 50K MAU, Realtime | Sufficient for 5-15 users. Upgrade to Pro ($25/mo) only if needed. |
+| Package | Pin | Reason |
+|---------|-----|--------|
+| `@orq-ai/node` | `^3.14.45` | v4 dropped MCP server binary. Must stay on v3. |
+| `@orq-ai/evaluatorq` | `^1.1.0` | Peer dependency alignment with evaluators package. |
+| `@orq-ai/evaluators` | `^1.1.0` | Peer dependency of evaluatorq. |
 
 ## Sources
 
-- [Next.js 15 release blog](https://nextjs.org/blog/next-15) -- App Router stability, React 19, Turbopack. HIGH confidence.
-- [Next.js 16 upgrade guide](https://nextjs.org/docs/app/guides/upgrading/version-16) -- Version 16 features, migration path from 15. HIGH confidence.
-- [Next.js 15.5 release](https://nextjs.org/blog/next-15-5) -- TypeScript improvements, Turbopack compatibility. HIGH confidence.
-- [@supabase/supabase-js on npm](https://www.npmjs.com/package/@supabase/supabase-js) -- Version 2.98.0, published Feb 2026. HIGH confidence.
-- [@supabase/ssr on npm](https://www.npmjs.com/package/@supabase/ssr) -- Version 0.8.0, replaces auth-helpers. HIGH confidence.
-- [Supabase Azure OAuth docs](https://supabase.com/docs/guides/auth/social-login/auth-azure) -- signInWithOAuth setup, tenant restriction, redirect URI. HIGH confidence.
-- [Supabase SAML SSO docs](https://supabase.com/docs/guides/auth/enterprise-sso/auth-sso-saml) -- SAML requires Pro plan. HIGH confidence.
-- [Supabase Realtime with Next.js](https://supabase.com/docs/guides/realtime/realtime-with-nextjs) -- Postgres Changes + Broadcast patterns. HIGH confidence.
-- [Supabase RLS best practices](https://supabase.com/docs/guides/troubleshooting/rls-performance-and-best-practices-Z5Jjwv) -- Policy performance, testing. HIGH confidence.
-- [Supabase SSR client creation](https://supabase.com/docs/guides/auth/server-side/creating-a-client) -- createBrowserClient/createServerClient pattern. HIGH confidence.
-- [@xyflow/react on npm](https://www.npmjs.com/package/@xyflow/react) -- Version 12.10.1, published Feb 2026. HIGH confidence.
-- [React Flow official site](https://reactflow.dev/) -- Features, examples, shadcn integration. HIGH confidence.
-- [xyflow spring 2025 update](https://xyflow.com/blog/spring-update-2025) -- shadcn/ui component integration, workflow editor template. HIGH confidence.
-- [Recharts vs Tremor npm trends](https://npmtrends.com/@tremor/react-vs-chart.js-vs-d3-vs-echarts-vs-plotly.js-vs-recharts) -- Recharts 9.5M/week vs Tremor 139K/week. HIGH confidence.
-- [Vercel Supabase integration](https://supabase.com/partners/integrations/vercel) -- Auto env var injection, marketplace setup. HIGH confidence.
-- [Vercel Supabase starter template](https://vercel.com/templates/next.js/supabase) -- Reference implementation for Next.js + Supabase on Vercel. HIGH confidence.
-- [@anthropic-ai/sdk on npm](https://www.npmjs.com/package/@anthropic-ai/sdk) -- TypeScript SDK for Claude API. MEDIUM confidence (exact latest version not pinned -- check npm before install).
-- [shadcn/ui dashboard example](https://ui.shadcn.com/examples/dashboard) -- Production-ready dashboard layout with metrics, tables, charts. HIGH confidence.
+- Deployer subagent (`orq-agent/agents/deployer.md`) -- Field comparison logic, MCP/REST patterns, YAML frontmatter annotation. HIGH confidence (shipped and validated in V2.0).
+- Iterator subagent (`orq-agent/agents/iterator.md`) -- Change proposal pattern, HITL approval flow, diff-style views. HIGH confidence (shipped and validated in V2.0).
+- Orq.ai API endpoint reference (`orq-agent/references/orqai-api-endpoints.md`) -- All endpoints needed for V4.0 already documented. HIGH confidence.
+- SKILL.md (`orq-agent/SKILL.md`) -- Current codebase structure, subagent inventory, command registry. HIGH confidence.
+- PROJECT.md (`.planning/PROJECT.md`) -- V4.0 requirements, constraints, key decisions. HIGH confidence.
 
 ---
-*Stack research for: V3.0 Web UI & Dashboard -- additions to existing Orq Agent Designer pipeline*
+*Stack research for: V4.0 Cross-Swarm Intelligence -- additions to existing Orq Agent Designer pipeline*
 *Researched: 2026-03-03*

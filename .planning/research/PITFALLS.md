@@ -1,299 +1,232 @@
 # Domain Pitfalls
 
-**Domain:** Real-time Web UI & Dashboard for Existing Agent Design Pipeline (V3.0 Extension)
+**Domain:** Cross-Swarm Intelligence Layer (V4.0 Extension of Orq Agent Designer)
 **Researched:** 2026-03-03
 **Confidence:** MEDIUM-HIGH
 
-**Scope:** Pitfalls specific to ADDING a Next.js web frontend, Supabase Realtime dashboard, M365 SSO, and dual-environment pipeline execution to the existing V2.0 CLI-based agent design skill. V1.0 pitfalls (over-engineering, prompt quality, error cascading) and V2.0 pitfalls (runaway loops, MCP state desync, API key exposure, prompt overfitting, non-deterministic evals, MCP/API fallback chaos) remain valid and are not repeated here.
+**Scope:** Pitfalls specific to ADDING cross-swarm intelligence (ecosystem mapping, drift detection, overlap analysis, fix proposals, auto-apply) to the existing single-swarm agent design pipeline. V1.0 pitfalls (over-engineering, prompt quality, error cascading), V2.0 pitfalls (runaway loops, MCP state desync, prompt overfitting, MCP/API fallback chaos), and V3.0 pitfalls (Vercel timeouts, Realtime leaks, SSO, dual-environment divergence, cost explosion) remain valid and are not repeated here.
 
 ---
 
 ## Critical Pitfalls
 
-### Pitfall 1: Vercel Function Timeouts Kill Long-Running Pipelines (The "504 Wall" Trap)
+### Pitfall 1: Treating Local Spec Files as Source of Truth When Orq.ai Is the Real Runtime (The "Stale Map" Trap)
 
 **What goes wrong:**
-The agent design pipeline (use case analysis, architecture, spec generation, deployment, testing) takes 2-10 minutes end-to-end. Vercel serverless functions have hard timeout limits: 10 seconds on Hobby, 60 seconds on Pro (configurable up to 300 seconds with Fluid Compute, 800 seconds on Pro/Enterprise). A user clicks "Design My Agents" and the request times out mid-pipeline with a 504 Gateway Timeout. The pipeline state is lost. The user sees a cryptic error. Partially-created resources may exist on Orq.ai with no cleanup.
+The cross-swarm map is built by reading local markdown spec files from `Agents/[swarm-name]/` directories. But agents can be modified directly in Orq.ai Studio -- instructions tweaked, models changed, tools added or removed, settings adjusted. The deployer annotates specs with YAML frontmatter after deployment, but nothing tracks post-deployment changes. The ecosystem map shows the designed state, not the actual state. Drift detection compares spec-to-spec when it should compare spec-to-live. Overlap analysis finds "overlaps" between agents that have already been differentiated in production, or misses overlaps introduced by manual changes.
 
-The existing CLI pipeline runs as a long-lived Claude Code session with no timeout constraints. Moving this to Vercel serverless means every pipeline step must complete within the function timeout, or the architecture must fundamentally change.
+The fundamental problem: the system has two sources of truth (local specs and Orq.ai live state) and no reconciliation protocol. This is the exact same problem Terraform solves with `terraform plan` -- comparing desired state to actual state. Without this, every analysis the intelligence layer produces is potentially wrong.
 
 **Why it happens:**
-Developers build the pipeline as a single request-response cycle ("user submits form, server does work, server returns result") because that is the natural mental model. The pipeline works perfectly in local development (no timeout) and fails only in production on Vercel. Fluid Compute extends limits but 800 seconds (13 minutes) is still not infinite -- complex swarms with multiple agents, testing, and iteration can exceed this.
+The V2.0 deployer was designed as a one-way push: local specs deploy to Orq.ai. There is no "pull" mechanism. Developers naturally assume that what they deployed is what is running, because in the CLI workflow, they are the only ones making changes. But with 5-15 non-technical users accessing agents via the web app, and Orq.ai Studio available to anyone with platform access, manual tweaks are inevitable. The drift accumulates silently because nothing alerts on it.
 
 **How to avoid:**
-- **Decompose the pipeline into discrete steps.** Each step (analyze input, architect, generate specs, deploy, test) must be a separate serverless function invocation, not one long-running function. Store intermediate state in Supabase between steps.
-- **Use a job queue pattern.** The web UI submits a pipeline request, gets back a job ID immediately, and subscribes to Supabase Realtime for status updates. A background worker (or chained serverless functions) executes the pipeline steps asynchronously.
-- **Set `maxDuration` explicitly.** In `vercel.json` or route config, set `maxDuration: 300` (Pro) for any API route that calls Claude or Orq.ai APIs. Never rely on the default 10-second timeout.
-- **Implement step-level checkpointing.** If a step fails or times out, the pipeline can resume from the last completed step rather than restarting from scratch. Store each step's output in Supabase.
-- **Stream responses for Claude API calls.** Use the Vercel AI SDK's streaming support so the function stays alive (streaming keeps the connection open) and the user sees incremental progress.
-- **Consider Inngest or QStash** for orchestrating multi-step pipelines with automatic retries and step-level execution. These tools are specifically designed for Vercel's serverless constraints.
+- **Build the map from live Orq.ai state first, specs second.** The primary data source for the ecosystem map must be `GET /v2/agents` (list all deployed agents), not local file system reads. Local specs are the "desired" state; Orq.ai API responses are the "actual" state. The map shows both with drift highlighted.
+- **Implement a "refresh" step before any analysis.** Every cross-swarm analysis begins by fetching current state from Orq.ai API for all agents. Cache this with a short TTL (5 minutes). Never analyze stale data.
+- **Define which fields can drift safely.** Model changes, instruction edits, and tool additions are meaningful drift. Version number changes or metadata updates are noise. Build a field-level diff that filters noise from signal.
+- **Handle the "orphan agent" case.** Agents deployed to Orq.ai that have no corresponding local spec file. These are invisible to a spec-only map. The API list will surface them; the map must show them as "unmanaged."
+- **Handle the "ghost spec" case.** Local spec files for agents that have been deleted from Orq.ai. These are misleading in a spec-only map. Cross-reference with API list to mark as "not deployed."
 
 **Warning signs:**
-- Pipeline API route does not set `maxDuration` in its config
-- Single API route handles the entire pipeline end-to-end
-- No intermediate state storage between pipeline steps
-- Works in `next dev` but fails in production
-- No job queue or async execution pattern in the architecture
-- Claude API calls use non-streaming mode in serverless functions
+- Cross-swarm map is built entirely from file system reads with no API calls
+- No caching or freshness tracking for API-fetched agent state
+- Drift detection compares two local file versions rather than local-vs-live
+- Overlap analysis runs on specs without checking if agents are actually deployed
+- "Unmanaged" agents (deployed but no spec) not accounted for in the map
 
 **Phase to address:**
-Phase 1 (Architecture) -- the async pipeline execution pattern must be the foundational architecture decision. Building a synchronous pipeline and "adding async later" means rewriting every pipeline step.
+Phase 1 (Ecosystem Map) -- the dual-source reconciliation model must be the foundation. Building analysis on top of stale data means every downstream feature produces unreliable results.
 
-**Severity:** CRITICAL -- this will block the entire product if not addressed in architecture.
+**Severity:** CRITICAL -- undermines the correctness of every other V4.0 feature.
 
 ---
 
-### Pitfall 2: Supabase Realtime Subscription Leaks and Connection Exhaustion
+### Pitfall 2: False Positive Overlap Detection Floods Users with Noise (The "Everything Looks Similar" Trap)
 
 **What goes wrong:**
-The dashboard subscribes to Supabase Realtime channels for live pipeline status updates. React component mounts, subscribes to a channel, user navigates away, component unmounts -- but the subscription is not cleaned up. Over time, zombie subscriptions accumulate. With 5-15 users each running multiple pipelines, the project hits Supabase's concurrent connection limit. New users cannot connect. Existing dashboards stop receiving updates. The free tier allows 200 concurrent connections; Pro allows 500.
+The overlap analyzer compares agent instructions, tools, and roles across swarms and flags "overlaps." But agents in different business domains often use similar tools (e.g., `google_search`, `web_scraper`), similar model configurations, and even similar instruction patterns (because the spec generator uses consistent prompt templates). The analyzer flags these as overlaps when they are intentional similarities, not problematic duplication. A follow-up swarm and a dispute resolution swarm both having `web_scraper` is not an overlap -- they scrape completely different things for completely different purposes.
 
-A second failure mode: Postgres Changes subscriptions (listening for database row changes) are processed on a single thread in Supabase. If the pipeline writes many status updates rapidly, this single thread becomes a bottleneck, delaying all Realtime messages across the project.
+With 5-10 swarms of 1-5 agents each, naive pairwise comparison produces O(n^2) comparisons. If 30% are flagged as "overlaps," users get 50+ findings to review. They learn to ignore all findings, including the 2-3 genuinely problematic ones. The intelligence layer becomes noise.
 
 **Why it happens:**
-React's component lifecycle makes it easy to subscribe in `useEffect` and forget to return a cleanup function. Next.js App Router's component model with Server Components and Client Components adds confusion about where subscriptions should live. Hot Module Replacement during development masks the problem (connections reset on code changes). The connection leak only manifests in production after sustained use.
+LLM-based similarity comparison is inherently fuzzy. Two agent instructions that share structural patterns (because they were generated by the same spec generator) score as "similar" even when their domain content is completely different. Tool overlap detection is purely syntactic -- same tool name = overlap, regardless of how the tool is used. There is no semantic understanding of whether two agents with the same tool are actually doing the same work.
 
 **How to avoid:**
-- **Always return cleanup in useEffect.** Every `supabase.channel().subscribe()` must have a corresponding `supabase.removeChannel()` in the useEffect cleanup function. No exceptions.
-- **Use a singleton Supabase client.** Create one Supabase client per browser session, not per component. Multiple components can share channels on the same client. Use React context or a module-level singleton.
-- **Prefer Broadcast over Postgres Changes for high-frequency updates.** Pipeline status updates should use Supabase Broadcast (server pushes messages directly), not Postgres Changes (which requires database writes and single-threaded processing). Write status to the database periodically for persistence, but use Broadcast for real-time UI updates.
-- **Implement connection monitoring.** Track active subscriptions in application state. Log subscription count on mount/unmount. Alert if subscription count exceeds expected maximum (e.g., 5 per user session).
-- **Set channel-level presence tracking.** Use Supabase Presence to track which users are actively viewing which pipelines. Unsubscribe from pipelines no longer being viewed.
+- **Define overlap categories with different severity levels.** Distinguish between: (a) identical responsibility across swarms (CRITICAL -- actual duplication), (b) overlapping data sources or outputs (MODERATE -- coordination opportunity), (c) shared tools with different purposes (LOW -- informational only), (d) shared structural patterns from the spec generator (IGNORE -- expected).
+- **Compare at the responsibility/purpose level, not the tool/instruction level.** Two agents both using `google_search` is not an overlap. Two agents both "monitoring customer payment status across invoices" IS an overlap. Use the agent's `role` and `description` fields (semantic purpose) as the primary comparison target, not `instructions` or `tools` (implementation details).
+- **Implement a "known acceptable" registry.** Let users mark specific cross-swarm similarities as "reviewed and acceptable." These are excluded from future analyses. This is analogous to `.gitignore` for overlap detection. Store in a `.cross-swarm/accepted-overlaps.json` or similar.
+- **Require a minimum confidence threshold before surfacing findings.** Not every similarity is worth reporting. Set a threshold (e.g., "only report overlaps where the same business entity is being processed by multiple agents in different swarms") and make it configurable.
+- **Limit initial analysis to cross-swarm boundaries only.** Within a single swarm, agents are already coordinated (the orchestration spec handles this). Only analyze overlaps between agents in different swarms. This dramatically reduces the comparison space and eliminates the spec-generator false positives.
 
 **Warning signs:**
-- useEffect hooks with `.subscribe()` but no cleanup return
-- Multiple Supabase client instances created across components
-- Realtime connection count grows over time without plateau
-- "Maximum number of allowed connections" errors in browser console
-- Status updates become delayed or stop arriving after extended use
-- Database CPU spikes correlate with Realtime subscription activity
+- Overlap analysis comparing raw instruction text between all agent pairs
+- Tool overlap flagged purely by tool name without usage context
+- No severity levels on overlap findings -- everything is equally "an overlap"
+- No mechanism to dismiss or accept known similarities
+- First analysis run produces 20+ findings for a 5-swarm ecosystem
 
 **Phase to address:**
-Phase 1 (Foundation) -- Supabase client singleton and subscription management patterns must be established before any Realtime features are built.
+Phase 2 (Overlap Analysis) -- but the overlap model (what counts as meaningful overlap) must be designed in Phase 1. Getting this wrong means rebuilding the entire analysis logic.
 
-**Severity:** CRITICAL -- silent degradation that only manifests in production under real use.
+**Severity:** CRITICAL -- noise kills trust. If users learn to ignore findings, the entire intelligence layer is useless.
 
 ---
 
-### Pitfall 3: Azure AD SSO Misconfiguration Locks Out All Users
+### Pitfall 3: Auto-Apply Fixes That Break Working Swarms (The "Helpful Destruction" Trap)
 
 **What goes wrong:**
-M365 SSO is the ONLY authentication method (no email/password fallback for Moyne Roberts employees). If Azure AD configuration breaks -- wrong tenant ID, expired client secret, misconfigured redirect URI, Entra ID admin policy change -- nobody can log in. The entire application is inaccessible. There is no backdoor. This is especially dangerous because Azure AD configuration is managed by Moyne Roberts IT, not by the application developer. An IT admin rotating credentials or changing conditional access policies can silently break the app.
+The system proposes and auto-applies "low-risk" fixes: adding shared context to agent instructions, inserting data contracts, adding event triggers. But "low-risk" in isolation can be high-risk in context. Adding a shared signal to an agent's instructions changes its prompt, which changes its behavior, which may break test baselines that were calibrated against the original prompt. An agent that was passing evaluators at 92% now fails at 78% because the added context caused it to change its response format slightly. The fix "worked" (the shared signal is present) but the agent is now broken.
 
-Supabase offers two Azure AD integration paths: OAuth (social login) and SAML 2.0 SSO. Choosing the wrong one creates different problems. OAuth is simpler but less enterprise-controlled. SAML requires Pro plan and is more complex to configure but gives IT admins more control.
+Worse: auto-applied fixes are silent by default. The swarm owner does not know their agent was modified until evaluators fail or users report degraded quality. Tracing the degradation back to an auto-applied cross-swarm fix is non-obvious.
 
 **Why it happens:**
-SSO is configured once and forgotten. Client secrets expire (default: 2 years, but IT policies may enforce shorter). Redirect URIs must exactly match (including trailing slashes). Tenant restriction (`https://login.microsoftonline.com/<tenant-id>`) must be set to prevent non-Moyne-Roberts Microsoft accounts from logging in. Supabase's Auth configuration page has fields for "Azure Tenant URL" that are easy to misconfigure. Testing SSO requires an actual Azure AD account, so developers often skip thorough testing.
+The system treats agent instructions as text to be modified, not as calibrated prompts. In V2.0, the iterate and harden commands carefully test changes before applying them. But the cross-swarm auto-apply bypasses this testing loop. It modifies instructions directly (via `PATCH /v2/agents/{id}`) without re-running evaluators. The "low-risk" classification is based on the type of change (additive vs. structural) rather than the impact of the change (does it break existing behavior).
+
+Additionally, the distinction between "shared context addition" (supposedly safe) and "structural rewiring" (escalated to humans) is a false dichotomy. Even adding a single line of context to a well-tuned prompt can cause behavioral regression in LLM agents. LLM prompts are not code -- you cannot add "just one more instruction" and assume everything else stays the same.
 
 **How to avoid:**
-- **Use OAuth with tenant restriction, not SAML.** For 5-15 users in a single Azure AD tenant, OAuth with tenant URL restriction is simpler and sufficient. SAML adds complexity without benefit for a single-tenant scenario. Configure: `https://login.microsoftonline.com/<moyne-roberts-tenant-id>` in Supabase Auth Azure settings.
-- **Register the Azure AD app as "single tenant" (My organization only).** This prevents external Microsoft accounts from authenticating, even if tenant restriction is misconfigured.
-- **Set up client secret expiry monitoring.** Calendar reminders 30 days before expiry. Document the rotation procedure. Test rotation in a staging environment first.
-- **Configure redirect URIs for ALL environments.** Production (`https://app.example.com/auth/callback`), staging, and local development (`http://localhost:3000/auth/callback`) must all be registered in Azure AD. Missing any one blocks login in that environment.
-- **Build an admin bypass for emergencies.** A Supabase service role key can create sessions directly. Document this emergency access procedure (not in the app, in a secure runbook) for when SSO breaks.
-- **Test SSO monthly.** Add a synthetic login test that verifies the full OAuth flow works. Alert if it fails.
+- **Never auto-apply without a test gate.** Every fix, no matter how "low-risk," must be tested against the agent's existing evaluator baselines before being applied to production. The flow is: propose fix, apply to a draft version, run evaluators, compare to baseline, only apply if scores are maintained or improved.
+- **Use Orq.ai's versioning for safe rollback.** Deploy fixes as new agent versions (`@version-number` tags). If evaluator scores drop, revert to the previous version immediately. Never modify the current live version in place.
+- **Default to "propose only" with explicit human approval.** For V4.0, auto-apply should be opt-in per swarm, not the default. The default is: generate fix proposal, present to swarm owner with before/after diff, wait for approval. Auto-apply is a future capability after the proposal system has proven reliable.
+- **Track provenance of every change.** Every modification to an agent must record: what triggered it (cross-swarm analysis finding), what was changed (instruction diff), who approved it (human or auto-apply rule), and what the evaluator scores were before and after.
+- **Implement a "blast radius" analysis before any fix.** Before proposing a fix, identify all agents and swarms that would be affected. Show the blast radius to the user. A fix that touches 1 agent in 1 swarm is lower risk than a fix that modifies 5 agents across 3 swarms.
 
 **Warning signs:**
-- No documentation of Azure AD app registration details (client ID, tenant ID, secret expiry date)
-- Only production redirect URI registered (no staging/local)
-- Client secret created with default expiry and no rotation plan
-- No emergency access procedure documented
-- SSO tested once during initial setup and never again
-- IT admin changes not communicated to development team
+- Auto-apply modifies live agent versions without creating a new version
+- No evaluator re-run after applying fixes
+- No rollback mechanism for auto-applied changes
+- Fix proposals do not show a diff of what will change
+- No audit trail of cross-swarm modifications
+- "Low-risk" classification based on change type, not tested impact
 
 **Phase to address:**
-Phase 1 (Auth Setup) -- SSO configuration must be the first thing validated, with monitoring and emergency access in place before any features depend on it.
+Phase 3 (Fix Proposals) -- but the decision to default to "propose only" (not auto-apply) must be made in Phase 1 architecture. Building auto-apply first and adding guardrails later inverts the safety model.
 
-**Severity:** CRITICAL -- total application lockout with no self-service recovery.
+**Severity:** CRITICAL -- breaking working production agents destroys user trust permanently. One bad auto-apply incident and users will disable cross-swarm intelligence entirely.
 
 ---
 
-### Pitfall 4: Dual-Environment Pipeline Logic Divergence (The "Works in CLI, Broken in Web" Trap)
+### Pitfall 4: O(n^2) Analysis Scaling Turns Cross-Swarm Intelligence into a Bottleneck
 
 **What goes wrong:**
-The pipeline logic (use case analysis, architecture, spec generation) exists in two execution environments: Claude Code (CLI skill, markdown-based subagents) and the Next.js web app (server-side Claude API calls). Over time, the two diverge. A prompt improvement made in the CLI skill is not reflected in the web app. A new feature added to the web app's pipeline does not exist in the CLI. Bug fixes are applied to one environment but not the other. Users get different results depending on whether they use the CLI or the web app for the same use case.
+Cross-swarm analysis is fundamentally a comparison problem. With S swarms of A agents each, pairwise agent comparison is O(S*A choose 2). For 5 swarms of 3 agents each (15 agents), that is 105 pairs. For 10 swarms of 3 agents (30 agents), that is 435 pairs. Each comparison requires reading two agent specs, potentially fetching live state from Orq.ai API, and running an LLM-based semantic comparison. At ~2 seconds per comparison (API latency + LLM inference), 435 comparisons takes ~15 minutes. The "auto-trigger on new swarm design" feature means this runs every time someone designs a new swarm.
 
-The existing codebase is 10,628 lines of markdown and JSON files designed for Claude Code's agent-spawning model. This architecture fundamentally does not translate to server-side API calls -- Claude Code reads `.md` files as agent instructions and spawns subagents, while the web app must make structured API calls with those same instructions as system prompts.
-
-**Why it happens:**
-The two environments have different execution models. Claude Code interprets markdown instructions and spawns autonomous subagents via its agent loop. The web app makes Claude API calls with system/user prompts and parses structured responses. The "same logic" must be expressed in two fundamentally different ways. Developers naturally focus on the environment they are actively building (the web app) and neglect the other (the CLI skill). There is no automated test that verifies parity between environments.
-
-**How to avoid:**
-- **Extract pipeline prompts into a shared format.** Create a `pipeline/prompts/` directory with prompt templates that both environments consume. The CLI skill reads them as subagent instructions. The web app reads them as system prompts for API calls. The prompts are the single source of truth.
-- **Define a pipeline step interface.** Each step (analyze, architect, generate-spec, etc.) has: input schema, output schema, prompt template, and validation rules. Both environments implement the same interface using their respective execution models.
-- **Version the pipeline protocol.** When prompts or step interfaces change, bump a version number. Both environments check they are running the same protocol version. Warn users if versions mismatch.
-- **Do NOT try to make Claude Code and Claude API behave identically.** They will not. Claude Code has tool use, file system access, and multi-turn conversation. The web app has structured API calls. Design for "equivalent outcomes" not "identical execution."
-- **Automate parity testing.** For each pipeline step, maintain a set of golden input/output pairs. Run both environments against the same inputs and verify outputs are semantically equivalent (not identical, but equivalent).
-- **Accept that the web app pipeline will be simpler.** The CLI skill can do things the web app cannot (spawn subagents, read/write files, use MCP tools). The web app pipeline should be a curated subset, not a 1:1 port.
-
-**Warning signs:**
-- Pipeline prompts are hardcoded in both `orq-agent/*.md` files AND `app/api/pipeline/*.ts` files
-- No shared prompt directory or import mechanism
-- Bug fix applied to one environment with no corresponding change in the other
-- Users report different agent designs from CLI vs web for the same input
-- No tests comparing outputs between environments
-- Web app pipeline has features that do not exist in CLI (or vice versa)
-
-**Phase to address:**
-Phase 1 (Architecture) -- the shared prompt format and pipeline step interface must be designed before any pipeline features are built in the web app.
-
-**Severity:** CRITICAL -- divergence is inevitable without explicit architectural prevention. This is the hardest pitfall to fix retroactively.
-
----
-
-### Pitfall 5: Claude API Cost Explosion from Web App Usage
-
-**What goes wrong:**
-The CLI skill is used by 1-2 technical developers who understand API costs. The web app opens the pipeline to 5-15 non-technical users who do not. Each pipeline run involves multiple Claude API calls (input analysis, architecture, spec generation per agent, orchestration spec). A complex swarm with 5 agents could cost $2-5 per pipeline run in Claude API tokens. Non-technical users run the pipeline repeatedly ("let me try a different description"), experiment casually, or leave pipelines running. Monthly costs balloon from $50 (CLI-only) to $500+ (web app with casual usage). Additionally, Claude API rate limits (requests per minute and tokens per minute) are shared across all users hitting the same API key.
+If the analysis runs via Claude API calls (as the existing pipeline does), each comparison costs tokens. 435 comparisons with 2000 tokens per comparison is ~870K tokens per analysis run. At Claude pricing, this is $2-5 per full ecosystem scan. Users running scans casually or the auto-trigger firing on every design iteration makes this expensive fast.
 
 **Why it happens:**
-Web UIs reduce friction by design -- that is the point. But reduced friction means more usage, more experimentation, and more cost. Users have no visibility into what each pipeline run costs. There is no throttling or quota system. All web app users share one Anthropic API key, so one user's heavy usage can rate-limit everyone else. The "try it and see" mentality of web apps is fundamentally different from the deliberate CLI workflow.
+The initial implementation works fine with 3-5 swarms during development. Nobody benchmarks at 10+ swarms because 10+ swarms do not exist yet. The O(n^2) scaling is invisible until the ecosystem grows, by which time the analysis architecture is locked in.
 
 **How to avoid:**
-- **Show estimated cost before pipeline execution.** Based on input length and estimated complexity, show "This pipeline run will cost approximately $X in API usage." Make it visible, not hidden.
-- **Implement per-user quotas.** Each user gets N pipeline runs per day/week. Track usage in Supabase. When quota is reached, show a clear message, not a cryptic error. Start conservative (5 runs/day) and increase based on actual usage patterns.
-- **Use Claude's prompt caching.** Pipeline prompts (system prompts, reference material) are largely static. Enable prompt caching to reduce token costs for repeated runs. Cache the large context (pipeline instructions, Orq.ai reference material) and only send the variable parts (user input, generated specs) as uncached.
-- **Implement request queuing with rate limit awareness.** Track Claude API usage across all concurrent users. Queue requests when approaching rate limits rather than failing with 429 errors. Show users their position in the queue.
-- **Handle 429 and 529 errors gracefully.** Claude API returns 429 (rate limited) and 529 (overloaded) errors. Implement exponential backoff with jitter. Show users "Pipeline paused -- waiting for API availability" not a raw error. Use the `Retry-After` header from 429 responses.
-- **Use streaming for all Claude API calls.** Streaming provides earlier responses and keeps Vercel functions alive longer. It also gives users visible progress ("generating architecture...") rather than a blank loading screen.
+- **Use a tiered analysis approach.** First pass: fast, cheap comparison using agent role/description metadata only (no LLM needed -- pure string comparison or embedding similarity). Second pass: LLM-based deep comparison only for pairs flagged in the first pass. This reduces the LLM calls from O(n^2) to O(flagged pairs), which should be much smaller.
+- **Cache analysis results and invalidate per-swarm.** When a new swarm is added or an existing swarm is modified, only re-analyze pairs involving that swarm, not the entire ecosystem. Store the analysis graph in a structured format (JSON or Supabase table) and update incrementally.
+- **Set a maximum ecosystem size for real-time analysis.** For > 20 agents, switch from synchronous analysis to a background job that completes and notifies the user. Never block the pipeline on cross-swarm analysis.
+- **Pre-compute embeddings for agent descriptions and roles.** Store vector embeddings of each agent's semantic purpose. Use cosine similarity for fast initial screening. Only invoke the LLM for pairs above a similarity threshold. This turns the expensive part from O(n^2) LLM calls to O(n^2) vector comparisons (fast) + O(k) LLM calls (expensive, where k << n^2).
+- **Rate-limit auto-trigger.** If a user is iterating on a swarm design (running the pipeline multiple times with tweaks), do not trigger cross-swarm analysis on every iteration. Debounce: trigger analysis only after a swarm design is finalized (e.g., after deployment, not after spec generation).
 
 **Warning signs:**
-- No cost estimation or display in the pipeline UI
-- No per-user usage tracking or quotas
-- All users share one API key with no request coordination
-- Claude API errors (429/529) surface as raw errors in the UI
-- Monthly Anthropic bill increases unexpectedly after web app launch
-- No prompt caching configured for static pipeline prompts
+- Every analysis run fetches all agents from Orq.ai API and compares all pairs
+- No caching of previous analysis results
+- Auto-trigger fires during design iteration, not just on final deployment
+- Analysis time grows noticeably as new swarms are added
+- Token costs for analysis are not tracked separately from design pipeline costs
 
 **Phase to address:**
-Phase 2 (Pipeline Integration) -- cost controls and rate limiting must be built alongside the first pipeline features, not added after costs spike.
+Phase 1 (Architecture) -- the tiered analysis model and caching strategy must be designed upfront. Retrofitting incremental analysis onto a full-scan architecture is a rewrite.
 
-**Severity:** CRITICAL -- financial impact is immediate and compounds with each user added.
+**Severity:** CRITICAL -- poor scaling makes the feature unusable as the ecosystem grows, which is exactly when it becomes most valuable.
 
 ---
 
 ## Moderate Pitfalls
 
-### Pitfall 6: React Flow Graph Performance Degrades with Real-Time Updates
+### Pitfall 5: Drift Detection Without Semantic Understanding (The "Every Diff Is a Problem" Trap)
 
 **What goes wrong:**
-The node graph visualization shows agent swarm architecture with real-time status updates (nodes light up as pipeline steps complete). React Flow re-renders the entire graph on every state change. With a 5-agent swarm (5 nodes + edges + labels + status indicators), updates every 500ms cause visible jank. The graph becomes unresponsive during rapid pipeline progress updates. Users perceive the entire application as slow.
+Drift detection compares local spec field values to Orq.ai API response field values. Any difference is flagged as "drift." But not all differences are meaningful. An instruction change from "Analyze the invoice" to "Carefully analyze the invoice" is drift but not a problem. A model change from `openai/gpt-4o` to `openai/gpt-4o-2025-05-01` (minor version update by Orq.ai) is technical drift but functionally identical. The system floods users with trivial drift warnings alongside genuinely concerning ones (e.g., model changed from GPT-4o to GPT-3.5, or critical safety constraint removed from instructions).
 
 **Prevention:**
-- **Memoize node and edge components with `React.memo()`.** Declare custom node components outside the parent component or wrap with `React.memo`. React Flow re-renders every node on any state change unless components are memoized.
-- **Batch status updates.** Instead of updating node status on every Realtime message, batch updates into 1-second intervals. Use `requestAnimationFrame` or a debounce to coalesce rapid updates.
-- **Use React Flow's built-in viewport virtualization.** Only visible nodes are rendered. For large swarms, this prevents off-screen nodes from consuming render time.
-- **Separate graph structure from status state.** The graph layout (node positions, edges) rarely changes. Status (colors, progress indicators) changes frequently. Use separate state slices so layout changes do not trigger status re-renders and vice versa.
-- **Avoid storing React Flow state in Supabase or global state.** React Flow manages its own internal state efficiently. Sync only the data you need (node status) and let React Flow handle rendering.
+- **Classify drift by field and severity.** Model changes: compare by family, not exact version string. Instruction changes: use LLM to assess whether the semantic meaning changed. Tool changes: additions are low severity, removals are high severity. Settings changes (max_iterations, max_execution_time): only flag if changed by > 50%.
+- **Implement a "drift baseline" per agent.** After each deliberate deployment, snapshot the deployed state. Future drift is measured against this baseline, not the spec file. This handles the case where someone intentionally modified an agent post-deployment and updated the spec file but not via the deploy command.
+- **Let users set drift tolerance per swarm.** Some swarms are stable and any drift is concerning. Others are actively being tuned and drift is expected. Provide a "sensitivity" setting: strict (flag all drift), normal (flag meaningful drift), relaxed (flag only breaking drift).
 
-**Phase to address:** Phase 2 (Dashboard) -- performance optimization must be built in from the start, not retrofitted.
+**Phase to address:** Phase 1 (Drift Detection) -- severity classification must be designed alongside the diff engine, not added as a filter later.
 
 ---
 
-### Pitfall 7: Supabase Row-Level Security (RLS) Gaps Expose Pipeline Data
+### Pitfall 6: Coordination Gap Analysis Misidentifies Independent Swarms as Needing Coordination
 
 **What goes wrong:**
-Supabase tables storing pipeline data (runs, specs, agent configs) are created without Row-Level Security policies or with policies that are too permissive. Any authenticated user can see (or modify) any other user's pipeline data. In a 5-15 user environment, this may seem low-risk, but it violates the principle of least privilege and becomes a real problem if the user base grows or if pipeline data contains sensitive business logic.
+The intelligence layer identifies "coordination gaps" -- places where swarms could share information but do not. But not every pair of swarms should coordinate. An Invoice-to-Cash swarm and a Facility Maintenance swarm share a customer entity but have no business reason to exchange data. The analysis flags this as a "missing handoff" because both swarms reference customer data. The fix proposal suggests adding data contracts between them. If accepted, this creates unnecessary coupling between independent business processes.
 
 **Prevention:**
-- **Enable RLS on every table from creation.** Never create a table without `ALTER TABLE ... ENABLE ROW LEVEL SECURITY`. Supabase disables RLS by default on new tables.
-- **Default policy: users can only access their own data.** `CREATE POLICY "users_own_data" ON pipeline_runs FOR ALL USING (auth.uid() = user_id)`. Apply this to every table.
-- **Use Supabase's `auth.uid()` function in policies, not application-level checks.** RLS policies are enforced at the database level, making them impossible to bypass from the client.
-- **Test RLS policies explicitly.** Create test cases where User A tries to access User B's data. Verify it fails.
-- **Use the Supabase service role key ONLY in server-side code, never in client-side code.** The service role bypasses RLS entirely.
+- **Require explicit business process mapping before coordination analysis.** Before the system can identify "missing coordination," it needs to know which swarms are part of the same business process and which are independent. This cannot be inferred purely from agent specs -- it requires user input or a business process registry.
+- **Distinguish between "could coordinate" and "should coordinate."** Surface potential coordination points as informational ("these swarms both process customer data") but only recommend coordination when there is evidence of a concrete handoff failure or data inconsistency.
+- **Start with user-declared swarm relationships.** Let users group swarms into "process families" (e.g., Invoice-to-Cash includes the invoice swarm and the follow-up swarm). Only analyze coordination gaps within declared families. Cross-family analysis is optional and clearly labeled as speculative.
 
-**Phase to address:** Phase 1 (Database Setup) -- RLS must be configured when tables are created, not retrofitted.
+**Phase to address:** Phase 2 (Coordination Analysis) -- but the swarm relationship model must be designed in Phase 1.
 
 ---
 
-### Pitfall 8: Next.js Server/Client Component Boundary Confusion
+### Pitfall 7: Fix Proposals That Do Not Account for Orq.ai Platform Constraints
 
 **What goes wrong:**
-Next.js App Router introduces Server Components (default) and Client Components (`"use client"`). Developers put Supabase Realtime subscriptions in Server Components (they do not work -- no browser WebSocket). Or they mark entire page trees as `"use client"` to make subscriptions work, losing Server Component benefits (streaming SSR, reduced bundle size). Or they pass non-serializable props (Supabase client instances, callback functions) from Server Components to Client Components, causing hydration errors.
+The intelligence layer proposes fixes like "add a shared memory store between Agent A (swarm 1) and Agent B (swarm 2)" or "create a data contract via a shared tool." But Orq.ai has specific platform constraints: memory stores are scoped to specific access patterns, knowledge bases have size limits, agent instructions have length limits, and team_of_agents only works within a single orchestrator scope. A fix proposal that violates platform constraints is useless or dangerous.
+
+For example: proposing that Agent A in Swarm 1 call Agent B in Swarm 2 as a sub-agent. This requires Agent A to have Agent B in its `team_of_agents`, which means Agent A's orchestrator must be aware of Agent B. This is a significant structural change, not a "shared signal addition," but the fix classification may not recognize it as such.
 
 **Prevention:**
-- **Clear boundary rule: anything with `useEffect`, `useState`, browser APIs, or Supabase Realtime goes in a Client Component.** Everything else defaults to Server Component.
-- **Create a `components/realtime/` directory** for all Client Components that use Supabase subscriptions. This makes the boundary explicit in the file system.
-- **Pass only serializable data across the boundary.** Server Components fetch initial data and pass it as props (plain objects, arrays, strings) to Client Components. Client Components handle Realtime subscriptions for updates.
-- **Use Supabase SSR helpers** (`@supabase/ssr`) for server-side auth and data fetching. Use the browser Supabase client only in Client Components.
+- **Validate every fix proposal against Orq.ai API field constraints before presenting it.** If a proposed instruction addition would exceed the instruction field length, say so. If a proposed tool addition requires a tool type that does not exist, say so.
+- **Build fix proposals from a catalog of proven patterns.** Do not generate arbitrary fixes. Define a set of "fix templates" that are known to work on Orq.ai: (1) shared knowledge base, (2) shared memory store, (3) HTTP tool for cross-swarm data exchange, (4) instruction addition for cross-swarm awareness, (5) event trigger via webhook. Each template has known constraints and requirements.
+- **Distinguish between intra-platform and extra-platform fixes.** Some coordination problems cannot be solved within Orq.ai alone -- they require application-layer orchestration. Be explicit when a fix requires changes outside the agent platform.
 
-**Phase to address:** Phase 1 (App Structure) -- component boundary conventions must be established before building features.
+**Phase to address:** Phase 3 (Fix Proposals) -- the fix template catalog must be built with Orq.ai platform constraints embedded.
 
 ---
 
-### Pitfall 9: Pipeline State Machine Becomes Implicit and Ungovernable
+### Pitfall 8: Cross-Swarm Analysis Produces Stale Results During Active Development
 
 **What goes wrong:**
-Pipeline execution has many states: submitted, analyzing, architecting, generating-specs, deploying, testing, awaiting-approval, completed, failed, timed-out, cancelled. These states are managed implicitly through database columns, boolean flags, and conditional logic scattered across multiple API routes. There is no single place that defines valid state transitions. Invalid transitions happen silently (e.g., a pipeline goes from "analyzing" to "completed" skipping intermediate steps). The dashboard shows inconsistent status because different parts of the code have different ideas about what state the pipeline is in.
+A user designs a new swarm. The auto-trigger fires cross-swarm analysis. The analysis takes 2-5 minutes. During that time, the user modifies the swarm design (changing agent roles, adjusting tools). The analysis completes and presents findings based on the old design. The user applies a fix proposal based on the stale analysis. The fix is wrong because it targets the original design, not the current one.
+
+This is especially problematic during the iterate cycle (V2.0), where prompts are being actively refined. Each iteration changes agent instructions, potentially invalidating any cross-swarm analysis that was running in parallel.
 
 **Prevention:**
-- **Define an explicit state machine.** Use a library (XState, or a simple enum + transition map) to define all valid states and transitions. Every state change goes through the state machine, which rejects invalid transitions.
-- **Store the state machine state in Supabase.** A single `status` column with enum values. State transitions are database updates, which trigger Realtime notifications to the dashboard.
-- **Log every state transition** with timestamp, previous state, new state, and reason. This creates an audit trail for debugging and for the user-facing pipeline history.
-- **Handle failure and timeout as first-class states.** Every state must have a failure transition. Every long-running state must have a timeout transition. Define what happens on failure at each state (retry? skip? abort?).
-- **Pipeline cancellation must be supported.** Users must be able to cancel a running pipeline. This means every pipeline step must check for cancellation before proceeding.
+- **Attach a version hash to every analysis result.** When analysis starts, snapshot the input state (spec file hashes + API response hashes). When presenting results, compare current state to the snapshot. If they differ, mark results as "stale -- swarm has been modified since analysis."
+- **Do not auto-trigger during active pipeline execution.** If a swarm is currently in the design, deploy, test, or iterate pipeline, suppress the auto-trigger until the pipeline completes. The trigger should fire on pipeline completion, not pipeline start.
+- **Make fix proposals idempotent and re-validatable.** Before applying any fix, re-check the preconditions. If the target agent has changed since the fix was proposed, flag the fix as "needs re-evaluation" rather than blindly applying it.
 
-**Phase to address:** Phase 1 (Architecture) -- the state machine is the backbone of the pipeline execution model.
-
----
-
-### Pitfall 10: HITL Approval Flow Blocks Pipeline Indefinitely
-
-**What goes wrong:**
-The pipeline reaches an approval step (e.g., approve agent specs before deployment). It sends a notification (email/Teams). The user is in a meeting. The pipeline sits in "awaiting-approval" state indefinitely. No timeout. No reminder. No escalation. Other pipelines queue behind it. The user returns hours later, approves, and the pipeline resumes -- but downstream services (Claude API context, Orq.ai state) may have changed in the interim.
-
-**Prevention:**
-- **Set approval timeouts.** If no response within 30 minutes, send a reminder. After 2 hours, auto-expire the approval request and notify the user that they need to re-initiate.
-- **Allow approval via multiple channels.** In-app approval button, email link, and Teams notification with action buttons. Do not require the user to return to the app.
-- **Decouple approval from pipeline execution.** The pipeline step completes and stores its output. Approval is a gate before the NEXT step, not a pause in the current step. This means the pipeline state is cleanly saved and can resume even if the server restarts.
-- **Show pending approvals prominently in the dashboard.** A badge, notification count, or dedicated "Awaiting Your Review" section.
-
-**Phase to address:** Phase 3 (HITL Approvals) -- but the architecture for async approval gates must be designed in Phase 1.
+**Phase to address:** Phase 2 (Auto-trigger) -- versioned analysis results should be implemented alongside the analysis engine.
 
 ---
 
 ## Minor Pitfalls
 
-### Pitfall 11: Environment Variable Sprawl Across Vercel + Supabase + Azure AD + Claude + Orq.ai
+### Pitfall 9: Ecosystem Map Visualization Becomes Unreadable at Scale
 
 **What goes wrong:**
-The application requires environment variables from 4+ services: Supabase (URL, anon key, service role key), Azure AD (client ID, client secret, tenant ID), Claude API (API key), Orq.ai (API key). Developers forget to set variables in Vercel's dashboard for production. Variables are set for production but not for preview deployments. Local `.env.local` files are out of sync. A missing variable causes a cryptic runtime error deep in the pipeline.
+The cross-swarm map shows all swarms, agents, relationships, overlaps, and drift indicators in a single view. With 5+ swarms of 3+ agents each, the visualization becomes a tangled mess of nodes and edges. Users cannot find what they are looking for. The map provides information without insight.
 
 **Prevention:**
-- **Validate all required environment variables at application startup.** Fail fast with a clear error message listing which variables are missing.
-- **Use a typed env config module** (e.g., `@t3-oss/env-nextjs` or a simple Zod schema) that validates env vars at build time.
-- **Document every required env var** in a `.env.example` file with descriptions and placeholder values.
-- **Set env vars for all Vercel environments** (production, preview, development) explicitly. Do not assume preview deployments inherit production variables.
+- **Default to swarm-level view (collapsed).** Show swarms as single nodes with summary badges (drift count, overlap count). Expand individual swarms on click to see agents.
+- **Provide focused views.** "Show me all drift," "Show me all overlaps," "Show me swarms related to Invoice-to-Cash." Each focused view filters the map to relevant information.
+- **Use consistent visual language.** Drift = orange border. Overlap = dashed line between agents. Unmanaged agent = gray node. Proposed fix = green annotation. This must be defined once and used everywhere.
 
-**Phase to address:** Phase 1 (Setup) -- must be configured before first deployment.
+**Phase to address:** Phase 2 (Visualization) -- but the collapsible/filterable design must be planned in Phase 1 architecture.
 
 ---
 
-### Pitfall 12: Supabase Database Migrations Not Version-Controlled
+### Pitfall 10: Ignoring the Orq.ai API Rate Limits During Ecosystem Scan
 
 **What goes wrong:**
-Database schema changes are made directly in the Supabase dashboard during development. When deploying to production, the schema is out of sync. Manual schema changes are forgotten, leading to "works on my machine" problems. There is no rollback path for bad schema changes.
+A full ecosystem scan fetches every agent, every tool, every knowledge base from the Orq.ai API to build the map. With 30 agents, each needing a `GET /v2/agents/{id}` call plus tool and KB lookups, the scan makes 60-100 API calls in rapid succession. This may hit Orq.ai rate limits, causing 429 errors mid-scan. A partial scan produces an incomplete map, which leads to incorrect analysis.
 
 **Prevention:**
-- **Use Supabase CLI migrations from day one.** `supabase migration new`, `supabase db push`. Never modify the schema through the dashboard in production.
-- **Store migrations in the git repository.** They deploy with the code.
-- **Include seed data for development** in migration files so new developers can set up quickly.
+- **Use list endpoints first.** `GET /v2/agents` returns all agents in a single call. Only fetch individual agent details if the list response lacks required fields.
+- **Implement request throttling.** Space Orq.ai API calls at 100-200ms intervals. A 30-agent ecosystem scan at 100ms intervals takes 3-6 seconds -- acceptable.
+- **Cache aggressively with TTL-based invalidation.** Agent configurations change infrequently. Cache API responses for 5-10 minutes. Only re-fetch when the user explicitly requests a refresh or when a deployment event occurs.
+- **Handle partial scan gracefully.** If some API calls fail, present the partial map with clear indication of what is missing, rather than failing the entire scan.
 
-**Phase to address:** Phase 1 (Database Setup).
-
----
-
-### Pitfall 13: Vercel Preview Deployments Use Production Data
-
-**What goes wrong:**
-Every pull request creates a Vercel preview deployment. If preview deployments connect to the production Supabase instance, test pipeline runs create real agents on the production Orq.ai workspace, polluting production data. Or worse, a broken preview pipeline deletes or corrupts production pipeline data.
-
-**Prevention:**
-- **Use separate Supabase projects for production and development/preview.** Set environment variables per Vercel environment.
-- **If sharing one Supabase project, use separate schemas** or a `environment` column to isolate preview data.
-- **Never connect preview deployments to production Orq.ai API keys.** Use a test/staging Orq.ai workspace.
-
-**Phase to address:** Phase 1 (Infrastructure).
+**Phase to address:** Phase 1 (API Integration) -- rate limit handling is foundational.
 
 ---
 
@@ -301,135 +234,84 @@ Every pull request creates a Vercel preview deployment. If preview deployments c
 
 | Shortcut | Immediate Benefit | Long-term Cost | When Acceptable |
 |----------|-------------------|----------------|-----------------|
-| Synchronous pipeline execution (no job queue) | Faster initial development | 504 timeouts in production for any non-trivial pipeline; requires full architecture rewrite | Never -- async execution is architectural, not a feature |
-| Single Supabase client per component | Simpler component code | Connection leaks, hitting connection limits, zombie subscriptions | Never -- singleton pattern is trivial to implement upfront |
-| Hardcoding prompts in API routes instead of shared templates | Faster to get pipeline working | Immediate divergence between CLI and web environments; double maintenance | Only for prototyping; extract to shared format before any user testing |
-| Skipping RLS on Supabase tables | Faster development, fewer auth headaches | Any user can read/modify any pipeline data; security vulnerability | Only on truly public data (none in this project) |
-| Using Postgres Changes for all Realtime updates | Simpler than Broadcast; automatic | Single-threaded processing bottleneck; delayed updates under load | For low-frequency updates (pipeline completion); use Broadcast for high-frequency (step progress) |
-| No cost tracking or user quotas | Faster launch, less infrastructure | Unpredictable and escalating API costs; one user can exhaust rate limits for all users | Only during internal beta with 1-2 users |
-| Implicit pipeline state (boolean flags) | Faster to implement first pipeline | Invalid state transitions, inconsistent dashboard display, impossible to debug | Never -- state machine is simple to implement and prevents entire classes of bugs |
-| Preview deployments sharing production data | One less Supabase project to manage | Test data pollutes production; risk of production data corruption | Never |
+| Build map from specs only (no API calls) | Faster implementation, no API dependency | Map is wrong whenever agents are modified outside the pipeline; every downstream analysis unreliable | Only as a prototype to validate the UX; must add API reconciliation before any analysis features |
+| Naive pairwise comparison for overlap detection | Simple to implement, complete coverage | O(n^2) scaling; expensive LLM calls; unusable at 10+ swarms | Only for ecosystems with < 5 swarms (< 15 agents); must add tiered analysis before growth |
+| Auto-apply without evaluator re-run | Faster fix application, less infrastructure | Broken agents in production; lost user trust; no way to know what broke | Never -- even "low-risk" prompt changes can cause behavioral regression |
+| String comparison for drift detection | Fast, deterministic, easy to implement | Floods users with trivial drift; hides meaningful changes in noise | Only as a first pass filter; must add semantic severity classification before showing to users |
+| Full ecosystem rescan on every trigger | Ensures freshness, simple implementation | Slow (minutes), expensive (tokens), blocks pipeline | Only during development; must add incremental analysis before production use |
+| No accepted-overlaps registry | Fewer features to build | Users see the same false positives every scan; learn to ignore all findings | Only for first release; must add within first month of use |
 
 ## Integration Gotchas
 
 | Integration | Common Mistake | Correct Approach |
 |-------------|----------------|------------------|
-| Vercel + Claude API | Making non-streaming Claude API calls in serverless functions | Always use streaming; keeps function alive, provides user feedback, works with Vercel AI SDK |
-| Vercel + Long Pipelines | Treating pipeline as single request-response | Decompose into steps; use job queue pattern; store intermediate state in Supabase |
-| Supabase Realtime + React | Not cleaning up subscriptions in useEffect | Always return cleanup function; use singleton client; track active subscriptions |
-| Supabase Realtime + Postgres Changes | Using Postgres Changes for high-frequency status updates | Use Broadcast for real-time UI updates; Postgres Changes for persistence events only |
-| Supabase Auth + Azure AD | Using SAML for single-tenant 15-user scenario | Use OAuth with tenant URL restriction; simpler, sufficient, no Pro plan requirement for basic auth |
-| Supabase Auth + Azure AD | Not setting tenant URL restriction | Any Microsoft account can log in; must set `https://login.microsoftonline.com/<tenant-id>` |
-| Supabase + Vercel Previews | Preview deployments connecting to production database | Separate Supabase projects per environment; separate Orq.ai API keys |
-| Next.js App Router | Supabase Realtime in Server Components | Realtime requires browser WebSocket; must be in Client Components (`"use client"`) |
-| Next.js App Router | Passing Supabase client as prop from Server to Client Component | Not serializable; use `@supabase/ssr` for server, browser client in Client Components |
-| Claude API + Shared Key | All web app users sharing one API key with no coordination | Implement request queue with rate limit tracking; show queue position to users |
-| Claude API + Error Handling | Treating 429 (rate limit) and 529 (overloaded) the same | 429: back off using Retry-After header. 529: shorter backoff, transient server issue |
-| React Flow + Real-Time | Re-rendering entire graph on every status update | Memoize node components; batch updates; separate layout state from status state |
-| Pipeline Logic + Two Environments | Duplicating prompts in CLI `.md` files and web `api/*.ts` files | Extract to shared `pipeline/prompts/` directory; both environments read same source |
-| Orq.ai API + Web App | Using MCP for Orq.ai operations from web app | MCP is stdio-based, not HTTP; web app must use REST API directly; CLI keeps MCP |
+| Orq.ai API + Ecosystem Map | Fetching agents individually via `/v2/agents/{id}` for every agent | Use `/v2/agents` list endpoint for bulk fetch; only fetch details as needed |
+| Orq.ai API + Drift Detection | Comparing spec file fields directly to API response fields | API responses may use different field names, formats, or include computed fields. Build a normalization layer that maps API response format to spec file format before comparison |
+| Cross-Swarm Analysis + V2.0 Pipeline | Running analysis during active iteration cycles | Suppress auto-trigger during pipeline execution; trigger on pipeline completion only |
+| Fix Proposals + Agent Versioning | Modifying live agent version with `PATCH /v2/agents/{id}` | Create new version via agent versioning; test against evaluators; promote only on passing scores |
+| Overlap Detection + Spec Generator Templates | Flagging template-inherited similarities as overlaps | Maintain a "template fingerprint" of patterns that come from the spec generator; filter these from overlap analysis |
+| Auto-trigger + Pipeline Cost | Triggering full analysis on every design iteration | Debounce triggers; only analyze after deployment, not after spec generation |
+| Cross-Swarm Map + MCP vs REST | Assuming MCP can list all agents (MCP is agent-scoped, not ecosystem-scoped) | Use REST API for ecosystem-level queries; MCP is for individual agent operations |
+| Fix Proposals + Instruction Length | Proposing instruction additions without checking resulting length | Validate proposed instruction text against Orq.ai field limits before presenting proposal |
 
-## Performance Traps
+## Phase-Specific Warnings
 
-| Trap | Symptoms | Prevention | When It Breaks |
-|------|----------|------------|----------------|
-| Synchronous pipeline in serverless function | 504 timeouts after 10-60 seconds | Async job queue with step-level execution | Immediately in production for any real pipeline |
-| Unthrottled Supabase Realtime updates | Dashboard jank, dropped frames, unresponsive UI | Batch updates to 1-second intervals; debounce React Flow re-renders | With 3+ concurrent pipelines updating status |
-| React Flow re-renders on every state change | Visible jank on node status updates; slow graph interaction | `React.memo()` on node components; separate layout and status state | With 5+ node graphs and 500ms update intervals |
-| Full pipeline context in every Claude API call | High token costs; slow responses; approaching context limits | Cache static prompt content; send only variable data per call | After 3+ pipeline runs with large swarm specifications |
-| Supabase Postgres Changes for rapid updates | Delayed status updates; missed messages; database CPU spike | Use Broadcast for real-time; Postgres Changes for final state persistence | When pipeline updates exceed 10 messages/second |
-| No request queue for Claude API | 429 errors during concurrent usage; users see raw API errors | Queue requests; track RPM/TPM; show queue position | When 3+ users run pipelines simultaneously |
-
-## Security Mistakes
-
-| Mistake | Risk | Prevention |
-|---------|------|------------|
-| Supabase service role key in client-side code | Full database access bypassing RLS; any user can read/modify all data | Service role key only in server-side API routes; `NEXT_PUBLIC_` prefix only for anon key |
-| No RLS on pipeline data tables | Any authenticated user can access any pipeline run | Enable RLS on all tables; default policy: `auth.uid() = user_id` |
-| Azure AD client secret in client-side code | Anyone can impersonate the application | Client secret only in server-side environment variables |
-| No tenant restriction on Azure AD OAuth | Any Microsoft account holder can log in | Set tenant URL to Moyne Roberts tenant ID; register app as single-tenant |
-| Preview deployments with production API keys | Test actions affect production Orq.ai workspace | Separate API keys per Vercel environment |
-| Claude API key in `NEXT_PUBLIC_` env var | API key exposed in browser; anyone can use your API quota | Claude API calls must go through server-side API routes only |
-
-## UX Pitfalls
-
-| Pitfall | User Impact | Better Approach |
-|---------|-------------|-----------------|
-| Pipeline progress shows only "Processing..." | User thinks app is frozen during 2-5 minute pipeline runs | Show step-by-step progress with estimated time: "Designing architecture (step 2 of 5, ~30s remaining)" |
-| Error messages show raw API errors | "429 Too Many Requests" means nothing to non-technical users | "The system is busy processing other requests. Your pipeline will resume in ~30 seconds." |
-| No cost visibility for pipeline runs | Users do not realize each run costs money; run pipelines casually | Show estimated cost before running; show cumulative usage in dashboard |
-| HITL approval requires returning to the app | User misses notification; pipeline stalls for hours | Allow approval via email link and Teams action button |
-| Node graph is decorative only | Users see a pretty graph but cannot interact with it | Click nodes to see agent details; click edges to see data flow; highlight current pipeline step |
-| Dashboard shows all historical runs equally | Users cannot find their recent pipeline runs | Default view: user's runs, sorted by recency; filter by status; archive old runs |
+| Phase Topic | Likely Pitfall | Mitigation |
+|-------------|---------------|------------|
+| Ecosystem Map (Phase 1) | Map built from specs only, missing live state | Always start with API fetch; specs are "desired state" overlay |
+| Ecosystem Map (Phase 1) | Orphan agents (deployed but no spec) invisible | Include unmanaged agents from API list; flag as "unmanaged" |
+| Drift Detection (Phase 1) | Every field diff flagged equally | Classify by field + magnitude; filter noise before presentation |
+| Overlap Analysis (Phase 2) | Template-inherited patterns cause false positives | Compare at role/purpose level, not instruction level |
+| Overlap Analysis (Phase 2) | O(n^2) scaling unnoticed during small-scale testing | Implement tiered analysis from the start; benchmark at 30 agents |
+| Coordination Gaps (Phase 2) | Independent swarms flagged as needing coordination | Require declared swarm relationships before suggesting coordination |
+| Fix Proposals (Phase 3) | Proposals violate Orq.ai platform constraints | Validate against API field constraints; use proven fix templates |
+| Auto-Apply (Phase 3) | Applied fix breaks evaluator baselines | Always re-run evaluators before applying; default to propose-only |
+| Auto-Apply (Phase 3) | Fix applied to changed agent (stale proposal) | Version-hash check before application; re-validate preconditions |
+| Auto-Trigger (Phase 2) | Fires during active design iteration | Suppress during pipeline execution; debounce; trigger on completion |
 
 ## "Looks Done But Isn't" Checklist
 
-- [ ] **Vercel timeout:** Pipeline API routes set `maxDuration` explicitly and use async execution pattern (not synchronous request-response)
-- [ ] **Supabase Realtime cleanup:** Every `useEffect` with `.subscribe()` has a corresponding `.removeChannel()` cleanup
-- [ ] **Supabase client singleton:** Only one Supabase client instance per browser session, shared across components
-- [ ] **RLS enabled:** Every Supabase table has Row-Level Security enabled with appropriate policies
-- [ ] **Azure AD tenant restriction:** OAuth configured with tenant URL limiting access to Moyne Roberts accounts only
-- [ ] **Azure AD secret rotation:** Client secret expiry date documented; rotation procedure tested; monitoring in place
-- [ ] **Claude API rate limiting:** Request queue with backoff; 429/529 errors handled gracefully; user-friendly error messages
-- [ ] **Cost tracking:** Per-user usage tracked; quotas enforced; estimated cost shown before pipeline execution
-- [ ] **Pipeline state machine:** Explicit states and transitions defined; invalid transitions rejected; all states visible in dashboard
-- [ ] **Shared prompts:** Pipeline prompts in shared directory consumed by both CLI and web app; no duplication
-- [ ] **Parity testing:** Golden input/output pairs tested against both CLI and web app environments
-- [ ] **Environment variables:** All required vars validated at startup; set for all Vercel environments; `.env.example` maintained
-- [ ] **Preview isolation:** Preview deployments use separate Supabase project and Orq.ai API keys from production
-- [ ] **Subscription monitoring:** Active Realtime subscription count tracked; alerts on unexpected growth
-- [ ] **Emergency access:** SSO bypass procedure documented in secure runbook for Azure AD outages
+- [ ] **Dual-source map:** Ecosystem map fetches live state from Orq.ai API AND reads local specs, with drift between them highlighted
+- [ ] **Orphan handling:** Agents deployed to Orq.ai without local specs appear in the map as "unmanaged"
+- [ ] **Ghost handling:** Local specs for agents deleted from Orq.ai appear as "not deployed"
+- [ ] **Drift severity:** Drift findings classified by severity (breaking/meaningful/trivial), not just present/absent
+- [ ] **Overlap severity:** Overlap findings classified by category (duplication/coordination-opportunity/shared-tool/template-pattern)
+- [ ] **Accepted overlaps:** Users can dismiss known-acceptable overlaps; they do not reappear in future scans
+- [ ] **Fix validation:** Every fix proposal validated against Orq.ai platform constraints before presentation
+- [ ] **Fix testing:** No fix applied (manually or auto) without evaluator re-run against existing baselines
+- [ ] **Fix rollback:** All fixes create new agent versions; previous versions preserved for rollback
+- [ ] **Fix audit trail:** Every modification records: trigger, diff, approver, evaluator scores before/after
+- [ ] **Incremental analysis:** Adding/modifying one swarm does not trigger full ecosystem re-analysis
+- [ ] **Analysis versioning:** Analysis results stamped with input state hash; stale results flagged
+- [ ] **Auto-trigger debounce:** Analysis does not fire during active pipeline execution; only on completion
+- [ ] **API rate limiting:** Orq.ai API calls throttled; partial scan handled gracefully
+- [ ] **Scale benchmark:** Analysis tested and benchmarked at 30 agents (10 swarms x 3 agents)
+- [ ] **Default propose-only:** Auto-apply is opt-in, not the default; propose-only is the safe default
 
 ## Recovery Strategies
 
 | Pitfall | Recovery Cost | Recovery Steps |
 |---------|---------------|----------------|
-| Synchronous pipeline hitting timeouts | HIGH | Rewrite pipeline architecture to async job queue; add state persistence between steps; update all API routes; rebuild progress tracking |
-| Realtime connection exhaustion | MEDIUM | Add cleanup to all useEffect hooks; implement singleton client; restart Supabase Realtime connections; may require user refresh |
-| Azure AD SSO lockout | LOW-MEDIUM | Use emergency service role key access; fix Azure AD configuration; communicate resolution to users |
-| Pipeline logic divergence (CLI vs web) | HIGH | Audit both environments; extract shared prompts; establish parity tests; ongoing maintenance cost |
-| Claude API cost overrun | LOW | Implement quotas immediately; review and optimize prompts; enable caching; costs already incurred are sunk |
-| React Flow performance degradation | MEDIUM | Add memoization to all node components; implement update batching; may require separating state management |
-| RLS not configured | MEDIUM | Audit all tables; add RLS policies; test with multiple users; data exposure may have already occurred |
-| Pipeline stuck in invalid state | LOW | Manually update state in Supabase; add state machine to prevent recurrence; may need to restart individual pipeline runs |
-| Environment variable missing in production | LOW | Add to Vercel dashboard; redeploy; add startup validation to prevent recurrence |
-
-## Pitfall-to-Phase Mapping
-
-| Pitfall | Prevention Phase | Verification |
-|---------|------------------|--------------|
-| Vercel function timeouts | Phase 1: Architecture | Verify: pipeline uses async job queue pattern; no single-function pipelines; `maxDuration` set on all API routes |
-| Realtime subscription leaks | Phase 1: Foundation | Verify: singleton Supabase client; all useEffect subscriptions have cleanup; subscription count monitoring |
-| Azure AD SSO misconfiguration | Phase 1: Auth Setup | Verify: tenant restriction set; client secret expiry monitored; emergency access documented; redirect URIs for all environments |
-| Dual-environment divergence | Phase 1: Architecture | Verify: shared prompt directory exists; both environments import from it; parity tests exist |
-| Claude API cost explosion | Phase 2: Pipeline Integration | Verify: per-user quotas; cost estimation display; request queue with rate limit awareness; prompt caching enabled |
-| React Flow performance | Phase 2: Dashboard | Verify: node components memoized; updates batched; layout and status state separated |
-| RLS gaps | Phase 1: Database Setup | Verify: RLS enabled on all tables; policies tested with multi-user scenarios |
-| Server/Client boundary confusion | Phase 1: App Structure | Verify: clear component directory structure; Realtime only in Client Components; serializable props across boundary |
-| Pipeline state machine implicit | Phase 1: Architecture | Verify: explicit state enum; transition map; invalid transitions throw; all states in dashboard |
-| HITL approval blocking | Phase 3: Approvals | Verify: approval timeouts; multi-channel notifications; async gate pattern (not pipeline pause) |
-| Environment variable sprawl | Phase 1: Setup | Verify: typed env config with validation; `.env.example` maintained; all Vercel environments configured |
-| Database migrations not versioned | Phase 1: Database Setup | Verify: Supabase CLI migrations in git; no manual dashboard schema changes in production |
-| Preview deployments use production data | Phase 1: Infrastructure | Verify: separate Supabase projects; separate Orq.ai keys; env vars scoped per Vercel environment |
+| Map built from specs only (stale map) | MEDIUM | Add API integration layer; rebuild map cache from live state; re-run all analyses against corrected map |
+| False positive overlap flooding | LOW-MEDIUM | Add severity classification; implement accepted-overlaps registry; re-analyze with filters; notify users that previous findings may have been noise |
+| Auto-apply broke working agent | HIGH | Roll back agent to previous version; re-run evaluators to confirm recovery; audit all auto-applied changes; potentially disable auto-apply until guardrails are added |
+| O(n^2) scaling bottleneck | HIGH | Redesign analysis to tiered approach; pre-compute embeddings; implement incremental cache; this is an architecture change, not a feature addition |
+| Semantic drift missed (trivial diffs only) | MEDIUM | Add LLM-based semantic comparison; rebuild drift severity model; re-analyze existing drift findings with new classification |
+| Independent swarms incorrectly coupled | MEDIUM | Remove unnecessary data contracts/coordination; may require reverting deployed agent changes; add swarm relationship model to prevent recurrence |
+| Stale analysis applied wrong fix | MEDIUM | Roll back affected agents; add version-hash validation to fix application; re-analyze current state |
 
 ## Sources
 
-- [Vercel KB: Serverless Function Timeouts](https://vercel.com/kb/guide/what-can-i-do-about-vercel-serverless-functions-timing-out) -- Timeout limits by plan, Fluid Compute, workarounds
-- [Vercel Changelog: 5-Minute Functions](https://vercel.com/changelog/serverless-functions-can-now-run-up-to-5-minutes) -- Extended duration limits
-- [Vercel Docs: Functions](https://vercel.com/docs/functions) -- Fluid Compute duration limits (800s Pro/Enterprise)
-- [Inngest: Solving Next.js Timeouts](https://www.inngest.com/blog/how-to-solve-nextjs-timeouts) -- Step-based pipeline decomposition pattern
-- [Inngest: Long-Running Background Functions on Vercel](https://www.inngest.com/blog/vercel-long-running-background-functions) -- Background function patterns
-- [Supabase Docs: Realtime Limits](https://supabase.com/docs/guides/realtime/limits) -- Connection limits, message throughput, channel join limits
-- [Supabase Docs: Realtime Benchmarks](https://supabase.com/docs/guides/realtime/benchmarks) -- Postgres Changes single-thread bottleneck
-- [Supabase Docs: Login with Azure](https://supabase.com/docs/guides/auth/social-login/auth-azure) -- OAuth tenant restriction, configuration steps
-- [Supabase Docs: SAML 2.0 SSO](https://supabase.com/docs/guides/auth/enterprise-sso/auth-sso-saml) -- Enterprise SSO setup, attribute mapping pitfalls
-- [Supabase Docs: Set Up SSO with Azure AD](https://supabase.com/docs/guides/platform/sso/azure) -- Platform-level SSO configuration
-- [Claude API Docs: Rate Limits](https://platform.claude.com/docs/en/api/rate-limits) -- RPM, TPM limits, 429 vs 529 error distinction
-- [Claude API Docs: Errors](https://platform.claude.com/docs/en/api/errors) -- Error types and handling patterns
-- [React Flow: Performance](https://reactflow.dev/learn/advanced-use/performance) -- Memoization, virtualization, state management optimization
-- [Vercel: AI Cloud Platform](https://vercel.com/blog/the-ai-cloud-a-unified-platform-for-ai-workloads) -- Fluid Compute for AI workloads
-- [Vercel Templates: Monorepo Turborepo](https://vercel.com/templates/next.js/monorepo-turborepo) -- Monorepo structure for shared logic
+- [Galileo: Why Multi-Agent LLM Systems Fail](https://galileo.ai/blog/multi-agent-llm-systems-fail) -- Common failure modes including inter-agent misalignment
+- [Agent Drift: Quantifying Behavioral Degradation in Multi-Agent LLM Systems](https://arxiv.org/abs/2601.04170) -- Semantic drift, coordination drift, behavioral drift taxonomy
+- [IBM: The Hidden Risk That Degrades AI Agent Performance](https://www.ibm.com/think/insights/agentic-drift-hidden-risk-degrades-ai-agent-performance) -- Agentic drift patterns
+- [Lumenova: Taming Complexity - Governing Multi-Agent Systems](https://www.lumenova.ai/blog/taming-complexity-governing-multi-agent-systems-guide/) -- Cross-agent safety validation and governance
+- [Spacelift: Terraform Drift Detection and Remediation](https://spacelift.io/blog/terraform-drift-detection) -- Desired state vs actual state reconciliation patterns
+- [Josys: Understanding the Lifecycle of Configuration Drift](https://www.josys.com/article/understanding-the-lifecycle-of-configuration-drift-detection-remediation-and-prevention/) -- Detection, remediation, and prevention lifecycle
+- [Komodor: Kubernetes Configuration Drift](https://komodor.com/learn/kubernetes-configuration-drift-causes-detection-and-prevention/) -- Drift causes and detection patterns applicable to any desired-state system
+- [Multi-Agent Risks from Advanced AI](https://arxiv.org/abs/2502.14143) -- Miscoordination, conflict, and collusion risks in multi-agent systems
+- [Arxiv: Why Do Multi-Agent LLM Systems Fail](https://arxiv.org/pdf/2503.13657) -- 41-86.7% failure rate analysis on multi-agent systems
 
 ---
-*Pitfalls research for: V3.0 Web UI & Dashboard (extending V2.0 Orq Agent Designer)*
+*Pitfalls research for: V4.0 Cross-Swarm Intelligence (extending V2.0 Orq Agent Designer)*
 *Researched: 2026-03-03*

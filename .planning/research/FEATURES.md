@@ -1,163 +1,162 @@
-# Feature Research: V3.0 Web UI & Dashboard
+# Feature Research: V4.0 Cross-Swarm Intelligence
 
-**Domain:** Browser-based AI agent design pipeline with real-time dashboard, agent visualization, and HITL approval workflows
+**Domain:** Cross-swarm coordination, ecosystem mapping, drift detection, overlap analysis, and automated fix proposals for multi-agent systems on Orq.ai
 **Researched:** 2026-03-03
-**Confidence:** MEDIUM -- UI patterns well-documented across industry; Supabase Realtime and React Flow verified via official docs; Microsoft Graph approval APIs verified; Orq.ai integration patterns proven in V2.0
+**Confidence:** MEDIUM -- Cross-swarm coordination is an emerging pattern in multi-agent systems (2025-2026). IaC drift detection patterns are well-established and directly transferable. No direct competitor does this for agent design pipelines specifically, so feature expectations are inferred from adjacent domains (IaC reconciliation, AWS Agent Squad overlap analysis, event-driven multi-agent coordination).
 
 ## Context: What Already Exists
 
-**V1.0 Pipeline (COMPLETE):** Full spec generation from natural language -- architect, researcher, spec-generator, orchestration-generator, dataset-generator, tool-resolver, KB-aware pipeline, discussion step, XML-tagged prompts.
+**V1.0 Pipeline (COMPLETE):** Full spec generation from natural language -- architect, researcher, spec-generator, orchestration-generator, dataset-generator, tool-resolver, KB-aware pipeline, discussion step, XML-tagged prompts. Each swarm outputs to `Agents/[swarm-name]/` with individual agent spec .md files and an ORCHESTRATION.md.
 
-**V2.0 Pipeline (COMPLETE):** Autonomous deploy/test/iterate/harden via Claude Code with MCP-first Orq.ai integration, HITL approval in terminal, local audit trail.
+**V2.0 Pipeline (COMPLETE):** Autonomous deploy/test/iterate/harden via Claude Code with MCP-first Orq.ai integration. Per-agent operations via `--agent` flag. MCP tools for agents-list, agents-get, models-list, etc.
 
-**V3.0 scope:** Browser-based self-service pipeline + real-time dashboard. Core pipeline (use case to specs to deploy) first; test/iterate/harden deferred to V3.1+. This research covers ONLY the web UI features listed in PROJECT.md Active requirements.
+**V3.0 (DEFINED, NOT SHIPPED):** Web UI with real-time dashboard, node graph visualization, HITL approval flows.
+
+**V4.0 scope:** Cross-swarm intelligence layer. The existing pipeline designs one swarm at a time. As swarms multiply across business processes (Invoice-to-Cash, Customer Support, Dispute Resolution), they develop blind spots -- overlapping responsibilities, missing handoffs, conflicting actions, duplicated tools. V4.0 adds ecosystem-level awareness.
+
+**Key existing artifacts V4.0 must parse:**
+- Agent spec .md files (18 Orq.ai fields per agent: key, role, description, model, instructions, tools, etc.)
+- ORCHESTRATION.md per swarm (agent topology, data flow, error handling, HITL points)
+- Live Orq.ai state via MCP tools (agents-list, agents-get) and REST API (`/v2/agents`)
+
 
 ## Feature Landscape
 
-### Category 1: Self-Service Pipeline UI
+### Category 1: Cross-Swarm Ecosystem Map
 
 #### Table Stakes
 
 | Feature | Why Expected | Complexity | Pipeline Dependency | Notes |
 |---------|--------------|------------|---------------------|-------|
-| Use case text input with guidance | Non-technical users need to describe what they want; empty text box is intimidating | LOW | Maps to V1.0 adaptive input handler | Placeholder text, example use cases, character guidance. Competitors (MindStudio, Lindy, Dify) all provide guided input with examples and templates. |
-| Pipeline step indicator | Users must see where they are in a multi-step process; no visibility = anxiety | LOW | Maps to V1.0 pipeline stages (discuss, architect, research, spec-gen, orchestrate, tools, datasets) | Horizontal stepper or vertical timeline. Each step: pending/active/complete/error. This is the most basic UX pattern for multi-step workflows. |
-| Live status messages per step | "What is it doing right now?" -- users need proof the system is working | MEDIUM | Requires Supabase Realtime to stream status from backend pipeline execution | Short descriptive messages: "Analyzing use case complexity...", "Generating agent specifications...". Update every 2-5 seconds. Without this, users assume it crashed. |
-| Output display (agent specs, orchestration) | Users must see what was generated, not just "done" | MEDIUM | V1.0 spec-generator output (18 Orq.ai fields per agent) | Formatted cards per agent showing role, model, key fields. Collapsible detail sections for full specs. Non-technical users need summary view; technical users need raw spec access. |
-| Error handling with recovery options | Pipeline failures must not dead-end the user | MEDIUM | Pipeline error states from each V1.0/V2.0 subagent | Show what failed, why (in plain language), and offer: retry this step, go back, start over. Never show raw error messages or stack traces to non-technical users. |
-| Session persistence | Closing the browser must not lose work in progress | MEDIUM | Supabase DB for pipeline state storage | Save pipeline state after each step completion. User returns to where they left off. Sessions expire after 7 days. Critical for a pipeline that can take 5-15 minutes. |
-| Authentication gate (M365 SSO) | Moyne Roberts employees only; no public access | MEDIUM | Supabase Auth with Azure AD provider | Single sign-on with Microsoft 365. No separate registration. User lands on login, redirects to M365, returns authenticated. Role = "user" for everyone (no admin needed at 5-15 users). |
+| Aggregate swarm inventory from local specs | Users need a single view of all designed swarms before any analysis can happen; without this, cross-swarm is meaningless | LOW | Reads `Agents/*/` directories, parses agent spec .md and ORCHESTRATION.md files | Glob for `Agents/*/ORCHESTRATION.md`, parse each swarm's agent list, roles, tools, data flows. Output: structured inventory of all swarms, agents, and their relationships. |
+| Aggregate live agent inventory from Orq.ai | Live state is the other half of the picture; specs alone miss deployed-but-unspecified agents | MEDIUM | V2.0 MCP tools (agents-list, agents-get) or REST API `/v2/agents` | Pull all deployed agents from Orq.ai. Group by swarm prefix (naming convention: `[domain]-[role]-agent`). Identify agents that exist on Orq.ai but have no local spec (orphans). |
+| Unified ecosystem map merging specs + live state | The core deliverable -- one view showing all swarms, all agents, spec vs deployed status | MEDIUM | Both local spec parsing and Orq.ai API integration | Merge local specs with live state by agent key. For each agent: spec exists (Y/N), deployed (Y/N), version match (Y/N). For each swarm: agent count, completeness status. |
+| Human-readable ecosystem report | Users must be able to understand the map without being technical | LOW | Unified map data | Markdown output: swarm-by-swarm breakdown, total agent count, coverage summary. Structured for both terminal (Claude Code) and future web UI consumption. |
 
 #### Differentiators
 
 | Feature | Value Proposition | Complexity | Pipeline Dependency | Notes |
 |---------|-------------------|------------|---------------------|-------|
-| One-click deploy to Orq.ai | After reviewing specs, user clicks "Deploy" and agents appear in Orq.ai without touching a terminal | MEDIUM | V2.0 deployer subagent (already handles MCP/API deployment) | The killer feature for non-technical users. Triggers V2.0 deploy pipeline from web UI. Shows deployment progress per agent. |
-| Use case templates / recent runs | Pre-filled templates for common domains reduce friction; recent runs let users iterate on previous work | LOW | Supabase DB for template and session storage | "Customer support bot", "Document processor", "Data analyst" templates. Recent runs show last 5 sessions with re-run option. |
-| Complexity preview before pipeline runs | Show estimated pipeline depth (simple vs complex swarm) before committing to a 5-15 minute run | LOW | V1.0 architect complexity gate | "This will generate a 3-agent swarm with orchestration. Estimated time: 8 minutes." Sets expectations. Reduces abandonment. |
+| Cross-swarm tool usage matrix | Shows which tools are used by which agents across all swarms -- reveals shared infrastructure and redundancy | LOW | Agent spec parsing (tools section per agent) | Matrix: rows = tools, columns = swarms/agents. Highlights tools used by multiple swarms (shared dependency) vs tools unique to one swarm. Valuable for understanding the ecosystem's "nervous system." |
+| Cross-swarm data flow diagram | Visualizes how data could or should flow between swarms, not just within them | HIGH | ORCHESTRATION.md parsing + semantic analysis of agent instructions | Requires inferring inter-swarm data dependencies from agent descriptions and instructions. Example: Invoice-to-Cash swarm produces "payment status" that Dispute Resolution swarm needs. This is hard because inter-swarm flows are implicit, not declared. |
+| Swarm maturity scorecard | At-a-glance health per swarm: spec completeness, deployment status, test coverage, evaluator attachment | MEDIUM | V2.0 test/iterate/harden data + Orq.ai agent metadata | Score dimensions: spec completeness (all 18 fields), deployed (Y/N per agent), tested (has experiment results), hardened (has guardrails). Helps prioritize which swarms need attention. |
 
 #### Anti-Features
 
 | Anti-Feature | Why Avoid | What to Do Instead |
 |--------------|-----------|-------------------|
-| Visual pipeline builder (drag-and-drop agent wiring) | Non-technical users cannot meaningfully wire agent architectures. This is what the AI pipeline does FOR them. Building a no-code agent builder duplicates Orq.ai Studio. | Keep the natural language input. The pipeline determines architecture. Show the result as a read-only graph. |
-| Editable spec fields in UI | Exposing 18 Orq.ai fields per agent to non-technical users creates confusion. They do not know what `max_iterations` should be. | Show specs as read-only summaries. If changes needed, user describes what is wrong in natural language and pipeline re-generates. |
-| Multi-user collaboration on same pipeline run | 5-15 users, solo pipeline runs. Collaboration adds state management complexity (conflict resolution, presence, permissions) for no real benefit. | One user per pipeline run. Share results via link after completion. |
+| Real-time agent performance monitoring across swarms | Orq.ai handles runtime observability natively. Duplicating it creates a stale, inferior copy and massively expands scope into runtime monitoring. | Link to Orq.ai traces. V4.0 is about design-time and spec-time intelligence, not runtime monitoring. |
+| Automatic swarm discovery from Orq.ai without naming convention | Agents deployed without the naming convention (`[domain]-[role]-agent`) cannot be reliably grouped into swarms. Attempting fuzzy grouping creates false associations. | Require naming convention compliance. Flag non-compliant agents as "ungrouped" and recommend renaming. |
+| Cross-organization or multi-tenant ecosystem mapping | This is for one team's swarms on one Orq.ai workspace. Multi-tenant adds auth, isolation, and data-separation complexity for no current need (5-15 users, one organization). | Single-workspace scope. All swarms belong to Moyne Roberts' Orq.ai workspace. |
 
 
-### Category 2: Real-Time Pipeline Progress Dashboard
+### Category 2: Drift Detection (Spec vs Deployed)
 
 #### Table Stakes
 
 | Feature | Why Expected | Complexity | Pipeline Dependency | Notes |
 |---------|--------------|------------|---------------------|-------|
-| Pipeline run list with status | Users need to see all their runs: active, completed, failed | LOW | Supabase DB for run records | Table or card list: run name (derived from use case), status badge, started timestamp, duration. Sorted by recency. |
-| Step-by-step progress for active run | Granular visibility into what the pipeline is doing right now | MEDIUM | Supabase Realtime subscriptions on pipeline_steps table | Each pipeline step as a row/card: step name, status (queued/running/complete/failed), duration, optional detail message. Updates in real-time via Supabase Postgres Changes. |
-| Duration per step and total | "How long does this take?" -- expectation management | LOW | Timestamp tracking in pipeline execution | Show elapsed time per step and total. After first run, show comparison to average. Helps users know if something is stuck. |
-| Success/failure summary | At-a-glance outcome of completed runs | LOW | Pipeline completion state | Green checkmark or red X. Count of agents created. Link to view details. For failed runs: which step failed and the plain-language reason. |
+| Field-by-field diff between spec and deployed state | Core drift detection -- users must know WHAT drifted, not just that drift exists | MEDIUM | Local spec parsing + Orq.ai agents-get API for each deployed agent | Compare all 18 Orq.ai fields: key, role, description, model, instructions, tools, settings. Report per-field: match, mismatch, spec-only, deployed-only. The IaC drift detection pattern (compare desired state vs actual state) is directly transferable here. |
+| Drift severity classification | Not all drift matters equally; model change is critical, description tweak is minor | LOW | Drift diff output | Classify each drift: CRITICAL (model, instructions, tools changed), WARNING (settings changed), INFO (description, role wording changed). Prevents alert fatigue. Inspired by IaC drift management tiers (Firefly, Spacelift). |
+| Per-agent drift report | Each agent gets a clear drift status: clean, drifted (with details), or unmatched | LOW | Drift diff output | Status per agent: "in sync", "drifted" (with field list), "spec-only" (not deployed), "deployed-only" (no spec). Simple, scannable output. |
+| Swarm-level drift summary | Aggregate drift across all agents in a swarm | LOW | Per-agent drift reports | "Invoice-to-Cash swarm: 4/5 agents in sync, 1 drifted (model changed on invoice-parser-agent)." One line per swarm, drill-down available. |
 
 #### Differentiators
 
 | Feature | Value Proposition | Complexity | Pipeline Dependency | Notes |
 |---------|-------------------|------------|---------------------|-------|
-| Live log stream (expandable) | Technical users can see detailed pipeline output without switching to terminal | MEDIUM | Supabase Realtime streaming log entries | Collapsible panel showing pipeline logs in real time. Non-technical users ignore it; technical users love it. Auto-scroll with pause-on-hover. |
-| Pipeline stage timing breakdown | Visual bar chart showing time spent per stage across runs | LOW | Accumulated timing data in Supabase | Identifies bottlenecks. "Research step takes 40% of total time" informs optimization. Useful after 5+ runs. |
-| Cancel running pipeline | Ability to abort a pipeline mid-execution | MEDIUM | Backend must support graceful cancellation of Claude API calls | "Cancel" button on active runs. Cleans up partial state. Important when user realizes input was wrong 3 minutes in. |
+| Drift reconciliation direction recommendation | Tell the user whether to update the spec (cloud-to-code) or redeploy (code-to-cloud) based on which is newer/better | MEDIUM | Drift diff + Orq.ai agent version metadata + local spec timestamps | Follows IaC reconciliation patterns: if drift came from manual Orq.ai Studio edits, recommend updating spec. If spec was intentionally changed but not deployed, recommend redeploy. Requires heuristics on "which side is authoritative." |
+| Instruction semantic diff (not just string diff) | Instructions may be reformatted or reworded without changing meaning; raw string diff creates false positives | HIGH | LLM-based semantic comparison of instruction text | Use Claude to compare instruction text semantically: "Are these instructions functionally equivalent despite wording differences?" Reduces noise but adds token cost. Consider as optional "deep diff" mode. |
+| Auto-trigger drift check on deploy | After every V2.0 deploy, automatically verify the deployed state matches the spec | LOW | V2.0 deployer pipeline hook | Post-deploy verification step: "Deploy complete. Verifying spec alignment... All fields match." Catches deployment bugs early. Low complexity because it piggybacks on existing deploy flow. |
 
 #### Anti-Features
 
 | Anti-Feature | Why Avoid | What to Do Instead |
 |--------------|-----------|-------------------|
-| Gantt chart or timeline visualization | Over-engineered for a 7-step sequential pipeline. Adds visual complexity without insight. Steps run sequentially, not in parallel. | Simple vertical step list with status indicators. |
-| Real-time token/cost counter | Creates anxiety about spending. Non-technical users do not understand token economics. Distracts from the goal. | Show cost summary after completion if needed. Do not show during execution. |
+| Continuous polling for drift (scheduled cron) | V4.0 runs as a Claude Code skill, not a persistent service. Scheduled polling requires infrastructure (cron, serverless functions) that does not exist yet. | On-demand drift check via command. Auto-trigger on deploy and on new swarm design. Scheduled drift checks are a V3.0 web UI feature if needed. |
+| Drift detection for non-Orq.ai resources | V4.0 scope is agent specs on Orq.ai. Detecting drift in external tools, APIs, or data sources the agents use is a different (much larger) problem. | Scope to Orq.ai agent fields only. Flag external dependencies as "not monitored" in the ecosystem map. |
+| Automatic rollback on drift detection | Auto-reverting a drifted agent is dangerous -- the drift may be intentional (manual fix in Orq.ai Studio). | Report drift with reconciliation recommendation. Human decides direction. Auto-apply only for explicit "sync" commands. |
 
 
-### Category 3: Agent Swarm Node Graph Visualization
+### Category 3: Overlap and Blind Spot Analysis
 
 #### Table Stakes
 
 | Feature | Why Expected | Complexity | Pipeline Dependency | Notes |
 |---------|--------------|------------|---------------------|-------|
-| Node-per-agent graph layout | Each agent as a visual node showing name, role, model | MEDIUM | V1.0 ORCHESTRATION.md (agent relationships, data flow) | React Flow is the standard library for this. Auto-layout with dagre or elkjs for hierarchical swarm structure. Orchestrator at top, sub-agents below. |
-| Directed edges showing data flow | Arrows between agents showing how they communicate | LOW | V1.0 ORCHESTRATION.md data flow specification | Edge labels optional but helpful: "passes extracted data", "returns validation result". Animated edges during active pipeline execution. |
-| Agent detail panel on click | Click a node to see that agent's full specification | LOW | V1.0 agent spec output | Slide-out panel or modal showing: role, model, description, tools, key instruction highlights. Non-editable. Link to Orq.ai Studio for that agent. |
-| Orchestrator node distinct from sub-agents | Users must visually distinguish the "boss" agent from workers | LOW | V1.0 orchestration spec (identifies orchestrator) | Different color, size, or icon for orchestrator node. Shows which tools it uses to coordinate (retrieve_agents, call_sub_agent). |
+| Agent role overlap detection across swarms | The primary value proposition -- finding agents with similar responsibilities in different swarms | MEDIUM | Agent spec parsing (role, description, instructions) across all swarms | Uses semantic similarity (LLM-based, not just TF-IDF) to compare agent roles across swarms. Example: "dispute-classifier-agent" in Dispute swarm vs "complaint-triage-agent" in Support swarm -- likely overlap. AWS Agent Squad uses TF-IDF with overlap thresholds (>30% = High, 10-30% = Medium, <10% = Low). For LLM-based specs, use Claude to assess functional overlap semantically. |
+| Tool duplication detection across swarms | Multiple swarms using the same external tools may be doing redundant work or could share results | LOW | Agent spec parsing (tools section) across all swarms | Exact match on tool names/keys across swarms. Report: "get-customer-data tool used by 3 agents in 2 swarms." Simple but high-value -- shared tools are coordination opportunities. |
+| Blind spot identification (missing handoffs) | The most valuable analysis -- finding where Swarm A produces output that Swarm B needs but never receives | HIGH | ORCHESTRATION.md analysis + semantic analysis of agent instructions across swarms | Requires inferring what each swarm produces (outputs) and consumes (inputs), then finding mismatches. Example: Invoice-to-Cash produces "payment received" events but Dispute Resolution never checks payment status before escalating. This is the hardest feature because inter-swarm data flows are not declared anywhere. |
+| Overlap severity classification | Not all overlaps are problems; some redundancy is intentional (defense in depth) | LOW | Overlap detection output | Categories: REDUNDANT (identical function, should consolidate), COMPLEMENTARY (similar but different scope, acceptable), CONFLICTING (contradictory behavior, must resolve). |
 
 #### Differentiators
 
 | Feature | Value Proposition | Complexity | Pipeline Dependency | Notes |
 |---------|-------------------|------------|---------------------|-------|
-| Pipeline execution overlay on graph | Nodes light up as the pipeline processes each agent -- "watch it build" | HIGH | Supabase Realtime streaming per-agent pipeline status | During spec generation: nodes appear one by one as architect designs the swarm. During deployment: nodes transition from "pending" to "deploying" to "deployed" with color changes. This is the "wow factor" feature. |
-| Status badges on nodes (deployed/tested/passing) | At-a-glance health of each agent in the swarm | MEDIUM | V2.0 deploy-log and test-results data in Supabase | Color-coded badges: gray (spec only), blue (deployed), green (tests passing), red (tests failing), yellow (iterating). Tells the full story without clicking. |
-| Zoom, pan, fit-to-view | Standard graph interaction for swarms with 5+ agents | LOW | React Flow built-in controls | React Flow provides this out of the box. Include minimap for large swarms. Fit-to-view button for quick reset. |
-| Export graph as image | Share swarm architecture in presentations or documentation | LOW | React Flow or html-to-image library | PNG or SVG export. Useful for stakeholder communication. Low effort, high perceived value. |
+| Coordination gap report with specific recommendations | Not just "there's an overlap" but "here's what to do about it" | MEDIUM | Overlap and blind spot detection output | For each finding: description, affected swarms/agents, severity, specific recommendation (consolidate, add handoff, create shared signal). Actionable output, not just a diagnostic. |
+| Cross-swarm knowledge base overlap | Detect when multiple swarms reference the same or overlapping knowledge bases, which may cause inconsistent answers | LOW | Agent spec parsing (knowledge_bases field) | Report: "customer-faq KB used by Support swarm and Onboarding swarm. Ensure KB updates are coordinated." Simple field comparison, high organizational value. |
+| Semantic coverage analysis | Map the total "capability space" covered by all swarms and identify gaps (business processes with no agent coverage) | HIGH | LLM-based analysis of all agent descriptions against business domain | "You have swarms for invoicing and dispute resolution, but no swarm handles payment reminders." Requires understanding the business domain. Very valuable but requires domain context the tool does not inherently have. Consider as prompted analysis: "Given these swarms, what business processes are uncovered?" |
 
 #### Anti-Features
 
 | Anti-Feature | Why Avoid | What to Do Instead |
 |--------------|-----------|-------------------|
-| Drag-and-drop node rearrangement that persists | Users rearranging the graph creates a false sense of architectural control. The graph represents actual agent relationships, not a design canvas. | Allow temporary drag for readability but do not persist positions. Auto-layout is the source of truth. |
-| 3D graph visualization | Reagraph supports 3D but it adds cognitive load without insight for 3-8 node swarms. Looks impressive in demos, confusing in practice. | 2D hierarchical layout. Clean, readable, professional. |
-| Real-time message flow animation between agents | Showing individual messages flowing between agents in production requires deep observability integration with Orq.ai traces. Massive scope. | Show static data flow arrows from ORCHESTRATION.md. Animate only during pipeline execution (build-time), not runtime. |
+| Automatic agent merging across swarms | Merging agents from different swarms changes both swarm architectures simultaneously. This is structural rewiring that needs careful human judgment. | Report overlaps with merge recommendations. Human decides. The ultra architect proposes; the human approves. |
+| Runtime interaction analysis | Analyzing actual agent-to-agent calls at runtime to find coordination issues requires deep Orq.ai observability integration and persistent monitoring infrastructure. | Analyze at design time using specs and instructions. Flag "likely coordination issues" for human verification against runtime behavior. |
+| Cross-swarm permission/access analysis | Analyzing what data each agent CAN access vs SHOULD access is a security audit, not a design coordination feature. Different scope entirely. | Note shared tools and KBs as potential access vectors. Defer security analysis to a dedicated audit feature. |
 
 
-### Category 4: Agent Performance Dashboard
+### Category 4: Fix Proposals (Shared Signals, Data Contracts, Event Triggers)
 
 #### Table Stakes
 
 | Feature | Why Expected | Complexity | Pipeline Dependency | Notes |
 |---------|--------------|------------|---------------------|-------|
-| Per-agent score summary | Overall quality score per agent from latest test run | LOW | V2.0 test-results data | Card per agent: name, overall score (weighted average of evaluators), pass/fail badge, last tested timestamp. Color-coded: green >0.80, yellow 0.60-0.80, red <0.60. |
-| Per-evaluator score breakdown | Which specific qualities are strong/weak per agent | MEDIUM | V2.0 evaluator scores per agent | Table or bar chart: evaluator name, score, threshold, pass/fail. Helps users understand "good at relevance, weak at instruction following." |
-| Score trend across iterations | "Is it getting better?" -- the core question during prompt iteration | MEDIUM | V2.0 iteration-log data (scores per iteration) | Line chart showing score per evaluator across iteration 1, 2, 3. Visible improvement (or lack thereof) drives decisions to continue or stop iterating. |
-| Swarm-level summary | Aggregate health across all agents in a swarm | LOW | Aggregation of per-agent scores | "4/5 agents passing all evaluators. 1 agent needs iteration." Single number or progress bar for overall swarm readiness. |
+| Shared context injection proposals | Propose adding shared context (variables, KB references) to agents that need cross-swarm awareness | MEDIUM | Overlap and blind spot analysis output + agent spec structure | Example proposal: "Add `dispute_status` variable to invoice-processor-agent so it can check if an invoice is under dispute before processing." Modifies agent spec's context section. This is the lowest-risk fix type -- adding information, not changing behavior. |
+| Data contract proposals between swarms | Define explicit data schemas for inter-swarm communication | MEDIUM | Blind spot analysis output | Example: "Define a `PaymentEvent` contract: { invoice_id, amount, status, timestamp }. Invoice-to-Cash swarm produces it, Dispute Resolution swarm consumes it." Inspired by the "semantic contracts" pattern from event-driven multi-agent systems. |
+| Fix proposal with diff preview | Every proposal must show exactly what changes in which files, diff-style | MEDIUM | Agent spec parsing + proposal generation | Show: "In `Agents/invoice-to-cash/invoice-processor-agent.md`, add to Context section: ..." as a unified diff. Users see exactly what will change before approving. Follows V2.0's iteration loop pattern (HITL approval before any change). |
+| Risk classification per proposal | Each proposal categorized as LOW/MEDIUM/HIGH risk so humans know what needs careful review | LOW | Proposal generation output | LOW: adding shared context/variables (additive, non-breaking). MEDIUM: adding tools or KB references (changes capability surface). HIGH: changing instructions or agent relationships (changes behavior). |
 
 #### Differentiators
 
 | Feature | Value Proposition | Complexity | Pipeline Dependency | Notes |
 |---------|-------------------|------------|---------------------|-------|
-| Worst-performing test cases | Show the specific inputs where agents fail -- actionable debugging | MEDIUM | V2.0 test-results bottom-5 cases per agent | Table: input, expected output, actual output, evaluator scores. Helps users understand failure patterns without reading raw logs. Critical for trust-building. |
-| Prompt change diff viewer | See what changed in each iteration and the impact on scores | MEDIUM | V2.0 iteration-log prompt diffs | Side-by-side or inline diff of prompt changes per iteration. Connected to score delta. "This change improved relevance by 18%." |
-| Guardrail status indicator | Which agents have production guardrails attached and active | LOW | V2.0 hardener output data | Badge or icon showing guardrail count and types per agent. "2 guardrails: toxicity, instruction_following." Links to Orq.ai for configuration details. |
-| Historical run comparison | Compare results across different pipeline runs (not just iterations within one run) | MEDIUM | Supabase DB with multiple run records | "Run from March 1 vs Run from March 3" comparison table. Useful when re-running pipeline after use case refinement. |
+| Auto-apply low-risk fixes with audit trail | LOW risk proposals (shared context additions) applied automatically, logged for review | MEDIUM | Proposal generation + file write capability + audit logging | Follows the IaC remediation pattern: auto-remediate low-risk drift, escalate high-risk. "Auto-applied: Added dispute_status context to invoice-processor-agent. [View change]." Requires reliable undo capability. |
+| Event trigger proposals | Propose event-driven coordination between swarms: "When Swarm A completes X, trigger Swarm B's Y" | HIGH | Blind spot analysis + Orq.ai platform capabilities assessment | This goes beyond spec changes into architectural coordination. Requires understanding whether Orq.ai supports event triggers between agents (A2A Protocol support is noted in PROJECT.md). If platform supports it, propose the wiring. If not, propose manual handoff documentation. |
+| Batch proposal review and selective apply | Present all proposals for a swarm ecosystem as a batch; user selects which to apply | LOW | Proposal generation output | Checklist UI: [ ] Proposal 1 (LOW risk) [x] Proposal 2 (MEDIUM risk) [ ] Proposal 3 (HIGH risk). Apply selected. Better UX than one-at-a-time for ecosystems with many findings. |
 
 #### Anti-Features
 
 | Anti-Feature | Why Avoid | What to Do Instead |
 |--------------|-----------|-------------------|
-| Real-time production metrics (latency, throughput, error rate) | Orq.ai handles production observability natively. Duplicating it creates a stale, inferior copy and requires persistent polling infrastructure. | Link to Orq.ai's native traces and analytics. Show a "View in Orq.ai" button per agent. |
-| Custom evaluator creation from dashboard | Evaluator design requires understanding scoring criteria, prompt engineering for LLM judges, and testing the evaluator itself. Not a self-service task. | Use V2.0's role-based evaluator selection. Surface which evaluators were auto-selected and why. |
-| Cost analytics per agent | Token costs are Orq.ai's domain. Requires billing API access and creates anxiety about spending. | If needed, link to Orq.ai billing. Do not replicate cost data in the dashboard. |
+| Full automated rewiring (restructure swarm architectures) | Changing which agents exist, which are sub-agents of which, or splitting/merging swarms is a fundamental architectural decision. Getting it wrong breaks production swarms. | Propose restructuring as a recommendation with rationale. Human triggers a new design pipeline run with updated requirements if they agree. |
+| Cross-swarm deployment orchestration | Deploying coordinated changes across multiple swarms simultaneously requires distributed transaction semantics and rollback capability that does not exist. | Apply fixes to one swarm at a time. Deploy each swarm independently using V2.0 deploy. Document deployment order if sequencing matters. |
+| Self-healing loop (detect drift, auto-fix, auto-deploy) | A fully autonomous loop without human oversight is dangerous for production agents that interact with real business processes and customers. | Detection is automatic. Fix proposals are automatic. Application requires human approval (except explicitly LOW-risk items). Deployment is a separate, human-triggered step. |
 
 
-### Category 5: HITL Approval Flow (Web-Based)
+### Category 5: Trigger and Audit Commands
 
 #### Table Stakes
 
 | Feature | Why Expected | Complexity | Pipeline Dependency | Notes |
 |---------|--------------|------------|---------------------|-------|
-| In-app approval UI | "Approve" / "Reject" / "Request Changes" buttons for pipeline decisions | MEDIUM | V2.0 iteration loop approval gate (currently terminal-based) | Approval card showing: what is being proposed (prompt change diff), why (linked to failing test cases), score impact prediction. Three clear actions. Must be mobile-friendly for approvals on the go. |
-| Approval queue / pending items list | Users must see all items awaiting their approval in one place | LOW | Supabase DB for approval records with status tracking | Badge count on navigation. List view: item description, requested timestamp, urgency indicator. Sorted by oldest first. |
-| Approval status tracking | Pipeline must pause until approval and resume on decision | HIGH | Supabase Realtime for approval state changes, backend pipeline suspension/resumption | Most complex HITL feature. Pipeline writes approval request to Supabase, subscribes to changes. When user approves in UI, pipeline resumes. Requires reliable pub/sub and timeout handling (auto-reject after 24h?). |
-| Approval history / audit log | Record of who approved what and when | LOW | Supabase DB audit table | Timestamp, user, action (approved/rejected/modified), item description. Non-deletable. Required for enterprise trust. |
+| On-demand ecosystem audit command | User runs a command to analyze all swarms right now | LOW | All analysis features above | `/orq-agent:audit` or similar. Runs ecosystem map, drift detection, overlap analysis, produces report. The primary entry point for cross-swarm intelligence. |
+| Auto-trigger on new swarm design | After designing a new swarm, automatically check how it fits with existing swarms | MEDIUM | V1.0 pipeline completion hook + ecosystem analysis | Post-design hook: "New swarm 'dispute-resolution' designed. Checking against existing ecosystem..." Runs overlap and blind spot analysis against existing swarms only (not full audit). Catches conflicts before deployment. |
+| Structured output report | Analysis results in a consistent, parseable format | LOW | All analysis features | Markdown report with sections: Ecosystem Map, Drift Status, Overlaps, Blind Spots, Proposals. Both human-readable and machine-parseable for future web UI consumption. |
 
 #### Differentiators
 
 | Feature | Value Proposition | Complexity | Pipeline Dependency | Notes |
 |---------|-------------------|------------|---------------------|-------|
-| Email notifications for pending approvals | User is away from dashboard; email brings them back to approve | MEDIUM | Microsoft Graph API for sending mail (M365 integration already required for SSO) | Email contains: what needs approval, direct link to approval page, summary of proposed changes. Uses Microsoft Graph `sendMail` API since users already authenticate via M365. Batch digest option (one email per hour, not per approval). |
-| Teams notifications for pending approvals | Meet users where they already are -- Teams is Moyne Roberts' primary communication tool | HIGH | Microsoft Graph API for Teams activity feed notifications or Teams webhook | Teams Adaptive Card with approve/reject buttons inline. Users can approve without opening the dashboard. Requires Teams app registration in Azure AD. More complex than email but higher engagement. Consider webhook-based approach (simpler) vs full Teams app (richer). |
-| Approval with inline comments | Approver can add context: "Approved, but watch the tone in customer-facing responses" | LOW | Text field on approval UI, stored in Supabase | Simple text input alongside approve/reject buttons. Comments stored in audit log and visible in iteration history. Low effort, high value for team communication. |
-| Delegation / escalation | "I'm out of office, route approvals to X" | MEDIUM | User management in Supabase, delegation rules | Overkill for 5-15 users now. But as adoption grows, people go on holiday. Start with manual re-assignment by any user. Auto-escalation after timeout (24h no response -> notify all users). |
+| Incremental analysis (only re-analyze changed swarms) | Full ecosystem analysis is slow for large swarm counts; incremental is fast | MEDIUM | Change detection (file timestamps, git diff) | Track which swarms changed since last audit. Only re-analyze affected swarms and their neighbors. Reduces token cost and execution time. Not needed at launch (few swarms) but valuable as ecosystem grows. |
+| Analysis result caching | Store previous analysis results to show trends over time | LOW | Supabase DB or local file storage | "Last audit (March 1): 3 overlaps. Current audit (March 3): 2 overlaps (1 resolved)." Shows progress. Low effort if using local .md files for now. |
 
 #### Anti-Features
 
 | Anti-Feature | Why Avoid | What to Do Instead |
 |--------------|-----------|-------------------|
-| Approve-all batch action | Undermines the purpose of HITL. If users can bulk-approve without reading, the approval step is theater. | Per-item approval only. Make the approval UI fast (one click) but deliberate (one at a time). |
-| Slack notifications | Moyne Roberts uses Teams, not Slack. Adding Slack support is wasted effort for this user base. | Teams and email only. Both are already in the M365 ecosystem. |
-| SMS notifications | Over-engineering for 5-15 internal users. SMS requires additional provider (Twilio), phone number collection, opt-in flows. | Email and Teams cover all notification needs. Mobile Teams app handles on-the-go approvals. |
-| Approval workflow designer | Non-technical users do not need to design approval chains. The pipeline has exactly one approval point: before prompt changes are applied. | Hardcode the approval flow. One approver (the user who started the run). Expand later only if needed. |
+| Scheduled/periodic automatic audits | Requires persistent infrastructure (cron, serverless). V4.0 is a Claude Code skill, not a service. | On-demand + auto-trigger on design. User runs audit when they want it. Web UI (V3.0+) can add scheduled audits later. |
+| Real-time ecosystem dashboard with live updates | Requires persistent monitoring, WebSocket connections, continuous API polling. This is a V3.0 web UI feature, not a V4.0 CLI feature. | Static report generated on-demand. Web UI renders it when available. Live dashboard is future scope. |
 
 
 ## Feature Dependencies
@@ -169,187 +168,166 @@
 [V2.0 Deploy/Test/Iterate/Harden] ---- COMPLETE
     |
     v
-[V3.0 Web UI Foundation]
-    |-- requires --> [M365 SSO Authentication]
-    |                    |-- requires --> Azure AD app registration
-    |                    |-- requires --> Supabase Auth with Azure AD provider
-    |-- requires --> [Supabase DB Schema]
-    |                    |-- stores --> pipeline runs, steps, approvals, results
-    |-- requires --> [Supabase Realtime Setup]
-    |                    |-- enables --> live status updates across all UI categories
+[V4.0 Cross-Swarm Intelligence]
     |
-    +---> [Self-Service Pipeline UI]
-    |         |-- requires --> [V1.0 pipeline logic exposed as API routes]
-    |         |-- requires --> [Supabase Realtime for live status]
-    |         |-- requires --> [Session persistence in Supabase DB]
+    +---> [Ecosystem Map] (FOUNDATION -- everything depends on this)
+    |         |-- requires --> Local spec parser (reads Agents/*/ directories)
+    |         |-- requires --> Orq.ai state fetcher (MCP agents-list + agents-get)
+    |         |-- requires --> Merge logic (match by agent key)
+    |         |-- produces --> Unified inventory (input to all other features)
     |
-    +---> [Pipeline Progress Dashboard]
-    |         |-- requires --> [Pipeline run data in Supabase DB]
-    |         |-- requires --> [Supabase Realtime for live step updates]
+    +---> [Drift Detection] (depends on Ecosystem Map)
+    |         |-- requires --> [Ecosystem Map] (spec + live state)
+    |         |-- requires --> Field-by-field comparator (18 Orq.ai fields)
+    |         |-- produces --> Per-agent drift report
+    |         |-- optional --> Semantic instruction diff (LLM-based)
     |
-    +---> [Agent Swarm Node Graph]
-    |         |-- requires --> [V1.0 ORCHESTRATION.md data (agent relationships)]
-    |         |-- requires --> React Flow library
-    |         |-- optional --> [Supabase Realtime for execution overlay]
+    +---> [Overlap & Blind Spot Analysis] (depends on Ecosystem Map)
+    |         |-- requires --> [Ecosystem Map] (all swarm specs)
+    |         |-- requires --> Semantic similarity engine (LLM-based role comparison)
+    |         |-- requires --> Tool usage aggregation (cross-swarm tool matrix)
+    |         |-- produces --> Overlap report + blind spot report
+    |         |-- HIGH complexity --> Blind spot detection (implicit data flows)
     |
-    +---> [Agent Performance Dashboard]
-    |         |-- requires --> [V2.0 test-results and iteration-log data]
-    |         |-- requires --> [Data stored in Supabase (not just local .md files)]
-    |         |-- deferred to V3.1 --> test/iterate/harden UI triggers
+    +---> [Fix Proposals] (depends on Overlap & Blind Spot Analysis)
+    |         |-- requires --> [Overlap & Blind Spot Analysis] output
+    |         |-- requires --> Agent spec modification capability (write .md files)
+    |         |-- requires --> Diff preview generation
+    |         |-- requires --> Risk classification logic
+    |         |-- optional --> Auto-apply for LOW risk (requires undo capability)
     |
-    +---> [HITL Approval Flow]
-              |-- requires --> [Supabase DB for approval records]
-              |-- requires --> [Supabase Realtime for pipeline pause/resume]
-              |-- optional --> [Microsoft Graph API for email notifications]
-              |-- optional --> [Microsoft Graph API for Teams notifications]
-              |-- deferred to V3.1 --> prompt iteration approvals (need iterate UI)
+    +---> [Trigger & Audit Commands] (integrates all of the above)
+              |-- requires --> All analysis features wired together
+              |-- requires --> V1.0 pipeline hook for auto-trigger
+              |-- produces --> Structured ecosystem report
 ```
-
-### Critical Dependency: Pipeline Logic as API
-
-The biggest technical dependency is exposing V1.0/V2.0 pipeline logic (currently Claude Code subagents reading/writing .md files) as API-callable services. The web UI backend (Next.js API routes) must be able to:
-
-1. Trigger the pipeline (currently `/orq-agent` Claude Code command)
-2. Stream progress updates (currently printed to terminal)
-3. Receive structured output (currently written to local files)
-4. Pause for approvals (currently terminal prompt)
-
-This is NOT a feature -- it is infrastructure. But every web UI feature depends on it. The V3.0 roadmap must address this before any UI work begins.
 
 ### Dependency Notes
 
-- **Auth is foundational**: Nothing works without M365 SSO. Must be first.
-- **Supabase schema is foundational**: All UI categories read/write pipeline data in Supabase. Schema design before any UI.
-- **Self-service pipeline UI is the critical path**: The dashboard, graph, and performance views are read-only consumers of data the pipeline produces. Without the pipeline running via web, there is nothing to display.
-- **HITL approvals depend on pipeline pause/resume**: The most complex integration. Pipeline must write an approval request, then wait for a Supabase row change before continuing.
-- **Performance dashboard is V3.0 read-only**: In V3.0 scope (core pipeline only), the performance dashboard shows results from V2.0 Claude Code runs stored in Supabase. V3.1 adds triggering test/iterate from the web UI.
-- **Teams notifications are Phase 2 of HITL**: Start with in-app + email. Teams requires Azure AD app registration and Teams app manifest -- separate workstream.
+- **Ecosystem Map is the foundation**: Every other feature needs the unified inventory. Build this first and validate the data model before anything else.
+- **Drift Detection and Overlap Analysis are independent of each other**: Both depend only on the Ecosystem Map. Can be built in parallel.
+- **Fix Proposals depend on Overlap Analysis**: You cannot propose fixes without knowing what is wrong. Fix proposals also need drift detection output (reconciliation direction).
+- **Auto-trigger depends on V1.0 pipeline hook**: The post-design analysis trigger needs the design pipeline to signal completion. This is a pipeline integration point.
+- **Semantic analysis (instructions, roles) is the expensive part**: Both blind spot detection and instruction diff rely on LLM-based semantic comparison. Budget token cost carefully. Consider caching semantic analysis results.
+- **Auto-apply requires undo**: Before auto-applying any fix, the system must be able to revert. Git-based undo (spec files are in a git repo) is the simplest approach.
 
 
-## MVP Recommendation (V3.0 Core)
+## MVP Recommendation (V4.0 Core)
 
-### Must Build (Table Stakes + Core Differentiators)
+### Must Build (Table Stakes -- Phase 1)
 
-1. **M365 SSO authentication** -- gate everything behind Azure AD login
-2. **Self-service pipeline UI** -- text input, step indicator, live status, output display, error handling, session persistence
-3. **Pipeline progress dashboard** -- run list, step-by-step progress, duration tracking, success/failure summary
-4. **Agent swarm node graph** -- node-per-agent, directed edges, agent detail panel, orchestrator distinction
-5. **One-click deploy** -- the differentiator that justifies the web UI for non-technical users
-6. **In-app HITL approval UI** -- approve/reject/request changes with diff view
-7. **Email notifications for approvals** -- catch away users via M365 Graph API
+1. **Local spec aggregation** -- Parse all `Agents/*/` directories into structured inventory
+2. **Orq.ai live state fetch** -- Pull all deployed agents via MCP/API
+3. **Unified ecosystem map** -- Merge specs + live state, report per-agent status
+4. **Field-by-field drift detection** -- Compare spec vs deployed for all 18 Orq.ai fields
+5. **Drift severity classification** -- CRITICAL/WARNING/INFO so users focus on what matters
+6. **Agent role overlap detection** -- Semantic comparison of agent roles across swarms
+7. **Tool duplication detection** -- Exact match of tool usage across swarms
+8. **On-demand audit command** -- Single command to run full analysis
+9. **Structured ecosystem report** -- Markdown output with all findings
 
-### Should Build (High-Value Differentiators)
+### Should Build (Core Differentiators -- Phase 2)
 
-8. **Pipeline execution overlay on graph** -- nodes light up during execution (the "wow factor")
-9. **Per-agent and per-evaluator score display** -- read-only performance data from V2.0 runs
-10. **Use case templates** -- reduce friction for common patterns
-11. **Cancel running pipeline** -- escape hatch for wrong inputs
-12. **Approval with inline comments** -- low effort, high team communication value
+10. **Blind spot identification** -- Find missing handoffs between swarms (hardest, highest value)
+11. **Shared context injection proposals** -- Propose adding cross-swarm awareness to agents
+12. **Data contract proposals** -- Define inter-swarm communication schemas
+13. **Fix proposal with diff preview** -- Show exact spec changes before applying
+14. **Risk classification per proposal** -- LOW/MEDIUM/HIGH so humans know review depth
+15. **Auto-trigger on new swarm design** -- Check new swarm against ecosystem automatically
 
-### Defer to V3.1+
+### Should Build (Polish -- Phase 3)
 
-- **Teams notifications** -- requires Teams app registration, Adaptive Cards, separate workstream
-- **Score trend charts** -- needs multiple test runs; not useful until iterate is web-enabled
-- **Prompt change diff viewer** -- needs iterate capability in web UI
-- **Worst-performing test cases display** -- needs test triggering from web UI
-- **Historical run comparison** -- needs accumulated data over time
-- **Live log stream** -- nice-to-have for technical users who have Claude Code anyway
-- **Delegation/escalation** -- premature for 5-15 users
+16. **Auto-apply low-risk fixes** -- Apply shared context additions automatically with audit trail
+17. **Drift reconciliation direction recommendation** -- Suggest cloud-to-code vs code-to-cloud
+18. **Cross-swarm tool usage matrix** -- Visual matrix of tool usage across ecosystem
+19. **Swarm maturity scorecard** -- At-a-glance health per swarm
+20. **Batch proposal review** -- Select and apply multiple proposals at once
+
+### Defer (V4.1+ or V3.0 Web UI)
+
+- **Cross-swarm data flow diagram** -- HIGH complexity, needs rich visualization (web UI)
+- **Semantic coverage analysis** -- Requires business domain context, better as prompted analysis
+- **Instruction semantic diff** -- High token cost, marginal value over field-level diff
+- **Incremental analysis** -- Not needed with few swarms, valuable at scale
+- **Event trigger proposals** -- Depends on Orq.ai A2A Protocol maturity
+- **Scheduled audits** -- Requires persistent infrastructure (web UI feature)
 
 ### Explicitly Do NOT Build
 
-- Visual pipeline builder / drag-and-drop agent wiring
-- Editable spec fields in the UI
-- Real-time production metrics (Orq.ai handles this)
-- 3D graph visualization
-- Slack notifications
-- Approve-all batch action
-- Custom evaluator creation from dashboard
+- Real-time agent performance monitoring (Orq.ai handles this)
+- Automatic agent merging across swarms (too risky for auto)
+- Full automated rewiring of swarm architectures (human decision)
+- Self-healing detect-fix-deploy loop (no unsupervised production changes)
+- Cross-swarm deployment orchestration (one swarm at a time via V2.0)
+- Runtime interaction analysis (design-time scope only)
 
 
 ## Feature Prioritization Matrix
 
 | Feature | User Value | Implementation Cost | Priority | Category |
 |---------|------------|---------------------|----------|----------|
-| M365 SSO | HIGH (blocker) | MEDIUM | P0 | Auth |
-| Use case text input with guidance | HIGH | LOW | P0 | Pipeline UI |
-| Pipeline step indicator | HIGH | LOW | P0 | Pipeline UI |
-| Live status messages | HIGH | MEDIUM | P0 | Pipeline UI |
-| Output display (agent specs) | HIGH | MEDIUM | P0 | Pipeline UI |
-| Error handling with recovery | HIGH | MEDIUM | P0 | Pipeline UI |
-| Session persistence | HIGH | MEDIUM | P0 | Pipeline UI |
-| Pipeline run list with status | HIGH | LOW | P0 | Dashboard |
-| Step-by-step progress for active run | HIGH | MEDIUM | P0 | Dashboard |
-| Node-per-agent graph | HIGH | MEDIUM | P0 | Graph |
-| Directed edges (data flow) | HIGH | LOW | P0 | Graph |
-| Agent detail panel on click | MEDIUM | LOW | P0 | Graph |
-| One-click deploy to Orq.ai | HIGH | MEDIUM | P1 | Pipeline UI |
-| In-app approval UI | HIGH | MEDIUM | P1 | HITL |
-| Approval queue | MEDIUM | LOW | P1 | HITL |
-| Approval status tracking (pause/resume) | HIGH | HIGH | P1 | HITL |
-| Approval history | MEDIUM | LOW | P1 | HITL |
-| Email notifications | HIGH | MEDIUM | P1 | HITL |
-| Pipeline execution overlay on graph | HIGH | HIGH | P1 | Graph |
-| Per-agent score summary | MEDIUM | LOW | P1 | Performance |
-| Per-evaluator score breakdown | MEDIUM | MEDIUM | P1 | Performance |
-| Swarm-level summary | MEDIUM | LOW | P1 | Performance |
-| Use case templates | MEDIUM | LOW | P2 | Pipeline UI |
-| Complexity preview | MEDIUM | LOW | P2 | Pipeline UI |
-| Cancel running pipeline | MEDIUM | MEDIUM | P2 | Dashboard |
-| Duration per step and total | MEDIUM | LOW | P2 | Dashboard |
-| Status badges on graph nodes | MEDIUM | MEDIUM | P2 | Graph |
-| Zoom/pan/fit-to-view | MEDIUM | LOW (built-in) | P2 | Graph |
-| Export graph as image | LOW | LOW | P2 | Graph |
-| Approval with comments | MEDIUM | LOW | P2 | HITL |
-| Score trend across iterations | MEDIUM | MEDIUM | P3 (V3.1) | Performance |
-| Worst-performing test cases | MEDIUM | MEDIUM | P3 (V3.1) | Performance |
-| Prompt change diff viewer | MEDIUM | MEDIUM | P3 (V3.1) | Performance |
-| Teams notifications | HIGH | HIGH | P3 (V3.1) | HITL |
-| Live log stream | LOW | MEDIUM | P3 (V3.1) | Dashboard |
-| Historical run comparison | LOW | MEDIUM | P3 (V3.1) | Performance |
-| Delegation/escalation | LOW | MEDIUM | P3 (V3.1+) | HITL |
+| Local spec aggregation | HIGH (blocker) | LOW | P0 | Ecosystem Map |
+| Orq.ai live state fetch | HIGH (blocker) | MEDIUM | P0 | Ecosystem Map |
+| Unified ecosystem map | HIGH (blocker) | MEDIUM | P0 | Ecosystem Map |
+| Human-readable ecosystem report | HIGH | LOW | P0 | Ecosystem Map |
+| Field-by-field drift detection | HIGH | MEDIUM | P0 | Drift Detection |
+| Drift severity classification | HIGH | LOW | P0 | Drift Detection |
+| Per-agent drift report | HIGH | LOW | P0 | Drift Detection |
+| Swarm-level drift summary | MEDIUM | LOW | P0 | Drift Detection |
+| Agent role overlap detection | HIGH | MEDIUM | P1 | Overlap Analysis |
+| Tool duplication detection | HIGH | LOW | P1 | Overlap Analysis |
+| Overlap severity classification | MEDIUM | LOW | P1 | Overlap Analysis |
+| On-demand audit command | HIGH | LOW | P1 | Triggers |
+| Structured output report | HIGH | LOW | P1 | Triggers |
+| Blind spot identification | HIGH | HIGH | P1 | Overlap Analysis |
+| Coordination gap report | HIGH | MEDIUM | P1 | Overlap Analysis |
+| Shared context injection proposals | HIGH | MEDIUM | P2 | Fix Proposals |
+| Data contract proposals | MEDIUM | MEDIUM | P2 | Fix Proposals |
+| Fix proposal with diff preview | HIGH | MEDIUM | P2 | Fix Proposals |
+| Risk classification per proposal | HIGH | LOW | P2 | Fix Proposals |
+| Auto-trigger on new swarm design | HIGH | MEDIUM | P2 | Triggers |
+| Auto-apply low-risk fixes | MEDIUM | MEDIUM | P3 | Fix Proposals |
+| Drift reconciliation direction | MEDIUM | MEDIUM | P3 | Drift Detection |
+| Cross-swarm tool matrix | MEDIUM | LOW | P3 | Ecosystem Map |
+| Swarm maturity scorecard | MEDIUM | MEDIUM | P3 | Ecosystem Map |
+| Batch proposal review | MEDIUM | LOW | P3 | Fix Proposals |
+| KB overlap detection | MEDIUM | LOW | P3 | Overlap Analysis |
 
 **Priority key:**
-- P0: Must have for V3.0 launch -- without these the web UI is not viable
-- P1: Core value features -- these justify the web UI over Claude Code
-- P2: Polish features -- improve UX but not blocking launch
-- P3: Deferred to V3.1+ -- depend on accumulated data or test/iterate web support
+- P0: Foundation -- ecosystem map and drift detection must work before any higher-level analysis
+- P1: Core value -- overlap analysis and audit command deliver the V4.0 promise
+- P2: Fix proposals -- the actionable output that makes analysis useful
+- P3: Polish -- auto-apply, matrices, scorecards improve the experience
 
 
-## Competitor Feature Analysis (Web UI Context)
+## Competitor / Adjacent Domain Analysis
 
-| Feature | LangGraph Studio | Dify | MindStudio | n8n | **Orq Agent Designer V3.0** |
-|---------|-----------------|------|------------|-----|---------------------------|
-| Natural language to agents | No (code-first) | Partial (template-based) | Yes (guided builder) | No (visual wiring) | **Yes (full NL pipeline)** |
-| Agent graph visualization | Yes (state graph) | Yes (workflow canvas) | No | Yes (node editor) | **Yes (React Flow, read-only)** |
-| Real-time execution view | Yes (step debugger) | Yes (run logs) | No | Yes (execution view) | **Yes (Supabase Realtime)** |
-| Performance metrics | Yes (LangSmith traces) | Basic (run logs) | Basic | Basic (execution stats) | **Yes (Orq.ai evaluator scores)** |
-| HITL approval in UI | Yes (breakpoints) | No | No | No | **Yes (approval cards + email)** |
-| One-click deploy | No (infrastructure DIY) | Yes (built-in hosting) | Yes (built-in hosting) | Yes (self-hosted) | **Yes (to Orq.ai platform)** |
-| Non-technical user target | No | Partial | Yes | No | **Yes (primary audience)** |
-| SSO / enterprise auth | Yes (enterprise) | Yes (enterprise) | Yes | Yes (enterprise) | **Yes (M365 SSO)** |
+| Feature | IaC Drift Tools (Spacelift, Firefly) | AWS Agent Squad | Event-Driven MAS (Confluent patterns) | **Orq Agent Designer V4.0** |
+|---------|--------------------------------------|-----------------|----------------------------------------|---------------------------|
+| Drift detection | Core feature. Continuous, scheduled, CI/CD-integrated. Compare desired vs actual state. | Not applicable (runtime routing, not spec management) | Not applicable (event schemas, not deployment drift) | **Adapt IaC pattern: spec file = desired state, Orq.ai = actual state** |
+| Overlap analysis | Not applicable (infrastructure, not agents) | TF-IDF similarity on agent descriptions. Thresholds: >30% High, 10-30% Medium, <10% Low. | Not applicable | **LLM-based semantic similarity (better than TF-IDF for natural language agent specs)** |
+| Blind spot detection | Gap analysis in security/compliance scans | Not directly (routing coverage analysis possible) | Event schema coverage analysis (which events have no subscribers) | **Infer from agent instructions + ORCHESTRATION.md data flows** |
+| Fix proposals | Auto-remediation (code-to-cloud or cloud-to-code) | Recommendation to refine agent descriptions | Suggest new event subscriptions | **Shared context proposals + data contracts + instruction modifications** |
+| Auto-apply | Yes, for low-risk drift (settings changes) | No (manual configuration) | No (schema changes need review) | **Yes, for LOW risk only (shared context additions)** |
+| Reconciliation direction | Smart: cloud-to-code if drift from console, code-to-cloud if intended change | N/A | N/A | **Heuristic: check timestamps + version numbers to suggest direction** |
 
-**Key insight:** No competitor combines natural language input, auto-generated agent architectures, visual graph output, evaluator-based performance scoring, AND HITL approval flows in a single non-technical-user-friendly interface. LangGraph Studio is closest but targets developers. Dify targets builders who understand workflow concepts. The non-technical self-service angle is the differentiator.
+**Key insight:** No existing tool does cross-swarm intelligence for AI agent design pipelines. The closest analogies are IaC drift detection (spec vs deployed reconciliation) and AWS Agent Squad overlap analysis (agent description similarity). V4.0 combines both patterns, adapted for LLM-based agent specs rather than infrastructure definitions. The event-driven MAS patterns (data contracts, shared signals) inform the fix proposal vocabulary.
 
 
 ## Sources
 
-- [React Flow](https://reactflow.dev/) -- Node-based UI library for agent graph visualization (HIGH confidence)
-- [Supabase Realtime with Next.js](https://supabase.com/docs/guides/realtime/realtime-with-nextjs) -- Official docs for live dashboard updates (HIGH confidence)
-- [Supabase Realtime](https://supabase.com/docs/guides/realtime) -- Postgres Changes, Broadcast, Presence features (HIGH confidence)
-- [Microsoft Graph Approvals API](https://learn.microsoft.com/en-us/graph/approvals-app-api) -- Teams approval workflow integration (HIGH confidence)
-- [Microsoft Graph Activity Feed Notifications](https://learn.microsoft.com/en-us/graph/teams-send-activityfeednotifications) -- Teams notification delivery (HIGH confidence)
-- [Microsoft Graph Send Mail](https://learn.microsoft.com/en-us/graph/api/user-sendmail) -- Email notification via M365 (HIGH confidence)
-- [LangGraph Studio](https://changelog.langchain.com/announcements/langgraph-studio-the-first-agent-ide) -- Competitor: agent IDE with visualization (MEDIUM confidence)
-- [Dify](https://dify.ai/) -- Competitor: agentic workflow builder (MEDIUM confidence)
-- [MindStudio](https://www.mindstudio.ai/) -- Competitor: no-code AI agent builder (MEDIUM confidence)
-- [Reagraph](https://reagraph.dev/) -- Alternative graph library, WebGL-based (MEDIUM confidence)
-- [Smashing Magazine: UX Strategies for Real-Time Dashboards](https://www.smashingmagazine.com/2025/09/ux-strategies-real-time-dashboards/) -- Dashboard UX patterns (MEDIUM confidence)
-- [Zapier HITL](https://zapier.com/blog/human-in-the-loop/) -- HITL workflow patterns (MEDIUM confidence)
-- [Relay.app HITL](https://docs.relay.app/human-in-the-loop/human-in-the-loop-steps) -- HITL notification patterns (MEDIUM confidence)
-- [Knock Agent Toolkit HITL](https://docs.knock.app/developer-tools/agent-toolkit/human-in-the-loop-flows) -- HITL notification infrastructure (MEDIUM confidence)
-- [AI Agent Interfaces with React Flow](https://damiandabrowski.medium.com/day-90-of-100-days-agentic-engineer-challenge-ai-agent-interfaces-with-react-flow-21538a35d098) -- React Flow for agent UIs (LOW confidence)
+- [AWS Agent Squad -- Agent Overlap Analysis](https://awslabs.github.io/agent-squad/cookbook/monitoring/agent-overlap/) -- TF-IDF-based overlap detection with severity thresholds (MEDIUM confidence)
+- [Spacelift -- Infrastructure Drift Detection and Reconciliation](https://spacelift.io/drift-detection) -- IaC drift detection patterns, reconciliation strategies (MEDIUM confidence)
+- [Firefly -- Enterprise Drift Management](https://www.firefly.ai/academy/enterprise-drift-management) -- Enterprise-scale drift tiers and auto-remediation (MEDIUM confidence)
+- [Pulumi -- Day 2 Operations: Drift Detection and Remediation](https://www.pulumi.com/blog/day-2-operations-drift-detection-and-remediation/) -- Drift detection in CI/CD, remediation strategies (MEDIUM confidence)
+- [NSync -- Automated Cloud IaC Reconciliation with AI Agents](https://arxiv.org/html/2510.20211v1) -- AI-driven IaC reconciliation from API traces (MEDIUM confidence)
+- [Confluent -- Four Design Patterns for Event-Driven Multi-Agent Systems](https://www.confluent.io/blog/event-driven-multi-agent-systems/) -- Event-driven coordination patterns, shared context (MEDIUM confidence)
+- [Tacnode -- AI Agent Coordination: 8 Proven Patterns](https://tacnode.io/post/ai-agent-coordination) -- Shared context, semantic contracts, conflict detection patterns (MEDIUM confidence)
+- [Agent Drift -- Measuring and Managing Performance Degradation](https://medium.com/@kpmu71/agent-drift-measuring-and-managing-performance-degradation-in-ai-agents-adfd8435f745) -- Drift categories: Goal, Context, Reasoning, Collaboration (LOW confidence)
+- [Agent Drift: The Reliability Blind Spot in Multi-Agent LLM Systems](https://medium.com/@adnanmasood/agent-drift-the-reliability-blind-spot-in-multi-agent-llm-systems-and-a-blueprint-to-measure-it-7c653d684b80) -- Behavioral drift detection blueprint (LOW confidence)
+- [Multi-Agent Coordination across Diverse Applications: A Survey](https://arxiv.org/html/2502.14743v2) -- Academic survey of coordination patterns (MEDIUM confidence)
+- [Agent Interoperability Protocols Survey (MCP, ACP, A2A, ANP)](https://arxiv.org/html/2505.02279v1) -- Protocol landscape for agent communication (MEDIUM confidence)
 
 ---
-*Feature research for: V3.0 Web UI & Dashboard (Orq Agent Designer)*
+*Feature research for: V4.0 Cross-Swarm Intelligence (Orq Agent Designer)*
 *Researched: 2026-03-03*

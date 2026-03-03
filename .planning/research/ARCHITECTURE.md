@@ -1,1035 +1,437 @@
-# Architecture Research: V3.0 Web UI & Dashboard
+# Architecture Research: Cross-Swarm Intelligence Layer
 
-**Domain:** Web-based agent design pipeline with realtime dashboard
+**Domain:** Cross-swarm analysis and coordination for Orq.ai agent ecosystems
 **Researched:** 2026-03-03
-**Confidence:** MEDIUM-HIGH (Supabase Realtime and Next.js patterns well-documented; pipeline logic extraction is the novel integration challenge)
+**Confidence:** HIGH (domain-specific architecture derived from existing codebase; no external dependencies)
 
-## System Overview -- V3.0 Web App Layer
-
-V3.0 adds a browser-based interface to the existing V2.0 pipeline. The core challenge: the pipeline logic currently lives in markdown instruction files that Claude Code interprets -- these need to execute from Next.js API routes via the Claude API instead. The web app does NOT replace the Claude Code skill; both interfaces share the same pipeline logic and reference files from the same GitHub repo.
+## System Overview
 
 ```
-+-----------------------------------------------------------------------+
-|                      User Layer (TWO INTERFACES)                       |
-|  +----------------------------+  +----------------------------------+ |
-|  | Claude Code CLI (existing) |  | Next.js Web App (NEW)            | |
-|  | /orq-agent commands        |  | Browser UI + Dashboard           | |
-|  +-------------+--------------+  +----------------+-----------------+ |
-+----------------+----------------------------------+-+-----------------+
-                 |                                  | |
-+----------------+----------------------------------+-+-----------------+
-|                    Orchestration Layer                                  |
-|  +----------------------------+  +----------------------------------+ |
-|  | Claude Code Task() spawns  |  | Next.js API Routes (NEW)         | |
-|  | (orq-agent.md pipeline)    |  | Pipeline orchestrator via         | |
-|  |                            |  | Inngest durable functions         | |
-|  +----------------------------+  +----------------------------------+ |
-|                                              |                         |
-|  +----------------------------------------------------------+         |
-|  |         SHARED: Pipeline Logic (markdown prompts)         |         |
-|  |  agents/*.md  |  references/*.md  |  templates/*.md       |         |
-|  |  (same files, same repo, used by both interfaces)         |         |
-|  +----------------------------------------------------------+         |
-+------------------------------------------------------------------------+
-|                    Execution Layer                                      |
-|  +----------------------------+  +----------------------------------+ |
-|  | Claude Code (existing)     |  | Claude API via @anthropic-ai/sdk | |
-|  | Task() -> subagent.md      |  | messages.create() with system    | |
-|  | Native tool use            |  | prompt from subagent.md          | |
-|  +----------------------------+  +----------------------------------+ |
-|                                              |                         |
-|  +----------------------------------------------------------+         |
-|  |         SHARED: Orq.ai Integration                        |         |
-|  |  @orq-ai/node SDK for agent CRUD, datasets, experiments   |         |
-|  |  REST API fallback (same endpoints, same auth)             |         |
-|  +----------------------------------------------------------+         |
-+------------------------------------------------------------------------+
-|                    State & Realtime Layer (NEW)                         |
-|  +----------------------------------------------------------+         |
-|  |                    Supabase                                |         |
-|  |  Auth (M365 SSO via Azure AD)                              |         |
-|  |  PostgreSQL (pipeline runs, steps, results, agent specs)   |         |
-|  |  Realtime (postgres_changes for live dashboard updates)    |         |
-|  |  Storage (generated spec files, logs)                      |         |
-|  +----------------------------------------------------------+         |
-+------------------------------------------------------------------------+
+                         ENTRY POINTS
+  /orq-agent "..."       /orq-agent:audit        auto-trigger
+  (existing pipeline)    (new command)            (post-design hook)
+        |                      |                        |
+        v                      v                        v
+┌──────────────────────────────────────────────────────────────┐
+│                   CROSS-SWARM INTELLIGENCE                   │
+│                                                              │
+│  ┌──────────────┐  ┌───────────────┐  ┌──────────────────┐  │
+│  │  Ecosystem    │  │  Drift        │  │  Overlap &       │  │
+│  │  Mapper       │  │  Detector     │  │  Gap Analyzer    │  │
+│  └──────┬───────┘  └───────┬───────┘  └────────┬─────────┘  │
+│         │                  │                    │            │
+│         v                  v                    v            │
+│  ┌──────────────────────────────────────────────────────┐   │
+│  │              Cross-Swarm Model (in-memory)            │   │
+│  │  - unified agent registry                             │   │
+│  │  - tool/KB overlap index                              │   │
+│  │  - data flow graph                                    │   │
+│  │  - drift records                                      │   │
+│  └──────────────────────────┬───────────────────────────┘   │
+│                             │                               │
+│  ┌──────────────┐  ┌───────┴────────┐                       │
+│  │  Fix          │  │  Report        │                       │
+│  │  Proposer     │  │  Generator     │                       │
+│  └──────┬───────┘  └───────┬────────┘                       │
+│         │                  │                                │
+└─────────┼──────────────────┼────────────────────────────────┘
+          │                  │
+          v                  v
+  ┌──────────────┐    ┌──────────────┐
+  │ Auto-apply   │    │ ECOSYSTEM-   │
+  │ low-risk     │    │ REPORT.md    │
+  │ (edit specs) │    │ root level   │
+  └──────────────┘    └──────────────┘
 ```
 
-## Component Architecture
+### How It Integrates With Existing Architecture
 
-### Component Boundaries
+The cross-swarm layer sits **above** the existing single-swarm pipeline. It does not modify the pipeline itself -- it reads outputs and Orq.ai state, then produces analysis artifacts. Integration points are narrow and additive.
 
-| Component | Responsibility | Communicates With |
-|-----------|---------------|-------------------|
-| **Next.js Frontend** | React UI: input form, node graph, pipeline dashboard, HITL approvals | Supabase (reads/subscribes), API routes (mutations) |
-| **Next.js API Routes** | HTTP endpoints for starting pipelines, approving steps, fetching data | Inngest (trigger functions), Supabase (write state), Claude API (pipeline execution) |
-| **Inngest Functions** | Durable pipeline orchestration: step-by-step execution with retry, state persistence | Claude API (execute prompts), Orq.ai API (deploy/test), Supabase (write step results) |
-| **Supabase Auth** | M365 SSO via Azure AD, session management, RLS enforcement | Azure AD (OIDC), all other components (JWT validation) |
-| **Supabase DB** | Pipeline state, step results, agent specs, user data | All server-side components (read/write) |
-| **Supabase Realtime** | Push step status changes to dashboard clients via WebSocket | Frontend (subscribe), DB triggers (on UPDATE/INSERT) |
-| **Claude API** | Execute pipeline prompts (architect, researcher, spec-gen, etc.) | Inngest functions (called from steps) |
-| **Orq.ai API** | Agent CRUD, dataset management, experiment execution | Inngest functions (called from deploy/test/iterate steps) |
+**Existing components that change:**
 
-### New vs Modified vs Unchanged Components
+| Component | Change | Scope |
+|-----------|--------|-------|
+| `commands/orq-agent.md` (orchestrator) | Add post-pipeline hook: after Step 7 (final summary), trigger ecosystem analysis if other swarms exist in `Agents/` | ~10 lines added to Step 7 |
+| `SKILL.md` | Register new command (`/orq-agent:audit`) and new agents (ecosystem-mapper, drift-detector, overlap-analyzer, fix-proposer) | Index entries only |
+| Output directory convention | Add `ECOSYSTEM-REPORT.md` at `Agents/` root level when cross-swarm analysis runs | Convention extension |
 
-**NEW Components (Web App):**
+**Existing components that do NOT change:**
 
-| Component | Purpose | Location |
-|-----------|---------|----------|
-| `app/` (Next.js) | Frontend pages: pipeline wizard, dashboard, node graph, settings | `web/app/` |
-| `app/api/` (API routes) | Pipeline triggers, HITL approval endpoints, data queries | `web/app/api/` |
-| `inngest/functions/` | Durable pipeline functions: run-pipeline, deploy, test, iterate | `web/inngest/` |
-| `lib/pipeline/` | Pipeline logic adapter: reads .md prompts, calls Claude API | `web/lib/pipeline/` |
-| `lib/supabase/` | Supabase client, types, RLS helpers | `web/lib/supabase/` |
-| `components/` | React components: NodeGraph, PipelineStatus, ApprovalCard | `web/components/` |
-| `supabase/migrations/` | Database schema migrations | `web/supabase/migrations/` |
+- All existing subagents (architect, researcher, spec-generator, etc.)
+- All existing templates
+- All existing references
+- The deploy/test/iterate/harden pipeline
+- The `.orq-agent/config.json` capability tier system
+- The MCP-first/REST-fallback pattern
 
-**UNCHANGED Components:**
+## New Components
 
-All existing `orq-agent/` files: agents/*.md, commands/*.md, references/*.md, templates/*.md, SKILL.md. The Claude Code skill continues to work exactly as-is. The web app reads the same `.md` files as Claude Code does, but executes them via the Claude API instead of Claude Code's Task() mechanism.
+### New Commands
 
-**SHARED (Read by Both Interfaces):**
+| Command | File | Purpose |
+|---------|------|---------|
+| `/orq-agent:audit` | `commands/audit.md` | On-demand cross-swarm analysis. Reads all swarms in `Agents/`, queries Orq.ai live state, produces ecosystem report |
 
-| File | Claude Code Uses | Web App Uses |
-|------|-----------------|--------------|
-| `agents/architect.md` | Task() spawn with `files_to_read` | System prompt for Claude API `messages.create()` |
-| `agents/spec-generator.md` | Task() spawn per agent | System prompt for parallel Claude API calls |
-| `references/*.md` | Loaded by subagents via `files_to_read` | Injected as context in Claude API system prompts |
-| `templates/*.md` | Read by subagents during generation | Read and injected as context in Claude API calls |
+### New Subagents (all .md instruction files, consistent with existing pattern)
 
-## Question 1: How to Share Pipeline Logic Between Claude Code Skill and Next.js
+| Agent | File | Purpose |
+|-------|------|---------|
+| Ecosystem Mapper | `agents/ecosystem-mapper.md` | Reads local specs + Orq.ai live state, builds unified cross-swarm model |
+| Drift Detector | `agents/drift-detector.md` | Compares local specs against live Orq.ai state, flags divergences |
+| Overlap Analyzer | `agents/overlap-analyzer.md` | Finds duplicate capabilities, missing handoffs, shared data points across swarms |
+| Fix Proposer | `agents/fix-proposer.md` | Generates concrete fix proposals (shared signals, data contracts, event triggers) |
 
-### The Core Problem
+### New Templates
 
-Pipeline logic lives in markdown files like `agents/architect.md`. In Claude Code, these are instruction files for Task() spawns. In Next.js, there is no Task() -- we need to call the Claude API directly with the same prompts.
+| Template | File | Purpose |
+|----------|------|---------|
+| Ecosystem Report | `templates/ecosystem-report.md` | Output template for cross-swarm analysis results |
+| Fix Proposal | `templates/fix-proposal.md` | Output template for individual fix proposals with risk classification |
 
-### Architecture Decision: Prompt Extraction Layer
+### New Output Artifacts
 
-Use `@anthropic-ai/sdk` to call Claude API directly from Inngest functions, reading the same `.md` files as system prompts. The pipeline adapter reads the markdown file, strips the YAML frontmatter and `<files_to_read>` directives, resolves the referenced files into context, and constructs a Claude API message.
+| Artifact | Location | Purpose |
+|----------|----------|---------|
+| `ECOSYSTEM-REPORT.md` | `Agents/ECOSYSTEM-REPORT.md` (root level, not per-swarm) | Master cross-swarm analysis |
+| Per-swarm cross-swarm view | `Agents/[swarm]/CROSS-SWARM.md` | Per-swarm view of cross-swarm relationships and recommendations |
 
-```typescript
-// lib/pipeline/prompt-adapter.ts
-import Anthropic from '@anthropic-ai/sdk';
-import { readFile } from 'fs/promises';
-import matter from 'gray-matter';
+## Component Responsibilities
 
-interface PipelineStep {
-  systemPrompt: string;
-  contextFiles: string[];
-}
+| Component | Responsibility | Implementation |
+|-----------|----------------|----------------|
+| Audit Command | Entry point, orchestrates the 4 subagents sequentially, handles HITL for fix proposals | .md command file, same pattern as `orq-agent.md` orchestrator |
+| Ecosystem Mapper | Discovers all swarms (local + Orq.ai), builds unified registry of agents, tools, KBs, data flows | .md subagent, reads `Agents/*/` dirs + calls Orq.ai API via MCP/REST |
+| Drift Detector | Compares local spec fields against Orq.ai live state for each deployed agent | .md subagent, reuses deployer's diff logic (field-by-field comparison) |
+| Overlap Analyzer | Cross-references agent responsibilities, tool assignments, KB references, data flow graphs across swarms | .md subagent, LLM reasoning over the ecosystem map |
+| Fix Proposer | Generates actionable fix proposals with risk classification (low-risk auto-apply vs. structural escalation) | .md subagent, produces structured proposals |
+| Report Assembly | Assembles final report from subagent outputs | Built into audit command (not a separate agent) |
 
-/**
- * Reads a subagent .md file and extracts the system prompt + context file paths.
- * Same file that Claude Code uses via Task() -- single source of truth.
- */
-async function loadSubagentPrompt(agentPath: string): Promise<PipelineStep> {
-  const raw = await readFile(agentPath, 'utf-8');
-  const { content, data } = matter(raw);
-
-  // Extract <files_to_read> block
-  const filesMatch = content.match(/<files_to_read>([\s\S]*?)<\/files_to_read>/);
-  const contextFiles = filesMatch
-    ? filesMatch[1].split('\n').filter(l => l.trim().startsWith('-')).map(l => l.replace(/^-\s*/, '').trim())
-    : [];
-
-  // Strip the <files_to_read> block from the prompt (context is injected separately)
-  const systemPrompt = content.replace(/<files_to_read>[\s\S]*?<\/files_to_read>/, '').trim();
-
-  return { systemPrompt, contextFiles };
-}
-
-/**
- * Execute a pipeline step by calling Claude API with the subagent prompt.
- */
-async function executeStep(
-  client: Anthropic,
-  agentPath: string,
-  userInput: string,
-  additionalContext?: Record<string, string>
-): Promise<string> {
-  const { systemPrompt, contextFiles } = await loadSubagentPrompt(agentPath);
-
-  // Load context files (same files the Claude Code subagent would read)
-  const contextParts: string[] = [];
-  for (const filePath of contextFiles) {
-    const content = await readFile(filePath, 'utf-8');
-    contextParts.push(`<file path="${filePath}">\n${content}\n</file>`);
-  }
-
-  // Inject additional context (blueprint, research brief, etc.)
-  if (additionalContext) {
-    for (const [key, value] of Object.entries(additionalContext)) {
-      contextParts.push(`<context name="${key}">\n${value}\n</context>`);
-    }
-  }
-
-  const fullSystemPrompt = [systemPrompt, ...contextParts].join('\n\n');
-
-  const response = await client.messages.create({
-    model: 'claude-sonnet-4-20250514',
-    max_tokens: 8192,
-    system: fullSystemPrompt,
-    messages: [{ role: 'user', content: userInput }],
-  });
-
-  return response.content[0].type === 'text' ? response.content[0].text : '';
-}
-```
-
-### Why This Approach (Not Alternatives)
-
-| Approach | Verdict | Reason |
-|----------|---------|--------|
-| **Prompt extraction (chosen)** | USE | Single source of truth. Same .md files, same prompts. Web app reads them at runtime. |
-| Duplicate prompts for web app | AVOID | Two copies drift immediately. Maintenance nightmare. |
-| Abstract pipeline into a shared SDK | AVOID (for now) | Over-engineering. The .md files ARE the abstraction. Adding a TypeScript SDK layer between them adds complexity with no benefit at 5-15 users. |
-| Run Claude Code as a subprocess from Next.js | AVOID | Claude Code requires interactive terminal. Not designed for programmatic invocation from server processes. |
-
-### Tool Execution Difference
-
-In Claude Code, subagents can use tools (Read, Write, Bash, etc.) natively. In the web app, Claude API tool use must be handled explicitly:
-
-- **File read/write:** The Inngest function handles file I/O directly (reads context files before calling Claude, writes output files after).
-- **Orq.ai API calls:** The Inngest function makes Orq.ai API calls directly using `@orq-ai/node` SDK -- Claude does not need tool use for this.
-- **Web search (researcher):** Use Claude API with `web_search` tool enabled, or pre-fetch domain research and inject as context.
-
-The key insight: in the Claude Code skill, the LLM orchestrates tool use interactively. In the web app, the Inngest function orchestrates tool use programmatically, and the LLM is called purely for reasoning/generation. This is actually simpler and more predictable.
-
-## Question 2: Supabase Schema Design for Pipeline Runs/Steps/Results
-
-### Schema Design
-
-```sql
--- Users (synced from M365 SSO via Supabase Auth)
--- Supabase auth.users handles this automatically
-
--- Pipeline runs (one per "use case -> agents" execution)
-CREATE TABLE pipeline_runs (
-  id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id       UUID NOT NULL REFERENCES auth.users(id),
-  status        TEXT NOT NULL DEFAULT 'pending'
-                CHECK (status IN ('pending', 'discussion', 'running', 'awaiting_approval',
-                                  'completed', 'failed', 'cancelled')),
-  use_case      TEXT NOT NULL,
-  discussion    JSONB,            -- Discussion summary from Step 2
-  swarm_name    TEXT,             -- Set after architect completes
-  agent_count   INT,             -- Set after architect completes
-  pattern       TEXT,            -- single | sequential | parallel
-  created_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
-  updated_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
-  completed_at  TIMESTAMPTZ,
-  error         TEXT              -- Error message if failed
-);
-
--- Pipeline steps (one per wave/stage execution)
-CREATE TABLE pipeline_steps (
-  id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  run_id        UUID NOT NULL REFERENCES pipeline_runs(id) ON DELETE CASCADE,
-  step_name     TEXT NOT NULL,     -- 'architect', 'tool_resolver', 'researcher',
-                                   -- 'spec_generator', 'orchestration_generator',
-                                   -- 'dataset_generator', 'readme_generator',
-                                   -- 'deploy', 'test', 'iterate', 'harden'
-  step_order    INT NOT NULL,      -- Execution order (for display)
-  status        TEXT NOT NULL DEFAULT 'pending'
-                CHECK (status IN ('pending', 'running', 'completed', 'failed',
-                                  'skipped', 'awaiting_approval')),
-  agent_key     TEXT,              -- NULL for swarm-wide steps, agent key for per-agent steps
-  input_data    JSONB,            -- Input context (file paths, parameters)
-  output_data   JSONB,            -- Step result (generated content, file paths)
-  started_at    TIMESTAMPTZ,
-  completed_at  TIMESTAMPTZ,
-  duration_ms   INT,
-  error         TEXT
-);
-
--- Agent specs (generated by spec_generator, stored for dashboard display)
-CREATE TABLE agent_specs (
-  id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  run_id        UUID NOT NULL REFERENCES pipeline_runs(id) ON DELETE CASCADE,
-  agent_key     TEXT NOT NULL,
-  agent_name    TEXT NOT NULL,     -- Human-readable name
-  role          TEXT,
-  description   TEXT,
-  model         TEXT,
-  spec_content  TEXT,              -- Full markdown spec
-  orqai_id      TEXT,              -- Orq.ai resource ID after deployment
-  deploy_status TEXT DEFAULT 'pending'
-                CHECK (deploy_status IN ('pending', 'deployed', 'failed', 'updated')),
-  test_score    NUMERIC(5,4),     -- Latest test score (0.0000 - 1.0000)
-  created_at    TIMESTAMPTZ NOT NULL DEFAULT now()
-);
-
--- Node graph data (agent relationships for visualization)
-CREATE TABLE swarm_graph (
-  id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  run_id        UUID NOT NULL REFERENCES pipeline_runs(id) ON DELETE CASCADE,
-  nodes         JSONB NOT NULL,    -- React Flow node array
-  edges         JSONB NOT NULL,    -- React Flow edge array
-  layout        JSONB,            -- Saved layout positions
-  created_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
-  updated_at    TIMESTAMPTZ NOT NULL DEFAULT now()
-);
-
--- HITL approval requests
-CREATE TABLE approval_requests (
-  id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  run_id        UUID NOT NULL REFERENCES pipeline_runs(id) ON DELETE CASCADE,
-  step_id       UUID NOT NULL REFERENCES pipeline_steps(id) ON DELETE CASCADE,
-  type          TEXT NOT NULL CHECK (type IN ('blueprint', 'iteration', 'deploy')),
-  title         TEXT NOT NULL,
-  description   TEXT,
-  payload       JSONB NOT NULL,    -- What needs approval (blueprint, proposed changes, etc.)
-  status        TEXT NOT NULL DEFAULT 'pending'
-                CHECK (status IN ('pending', 'approved', 'rejected', 'modified')),
-  response      JSONB,            -- User's response (approval, modifications)
-  responded_by  UUID REFERENCES auth.users(id),
-  responded_at  TIMESTAMPTZ,
-  created_at    TIMESTAMPTZ NOT NULL DEFAULT now()
-);
-
--- Indexes for common queries
-CREATE INDEX idx_pipeline_runs_user ON pipeline_runs(user_id);
-CREATE INDEX idx_pipeline_runs_status ON pipeline_runs(status);
-CREATE INDEX idx_pipeline_steps_run ON pipeline_steps(run_id);
-CREATE INDEX idx_pipeline_steps_status ON pipeline_steps(status);
-CREATE INDEX idx_agent_specs_run ON agent_specs(run_id);
-CREATE INDEX idx_approval_requests_run ON approval_requests(run_id);
-CREATE INDEX idx_approval_requests_status ON approval_requests(status);
-
--- Enable Realtime on tables that need live updates
-ALTER PUBLICATION supabase_realtime ADD TABLE pipeline_runs;
-ALTER PUBLICATION supabase_realtime ADD TABLE pipeline_steps;
-ALTER PUBLICATION supabase_realtime ADD TABLE agent_specs;
-ALTER PUBLICATION supabase_realtime ADD TABLE approval_requests;
-
--- Row Level Security
-ALTER TABLE pipeline_runs ENABLE ROW LEVEL SECURITY;
-ALTER TABLE pipeline_steps ENABLE ROW LEVEL SECURITY;
-ALTER TABLE agent_specs ENABLE ROW LEVEL SECURITY;
-ALTER TABLE swarm_graph ENABLE ROW LEVEL SECURITY;
-ALTER TABLE approval_requests ENABLE ROW LEVEL SECURITY;
-
--- RLS Policies: All Moyne Roberts employees can see all runs (small team, collaborative)
-CREATE POLICY "Authenticated users can view all runs"
-  ON pipeline_runs FOR SELECT
-  USING (auth.role() = 'authenticated');
-
-CREATE POLICY "Users can create their own runs"
-  ON pipeline_runs FOR INSERT
-  WITH CHECK (auth.uid() = user_id);
-
-CREATE POLICY "Users can update their own runs"
-  ON pipeline_runs FOR UPDATE
-  USING (auth.uid() = user_id);
-
--- Similar policies for child tables (CASCADE from run ownership)
-CREATE POLICY "Authenticated users can view all steps"
-  ON pipeline_steps FOR SELECT
-  USING (EXISTS (
-    SELECT 1 FROM pipeline_runs WHERE id = pipeline_steps.run_id
-  ));
-
--- Service role policies for Inngest functions (server-side writes)
--- Inngest functions use the service_role key, which bypasses RLS
-```
-
-### Schema Design Rationale
-
-**Why `pipeline_steps` is flat (not a recursive tree):** The pipeline has a known, fixed structure. Steps map 1:1 to subagent executions. A flat table with `step_order` is simpler to query and subscribe to than a recursive structure. The step_name enum matches the existing pipeline stages exactly.
-
-**Why JSONB for `output_data`:** Each step produces different output shapes (blueprint text, research brief, agent spec, test scores). JSONB accommodates this without requiring separate tables per step type. The dashboard reads the JSONB fields it needs.
-
-**Why `agent_key` on `pipeline_steps`:** Per-agent parallelism (spec generation, dataset generation, deployment) creates multiple steps with the same `step_name` but different `agent_key`. This allows the dashboard to show per-agent progress.
-
-**Why a separate `swarm_graph` table:** The node graph data model (nodes + edges) is generated once after the architect step and updated during deployment (status changes on nodes). Keeping it separate from pipeline_steps avoids repeatedly storing the full graph in step output_data.
-
-## Question 3: Realtime Subscription Patterns for Live Dashboard
-
-### Pattern: Subscribe to Status Changes on `pipeline_steps`
-
-The dashboard subscribes to the `pipeline_steps` table filtered by the current `run_id`. When Inngest functions update step status (pending -> running -> completed), the dashboard receives the change instantly.
-
-```typescript
-// hooks/usePipelineRealtime.ts
-import { useEffect, useState } from 'react';
-import { createClient } from '@/lib/supabase/client';
-import type { PipelineStep } from '@/lib/types';
-
-export function usePipelineRealtime(runId: string) {
-  const [steps, setSteps] = useState<PipelineStep[]>([]);
-  const supabase = createClient();
-
-  useEffect(() => {
-    // Initial fetch
-    supabase
-      .from('pipeline_steps')
-      .select('*')
-      .eq('run_id', runId)
-      .order('step_order')
-      .then(({ data }) => data && setSteps(data));
-
-    // Subscribe to changes
-    const channel = supabase
-      .channel(`pipeline-${runId}`)
-      .on(
-        'postgres_changes',
-        {
-          event: '*',           // INSERT, UPDATE, DELETE
-          schema: 'public',
-          table: 'pipeline_steps',
-          filter: `run_id=eq.${runId}`,
-        },
-        (payload) => {
-          if (payload.eventType === 'INSERT') {
-            setSteps(prev => [...prev, payload.new as PipelineStep]);
-          } else if (payload.eventType === 'UPDATE') {
-            setSteps(prev =>
-              prev.map(s => s.id === (payload.new as PipelineStep).id
-                ? payload.new as PipelineStep
-                : s
-              )
-            );
-          }
-        }
-      )
-      .subscribe();
-
-    return () => { supabase.removeChannel(channel); };
-  }, [runId]);
-
-  return steps;
-}
-```
-
-### Multi-Table Subscription for Full Dashboard
-
-The dashboard needs realtime updates from multiple tables simultaneously:
-
-```typescript
-// hooks/useDashboardRealtime.ts
-export function useDashboardRealtime(runId: string) {
-  const supabase = createClient();
-
-  useEffect(() => {
-    const channel = supabase
-      .channel(`dashboard-${runId}`)
-      // Pipeline run status changes (pending -> running -> completed)
-      .on('postgres_changes', {
-        event: 'UPDATE',
-        schema: 'public',
-        table: 'pipeline_runs',
-        filter: `id=eq.${runId}`,
-      }, handleRunUpdate)
-      // Step progress (new steps created, status updates)
-      .on('postgres_changes', {
-        event: '*',
-        schema: 'public',
-        table: 'pipeline_steps',
-        filter: `run_id=eq.${runId}`,
-      }, handleStepUpdate)
-      // Agent spec updates (deploy status, test scores)
-      .on('postgres_changes', {
-        event: '*',
-        schema: 'public',
-        table: 'agent_specs',
-        filter: `run_id=eq.${runId}`,
-      }, handleAgentUpdate)
-      // Approval requests (new approvals needed)
-      .on('postgres_changes', {
-        event: 'INSERT',
-        schema: 'public',
-        table: 'approval_requests',
-        filter: `run_id=eq.${runId}`,
-      }, handleApprovalRequest)
-      .subscribe();
-
-    return () => { supabase.removeChannel(channel); };
-  }, [runId]);
-}
-```
-
-### Performance Consideration: Broadcast for High-Frequency Updates
-
-For per-token streaming updates during Claude API calls (showing generation progress), Supabase Postgres Changes is too slow and heavy. Use Supabase Broadcast instead:
-
-```typescript
-// Server-side: Inngest function streams Claude response
-const stream = await client.messages.stream({
-  model: 'claude-sonnet-4-20250514',
-  max_tokens: 8192,
-  system: systemPrompt,
-  messages: [{ role: 'user', content: userInput }],
-});
-
-for await (const event of stream) {
-  if (event.type === 'content_block_delta') {
-    // Broadcast partial text to dashboard (low-latency, no DB write)
-    await supabase.channel(`stream-${runId}-${stepId}`)
-      .send({
-        type: 'broadcast',
-        event: 'token',
-        payload: { text: event.delta.text },
-      });
-  }
-}
-
-// Only write final result to DB (triggers postgres_changes for status update)
-await supabase.from('pipeline_steps').update({
-  status: 'completed',
-  output_data: { content: fullResponse },
-  completed_at: new Date().toISOString(),
-}).eq('id', stepId);
-```
-
-### Realtime Strategy Summary
-
-| Update Type | Mechanism | Why |
-|-------------|-----------|-----|
-| Step status changes | Postgres Changes (subscribe to `pipeline_steps`) | Status changes are infrequent (seconds apart), need persistence, drive dashboard state |
-| Agent spec updates | Postgres Changes (subscribe to `agent_specs`) | Deploy status and test scores change infrequently |
-| Approval requests | Postgres Changes (subscribe to `approval_requests`) | Need persistence for notification delivery |
-| Generation streaming | Supabase Broadcast | High-frequency (per-token), ephemeral, no persistence needed |
-| Node graph animations | Client-side derived state from step updates | Graph node status is derived from `pipeline_steps` status -- no separate subscription |
-
-## Question 4: Server-Side Pipeline Orchestration with Claude API
-
-### Why Inngest (Not Vercel Cron, Not BullMQ, Not Raw API Routes)
-
-The pipeline has 7+ steps, some parallel, some sequential, with HITL approval gates that pause execution for minutes to hours. Vercel serverless functions have a maximum execution time (60s on Hobby, 300s on Pro). A full pipeline run takes 5-20 minutes.
-
-**Inngest solves this because:**
-1. **Durable execution:** Each `step.run()` is independently retried. If spec-generator fails for one agent, it retries that agent without re-running the architect.
-2. **Step-level state:** Successful steps are cached. Resume from where you left off.
-3. **Wait for events:** `step.waitForEvent()` pauses execution until a HITL approval arrives -- no polling, no timeout.
-4. **Parallel steps:** `Promise.all()` with multiple `step.run()` calls executes in parallel.
-5. **Vercel native:** First-class Vercel Marketplace integration. No separate infrastructure.
-6. **Free tier:** 25,000 runs/month. More than sufficient for 5-15 users.
-
-### Pipeline as Inngest Function
-
-```typescript
-// inngest/functions/run-pipeline.ts
-import { inngest } from '@/inngest/client';
-import { executeStep } from '@/lib/pipeline/prompt-adapter';
-import { supabaseAdmin } from '@/lib/supabase/server';
-
-export const runPipeline = inngest.createFunction(
-  { id: 'run-pipeline', retries: 2 },
-  { event: 'pipeline/started' },
-  async ({ event, step }) => {
-    const { runId, useCase, discussionSummary } = event.data;
-    const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
-
-    // Step 1: Architect
-    const blueprint = await step.run('architect', async () => {
-      await updateStepStatus(runId, 'architect', 'running');
-
-      const result = await executeStep(
-        anthropic,
-        'orq-agent/agents/architect.md',
-        discussionSummary || useCase
-      );
-
-      await supabaseAdmin.from('pipeline_steps').update({
-        status: 'completed',
-        output_data: { blueprint: result },
-        completed_at: new Date().toISOString(),
-      }).eq('run_id', runId).eq('step_name', 'architect');
-
-      return result;
-    });
-
-    // Step 2: HITL Approval for Blueprint
-    const approval = await step.waitForEvent('pipeline/blueprint-approved', {
-      match: 'data.runId',
-      timeout: '24h',
-    });
-
-    if (!approval || approval.data.action === 'rejected') {
-      await updateRunStatus(runId, 'cancelled');
-      return { status: 'cancelled', reason: 'Blueprint rejected' };
-    }
-
-    // Step 3: Tool Resolver (always runs)
-    const toolsDoc = await step.run('tool-resolver', async () => {
-      await updateStepStatus(runId, 'tool_resolver', 'running');
-
-      const result = await executeStep(
-        anthropic,
-        'orq-agent/agents/tool-resolver.md',
-        blueprint,
-        { user_input: useCase }
-      );
-
-      await saveStepResult(runId, 'tool_resolver', result);
-      return result;
-    });
-
-    // Step 4: Research (conditional -- same skip logic as Claude Code pipeline)
-    const researchBrief = await step.run('researcher', async () => {
-      if (shouldSkipResearch(discussionSummary)) {
-        await updateStepStatus(runId, 'researcher', 'skipped');
-        return null;
-      }
-
-      await updateStepStatus(runId, 'researcher', 'running');
-      const result = await executeStep(
-        anthropic,
-        'orq-agent/agents/researcher.md',
-        blueprint,
-        { tools: toolsDoc, user_input: useCase }
-      );
-      await saveStepResult(runId, 'researcher', result);
-      return result;
-    });
-
-    // Step 5: Spec Generation (parallel -- one per agent)
-    const agentKeys = extractAgentKeys(blueprint);
-    const specs = await Promise.all(
-      agentKeys.map(key =>
-        step.run(`spec-gen-${key}`, async () => {
-          await updateStepStatus(runId, 'spec_generator', 'running', key);
-
-          const result = await executeStep(
-            anthropic,
-            'orq-agent/agents/spec-generator.md',
-            `Generate spec for agent: ${key}`,
-            {
-              blueprint,
-              research: researchBrief || 'Research skipped',
-              tools: toolsDoc,
-            }
-          );
-
-          await saveAgentSpec(runId, key, result);
-          await updateStepStatus(runId, 'spec_generator', 'completed', key);
-          return { key, spec: result };
-        })
-      )
-    );
-
-    // Step 6: Post-generation (parallel wave)
-    await Promise.all([
-      // Orchestration doc (multi-agent only)
-      agentKeys.length > 1 && step.run('orchestration-gen', async () => {
-        await updateStepStatus(runId, 'orchestration_generator', 'running');
-        const result = await executeStep(
-          anthropic,
-          'orq-agent/agents/orchestration-generator.md',
-          blueprint,
-          { specs: specs.map(s => s.spec).join('\n---\n') }
-        );
-        await saveStepResult(runId, 'orchestration_generator', result);
-      }),
-      // Datasets (one per agent)
-      ...agentKeys.map(key =>
-        step.run(`dataset-gen-${key}`, async () => {
-          const agentSpec = specs.find(s => s.key === key)?.spec;
-          await updateStepStatus(runId, 'dataset_generator', 'running', key);
-          const result = await executeStep(
-            anthropic,
-            'orq-agent/agents/dataset-generator.md',
-            `Generate dataset for agent: ${key}`,
-            { blueprint, spec: agentSpec || '', tools: toolsDoc }
-          );
-          await saveStepResult(runId, 'dataset_generator', result, key);
-        })
-      ),
-      // README
-      step.run('readme-gen', async () => {
-        await updateStepStatus(runId, 'readme_generator', 'running');
-        const result = await executeStep(
-          anthropic,
-          'orq-agent/agents/readme-generator.md',
-          blueprint,
-          { specs: specs.map(s => s.spec).join('\n---\n') }
-        );
-        await saveStepResult(runId, 'readme_generator', result);
-      }),
-    ]);
-
-    // Update node graph with final topology
-    await step.run('update-graph', async () => {
-      const graph = buildSwarmGraph(blueprint, specs);
-      await supabaseAdmin.from('swarm_graph').upsert({
-        run_id: runId,
-        nodes: graph.nodes,
-        edges: graph.edges,
-      });
-    });
-
-    await updateRunStatus(runId, 'completed');
-    return { status: 'completed', agentCount: agentKeys.length };
-  }
-);
-```
-
-### Inngest Integration Setup
-
-```typescript
-// inngest/client.ts
-import { Inngest } from 'inngest';
-
-export const inngest = new Inngest({ id: 'orq-agent-designer' });
-
-// app/api/inngest/route.ts
-import { serve } from 'inngest/next';
-import { inngest } from '@/inngest/client';
-import { runPipeline } from '@/inngest/functions/run-pipeline';
-
-export const { GET, POST, PUT } = serve({
-  client: inngest,
-  functions: [runPipeline],
-});
-```
-
-### Starting a Pipeline from the Web UI
-
-```typescript
-// app/api/pipeline/start/route.ts
-import { inngest } from '@/inngest/client';
-import { supabaseAdmin } from '@/lib/supabase/server';
-
-export async function POST(request: Request) {
-  const { useCase, discussionSummary, userId } = await request.json();
-
-  // Create pipeline run in DB
-  const { data: run } = await supabaseAdmin
-    .from('pipeline_runs')
-    .insert({ user_id: userId, use_case: useCase, discussion: discussionSummary, status: 'running' })
-    .select()
-    .single();
-
-  // Create initial step rows (so dashboard shows all stages immediately)
-  const steps = PIPELINE_STAGES.map((name, i) => ({
-    run_id: run.id,
-    step_name: name,
-    step_order: i,
-    status: 'pending',
-  }));
-  await supabaseAdmin.from('pipeline_steps').insert(steps);
-
-  // Trigger Inngest function
-  await inngest.send({
-    name: 'pipeline/started',
-    data: { runId: run.id, useCase, discussionSummary },
-  });
-
-  return Response.json({ runId: run.id });
-}
-```
-
-## Question 5: Node Graph Data Model for Agent Swarm Visualization
-
-### React Flow Data Model
-
-Use `@xyflow/react` (React Flow v12+) with typed custom nodes. The graph is generated from the architect blueprint and updated in real-time as pipeline steps complete.
-
-```typescript
-// lib/types/graph.ts
-import type { Node, Edge } from '@xyflow/react';
-
-// Node types matching pipeline concepts
-type AgentNodeData = {
-  agentKey: string;
-  label: string;
-  role: string;
-  model: string;
-  status: 'pending' | 'generating' | 'ready' | 'deploying' | 'deployed' | 'testing' | 'tested';
-  testScore?: number;
-  isOrchestrator: boolean;
-};
-
-type ToolNodeData = {
-  toolKey: string;
-  label: string;
-  toolType: string;         // built_in | function | mcp
-  status: 'pending' | 'deployed';
-};
-
-type DataFlowNodeData = {
-  label: string;
-  direction: 'input' | 'output';
-};
-
-// Typed node unions
-type AgentNode = Node<AgentNodeData, 'agent'>;
-type ToolNode = Node<ToolNodeData, 'tool'>;
-type DataFlowNode = Node<DataFlowNodeData, 'dataflow'>;
-type SwarmNode = AgentNode | ToolNode | DataFlowNode;
-
-// Edge types
-type AgentToAgentEdge = Edge & {
-  data: {
-    type: 'agent-as-tool';     // Orchestrator calls sub-agent
-    animated: boolean;          // Animate during active pipeline
-  };
-};
-
-type AgentToToolEdge = Edge & {
-  data: {
-    type: 'uses-tool';
-    toolKey: string;
-  };
-};
-
-type DataFlowEdge = Edge & {
-  data: {
-    type: 'data-flow';
-    label: string;              // e.g., "user query", "triage result"
-  };
-};
-
-type SwarmEdge = AgentToAgentEdge | AgentToToolEdge | DataFlowEdge;
-```
-
-### Graph Generation from Blueprint
-
-```typescript
-// lib/pipeline/graph-builder.ts
-
-function buildSwarmGraph(
-  blueprint: string,
-  specs: Array<{ key: string; spec: string }>
-): { nodes: SwarmNode[]; edges: SwarmEdge[] } {
-  const agents = parseAgentsFromBlueprint(blueprint);
-  const nodes: SwarmNode[] = [];
-  const edges: SwarmEdge[] = [];
-
-  // Create agent nodes
-  agents.forEach((agent, index) => {
-    nodes.push({
-      id: agent.key,
-      type: 'agent',
-      position: calculatePosition(index, agents.length),
-      data: {
-        agentKey: agent.key,
-        label: agent.name,
-        role: agent.role,
-        model: agent.model,
-        status: 'pending',
-        isOrchestrator: agent.isOrchestrator,
-      },
-    });
-  });
-
-  // Create agent-as-tool edges (from ORCHESTRATION pattern)
-  const orchestrator = agents.find(a => a.isOrchestrator);
-  if (orchestrator) {
-    agents
-      .filter(a => !a.isOrchestrator)
-      .forEach(subAgent => {
-        edges.push({
-          id: `${orchestrator.key}->${subAgent.key}`,
-          source: orchestrator.key,
-          target: subAgent.key,
-          type: 'smoothstep',
-          data: { type: 'agent-as-tool', animated: false },
-        });
-      });
-  }
-
-  // Create tool nodes and edges from TOOLS.md
-  // (tools are shared resources, shown as smaller nodes)
-
-  return { nodes, edges };
-}
-```
-
-### Real-Time Graph Updates
-
-The graph is stored in `swarm_graph` table. Node statuses are derived from `pipeline_steps` and `agent_specs` tables. The frontend subscribes to step changes and updates node appearance:
-
-```typescript
-// components/NodeGraph.tsx
-function NodeGraph({ runId }: { runId: string }) {
-  const steps = usePipelineRealtime(runId);
-  const [graph, setGraph] = useState<{ nodes: SwarmNode[]; edges: SwarmEdge[] }>();
-
-  // Fetch initial graph
-  useEffect(() => {
-    supabase.from('swarm_graph').select('*').eq('run_id', runId).single()
-      .then(({ data }) => data && setGraph({ nodes: data.nodes, edges: data.edges }));
-  }, [runId]);
-
-  // Derive node statuses from step updates
-  const nodesWithStatus = useMemo(() => {
-    if (!graph) return [];
-    return graph.nodes.map(node => {
-      if (node.type !== 'agent') return node;
-      const agentSteps = steps.filter(s => s.agent_key === node.data.agentKey);
-      const latestStep = agentSteps[agentSteps.length - 1];
-      return {
-        ...node,
-        data: {
-          ...node.data,
-          status: deriveNodeStatus(latestStep),
-        },
-      };
-    });
-  }, [graph, steps]);
-
-  // Animate edges when pipeline is active
-  const edgesWithAnimation = useMemo(() => {
-    if (!graph) return [];
-    const isRunning = steps.some(s => s.status === 'running');
-    return graph.edges.map(edge => ({
-      ...edge,
-      animated: isRunning && edge.data?.type === 'agent-as-tool',
-    }));
-  }, [graph, steps]);
-
-  return (
-    <ReactFlow
-      nodes={nodesWithStatus}
-      edges={edgesWithAnimation}
-      nodeTypes={customNodeTypes}
-      fitView
-    />
-  );
-}
-```
-
-### Node Visual States
-
-| Status | Node Appearance | When |
-|--------|----------------|------|
-| `pending` | Gray outline, muted | Initial state, before spec generation |
-| `generating` | Pulsing blue border | Spec generator running for this agent |
-| `ready` | Solid blue fill | Spec generated, not yet deployed |
-| `deploying` | Pulsing green border | Deploy step running |
-| `deployed` | Solid green fill | Successfully deployed to Orq.ai |
-| `testing` | Pulsing yellow border | Test experiment running |
-| `tested` | Green (pass) or red (fail) with score badge | Test results received |
-
-## Data Flow Summary
+## Recommended Project Structure
 
 ```
-User Input (browser)
+orq-agent/
+  commands/
+    audit.md                    # NEW: Cross-swarm audit command
+    orq-agent.md                # MODIFIED: Post-pipeline auto-trigger hook
+  agents/
+    ecosystem-mapper.md         # NEW: Builds cross-swarm model
+    drift-detector.md           # NEW: Spec vs. live state comparison
+    overlap-analyzer.md         # NEW: Cross-swarm overlap/gap analysis
+    fix-proposer.md             # NEW: Generates fix proposals
+  templates/
+    ecosystem-report.md         # NEW: Report output template
+    fix-proposal.md             # NEW: Fix proposal template
+  references/
+    (no new references needed)
+```
+
+### Structure Rationale
+
+- **No new directories:** New agents go in `agents/`, new command in `commands/`, new templates in `templates/`. This follows the established convention exactly.
+- **No new references:** The cross-swarm layer reuses existing Orq.ai API knowledge. The ecosystem mapper needs `agents-list` and `tools-list` -- already documented in `orqai-api-endpoints.md`.
+- **Single new command:** `/orq-agent:audit` is the only user-facing entry point. The auto-trigger from the main pipeline is internal.
+
+## Architectural Patterns
+
+### Pattern 1: Read-Only Analysis Layer
+
+**What:** The cross-swarm layer reads specs and Orq.ai state but never modifies agents/tools on Orq.ai directly. All Orq.ai changes go through the existing deploy pipeline.
+
+**When to use:** Always. This is the core architectural constraint.
+
+**Trade-offs:**
+- Pro: Cannot break deployed agents. Existing deploy pipeline remains the single write path.
+- Pro: Auto-apply "fixes" means editing local spec files, then user re-deploys. Existing deploy idempotency handles the rest.
+- Con: Auto-apply cannot push changes to Orq.ai directly -- requires a re-deploy step. This is acceptable because HITL approval already exists in the deploy flow.
+
+**Example:**
+```
+Fix Proposer output:
+  "Add shared context variable 'dispute_status' to follow-up-orchestrator-agent"
+  Risk: LOW (additive, no behavioral change)
+  Action: Edit Agents/follow-up-swarm/agents/follow-up-orchestrator-agent.md
+          -> Add to Variables section: dispute_status = "{{dispute_status}}"
+  Then: User runs /orq-agent:deploy to push the change
+```
+
+### Pattern 2: Dual Source of Truth with Drift Reconciliation
+
+**What:** The system acknowledges two sources of truth -- local spec files (`Agents/[swarm]/agents/*.md`) and Orq.ai live state (`GET /v2/agents`). Drift between them is expected and detected, not prevented.
+
+**When to use:** Every time the ecosystem mapper runs.
+
+**Trade-offs:**
+- Pro: Handles the real-world case where someone edits an agent in Orq.ai Studio directly.
+- Pro: Drift detection is valuable even without cross-swarm analysis.
+- Con: Requires API calls to Orq.ai to build full picture. Rate limits apply.
+
+**How it works:**
+1. Ecosystem mapper reads all local spec files for agent keys, instructions, tools, KBs
+2. Ecosystem mapper calls `agents-list` (MCP) or `GET /v2/agents` (REST) to get live state
+3. Drift detector compares field-by-field (reuses the deployer's comparison logic from Phase 4)
+4. Drift records become part of the ecosystem model
+
+### Pattern 3: Risk-Classified Fix Proposals
+
+**What:** Every fix proposal is classified as LOW, MEDIUM, or HIGH risk. Only LOW-risk changes can be auto-applied. MEDIUM and HIGH are presented for human decision.
+
+**When to use:** Whenever the fix proposer generates output.
+
+**Risk classification:**
+```
+LOW RISK (auto-applicable):
+- Adding a shared context variable to an agent's Variables section
+- Adding a cross-reference comment to an agent's instructions
+- Adding a data contract annotation to ORCHESTRATION.md
+
+MEDIUM RISK (human approval required):
+- Adding a new tool to an agent (e.g., adding call_sub_agent for cross-swarm delegation)
+- Modifying an agent's instructions to add awareness of another swarm
+- Adding a new agent-as-tool relationship
+
+HIGH RISK (human approval + architecture review):
+- Merging two agents from different swarms
+- Splitting a swarm into sub-swarms
+- Changing orchestration patterns
+- Removing agents or tools
+```
+
+### Pattern 4: Subagent-as-Markdown (Existing Pattern, Extended)
+
+**What:** All new cross-swarm agents are .md instruction files spawned via Task tool, consistent with existing architect, researcher, deployer, etc.
+
+**When to use:** For all new agents. No exceptions.
+
+**Why this matters for V4.0:** The cross-swarm analysis requires LLM reasoning to determine semantic overlap between agent responsibilities, identify missing handoffs, and propose coordination fixes. This is exactly what the .md subagent pattern excels at -- giving the LLM structured context and letting it reason.
+
+## Data Flow
+
+### Audit Command Flow (On-Demand)
+
+```
+User runs /orq-agent:audit
     |
     v
-POST /api/pipeline/start
-    |-- INSERT pipeline_runs (status: running)       --> Realtime to dashboard
-    |-- INSERT pipeline_steps (all pending)           --> Realtime to dashboard
-    |-- inngest.send('pipeline/started')
+[1] Ecosystem Mapper
+    -> Reads: Agents/*/ directories (Glob for all swarm dirs)
+    -> Reads: Each swarm's agent specs, ORCHESTRATION.md, TOOLS.md
+    -> Calls: agents-list (MCP/REST) for live Orq.ai state
+    -> Calls: tools-list (MCP/REST) for live tool state
+    -> Produces: ecosystem-model.md (unified cross-swarm model)
     |
     v
-Inngest: run-pipeline function
+[2] Drift Detector
+    -> Reads: ecosystem-model.md
+    -> Compares: local specs vs. live Orq.ai state (field-by-field)
+    -> Produces: drift-report section (appended to ecosystem model)
     |
-    |-- step.run('architect')
-    |     |-- Claude API: messages.create(architect.md prompt)
-    |     |-- UPDATE pipeline_steps (architect: completed)  --> Realtime
-    |     |-- INSERT swarm_graph (nodes + edges)             --> Realtime
+    v
+[3] Overlap Analyzer
+    -> Reads: ecosystem-model.md (with drift annotations)
+    -> Analyzes: agent responsibility overlaps, tool duplication,
+               KB sharing opportunities, missing handoffs,
+               data flow gaps between swarms
+    -> Produces: overlap-analysis section
     |
-    |-- step.waitForEvent('blueprint-approved')       --> Dashboard shows approval UI
-    |     |-- User clicks Approve in browser
-    |     |-- POST /api/pipeline/approve --> inngest.send('pipeline/blueprint-approved')
+    v
+[4] Fix Proposer
+    -> Reads: ecosystem-model.md + overlap analysis
+    -> Generates: concrete fix proposals with risk classification
+    -> Produces: fix-proposals section
     |
-    |-- step.run('tool-resolver')
-    |     |-- Claude API + reference file context
-    |     |-- UPDATE pipeline_steps                    --> Realtime
+    v
+[5] Audit Command assembles ECOSYSTEM-REPORT.md
+    -> Writes: Agents/ECOSYSTEM-REPORT.md
+    -> Writes: Per-swarm Agents/[swarm]/CROSS-SWARM.md files
     |
-    |-- Promise.all(spec generators per agent)
-    |     |-- Claude API per agent (parallel)
-    |     |-- UPDATE pipeline_steps per agent           --> Realtime (node graph animates)
-    |     |-- INSERT agent_specs per agent               --> Realtime
+    v
+[6] HITL: User reviews fix proposals
+    -> "approve all low-risk" -> auto-apply edits to spec files
+    -> "approve [N]" -> apply specific proposals
+    -> "skip" -> report only, no changes
     |
-    |-- Promise.all(post-generation wave)
-    |     |-- Claude API for orchestration, datasets, README
-    |     |-- UPDATE pipeline_steps                      --> Realtime
-    |
-    |-- UPDATE pipeline_runs (status: completed)       --> Realtime
+    v
+[7] If changes applied -> suggest /orq-agent:deploy to push
 ```
 
-## Anti-Patterns to Avoid
-
-### Anti-Pattern 1: Storing Pipeline Logic in the Database
-**What:** Duplicating prompt content from .md files into database tables.
-**Why bad:** Two sources of truth. The .md files are the canonical pipeline logic shared with Claude Code. Storing prompts in the DB means they drift from the files.
-**Instead:** Read .md files at runtime from the filesystem (deployed with the Next.js app from the same repo).
-
-### Anti-Pattern 2: Polling for Pipeline Updates
-**What:** Dashboard polling `/api/pipeline/status` every N seconds.
-**Why bad:** Wasteful, laggy, does not scale. With Supabase Realtime available, polling is never needed.
-**Instead:** Subscribe to `postgres_changes` on `pipeline_steps` table. Updates arrive in milliseconds.
-
-### Anti-Pattern 3: Running Claude API Calls Directly in API Routes
-**What:** Calling Claude API from Next.js API route handlers without a durable execution layer.
-**Why bad:** Vercel serverless functions timeout (60s hobby, 300s pro). A full pipeline takes 5-20 minutes. If any step fails, you lose all progress.
-**Instead:** Use Inngest for durable execution. Each step is independently retried. HITL waits do not consume compute.
-
-### Anti-Pattern 4: Building a Custom WebSocket Server
-**What:** Building custom WebSocket infrastructure for realtime updates.
-**Why bad:** Unnecessary infrastructure. Supabase Realtime provides WebSocket subscriptions out of the box with RLS integration.
-**Instead:** Use Supabase Realtime's `postgres_changes` for state updates and `broadcast` for streaming.
-
-### Anti-Pattern 5: Separating Web App Prompts from CLI Prompts
-**What:** Creating a separate set of prompt files for the web app.
-**Why bad:** Maintenance nightmare. Every prompt change must be duplicated. They will drift.
-**Instead:** Both interfaces read from `orq-agent/agents/*.md`. The prompt-adapter.ts handles the translation from markdown instruction files to Claude API system prompts.
-
-## Build Order (Dependency-Driven)
+### Auto-Trigger Flow (Post-Pipeline)
 
 ```
-Phase 1: Foundation & Auth
-    |  Supabase project setup, schema migrations, M365 SSO
-    |  Next.js project with Supabase client
-    |  Basic layout, auth pages
-    |  Depends on: nothing
+User runs /orq-agent "new use case"
     |
-Phase 2: Prompt Adapter & Pipeline Core
-    |  lib/pipeline/prompt-adapter.ts (read .md -> Claude API call)
-    |  Inngest setup + single-step test (architect only)
-    |  Validate: call architect.md via Claude API, get blueprint
-    |  Depends on: Phase 1 (auth to protect API routes)
+    v
+[Existing pipeline runs normally: Steps 0-7]
     |
-Phase 3: Pipeline Orchestration
-    |  Full Inngest pipeline function (all waves)
-    |  Pipeline status dashboard (read from DB)
-    |  Supabase Realtime subscriptions for step updates
-    |  Depends on: Phase 2 (prompt adapter working)
-    |
-Phase 4: Node Graph & Visualization
-    |  React Flow integration, custom node components
-    |  Graph generation from blueprint
-    |  Real-time node status updates
-    |  Depends on: Phase 3 (pipeline producing data to visualize)
-    |
-Phase 5: HITL Approval Flow
-    |  Approval UI components
-    |  step.waitForEvent() integration
-    |  Email/Teams notifications (optional, deferred to V3.1)
-    |  Depends on: Phase 3 (pipeline with approval gates)
-    |
-Phase 6: Deploy/Test Integration
-    |  Deploy pipeline step (Orq.ai API from Inngest)
-    |  Test pipeline step (experiments from Inngest)
-    |  Agent performance dashboard
-    |  Depends on: Phase 3 + existing V2.0 deploy/test logic
+    v
+[Step 7.5 - NEW] Post-pipeline cross-swarm check
+    -> Glob for Agents/*/ directories
+    -> If only 1 swarm exists: skip (nothing to cross-reference)
+    -> If 2+ swarms exist: spawn ecosystem mapper + overlap analyzer
+       (lightweight mode: skip drift detection, skip fix proposals)
+    -> Append cross-swarm notes to the new swarm's output
+    -> Display: "Cross-swarm analysis found [N] coordination opportunities"
+    -> Suggest: "Run /orq-agent:audit for full analysis with fix proposals"
 ```
 
-## Scalability Considerations
+### Key Data Flows
 
-| Concern | 5 Users (V3.0) | 15 Users | 50+ Users (Future) |
-|---------|-----------------|----------|---------------------|
-| Concurrent pipelines | 1-2 at a time, Inngest free tier handles this | 3-5 concurrent, still within Inngest free tier (25K runs/month) | Upgrade to Inngest Pro, add queue prioritization |
-| Realtime connections | 5 WebSocket connections, trivial for Supabase | 15 connections, well within Supabase free tier (200 concurrent) | Scale Supabase plan, consider Broadcast for high-frequency updates |
-| Claude API costs | ~$2-5 per pipeline run (7+ API calls at Sonnet pricing) | Budget monitoring needed, ~$50-100/month | Cost controls: set max pipeline runs per user per day |
-| Database size | Negligible (KBs over months) | Still small, JSONB columns are the largest | Archive old runs, add retention policy |
+1. **Local spec ingestion:** `Glob("Agents/*/agents/*.md")` -> parse each spec for key, role, tools, KBs, instructions summary -> build agent registry
+2. **Live state ingestion:** `agents-list` + `tools-list` via MCP/REST -> build deployed agent registry
+3. **Drift detection:** For each agent in both registries, compare fields using deployer's diff logic
+4. **Overlap detection:** LLM reasons over full ecosystem model to find semantic overlaps in responsibilities, tool assignments, data flows
+5. **Fix generation:** LLM generates structured fix proposals referencing specific files and fields to change
+
+## Cross-Swarm Model Structure
+
+The ecosystem mapper produces a structured model that downstream agents consume. This is a markdown file (consistent with all other pipeline artifacts).
+
+```markdown
+# Ecosystem Model
+
+## Agent Registry
+| Swarm | Agent Key | Role | Model | Tools | KBs | Deployed | Drift |
+|-------|-----------|------|-------|-------|-----|----------|-------|
+(one row per agent across all swarms)
+
+## Tool Registry
+| Tool Key | Type | Used By (agents) | Swarms |
+|----------|------|-------------------|--------|
+(one row per unique tool, with cross-swarm usage)
+
+## KB Registry
+| KB Key | Type | Used By (agents) | Swarms |
+|--------|------|-------------------|--------|
+(one row per unique KB)
+
+## Data Flow Graph
+### Per-Swarm Flows
+(per swarm: user input -> agent chain -> output)
+
+### Cross-Swarm Handoff Points
+(identified data that flows between business processes served by different swarms)
+
+## Drift Records
+| Agent Key | Field | Local Value (summary) | Live Value (summary) | Severity |
+|-----------|-------|----------------------|---------------------|----------|
+(one row per drift instance)
+
+## Overlap Matrix
+| Agent A (Swarm X) | Agent B (Swarm Y) | Overlap Type | Description |
+|--------------------|--------------------|--------------| ------------|
+(one row per detected overlap)
+```
+
+## Integration Points
+
+### External Services
+
+| Service | Integration Pattern | Notes |
+|---------|---------------------|-------|
+| Orq.ai API (agents-list) | MCP-first, REST-fallback (existing pattern) | Rate limit: cache response, single call per audit run |
+| Orq.ai API (tools-list) | MCP-first, REST-fallback (existing pattern) | Same caching strategy as deployer |
+| Orq.ai API (knowledge-list) | REST-only (no MCP tools for KBs, as established) | Same pattern as deployer Phase 1.5 |
+
+### Internal Boundaries
+
+| Boundary | Communication | Notes |
+|----------|---------------|-------|
+| Audit Command <-> Subagents | Task tool (spawn .md agents) | Same as existing orchestrator pattern |
+| Audit Command <-> Existing Pipeline | Post-pipeline hook in orq-agent.md | Audit spawned as Task after Step 7 completes |
+| Cross-swarm agents <-> Local specs | Read tool (file system) | Read-only access to spec files |
+| Cross-swarm agents <-> Orq.ai | MCP/REST (read-only: list endpoints only) | Never writes to Orq.ai directly |
+| Fix Proposer <-> Local specs | Write/Edit tool (spec file modification) | Only after HITL approval; only for LOW-risk changes |
+
+## Scaling Considerations
+
+| Scale | Architecture Adjustments |
+|-------|--------------------------|
+| 1-3 swarms | Single ecosystem mapper call reads everything. Fast, no optimization needed. |
+| 4-10 swarms | Ecosystem mapper still manageable. Consider caching the ecosystem model file between runs to skip Orq.ai API calls when specs haven't changed. |
+| 10+ swarms | Unlikely given 5-15 users. If reached: partition analysis by business domain. |
+
+### Scaling Priorities
+
+1. **First bottleneck:** LLM context window when analyzing many swarms. The ecosystem model (summary registries) stays compact, but overlap analysis needs to reason about agent pairs. At 10 swarms x 3 agents = 30 agents = 435 unique pairs. Mitigation: pre-filter pairs by shared tools/KBs before LLM analysis.
+2. **Second bottleneck:** Orq.ai API rate limits when listing agents/tools. Mitigation: single `agents-list` call returns all agents; cache for the session.
+
+## Anti-Patterns
+
+### Anti-Pattern 1: Direct Orq.ai Mutation
+
+**What people do:** Have the cross-swarm layer directly PATCH agents on Orq.ai to "fix" overlaps.
+**Why it's wrong:** Bypasses the deploy pipeline, breaks spec-as-source-of-truth, no HITL approval, no verification read-back, no frontmatter annotation.
+**Do this instead:** Edit local spec files, then tell the user to run `/orq-agent:deploy`. The deploy pipeline handles idempotent create-or-update with verification.
+
+### Anti-Pattern 2: Full Spec Embedding in Ecosystem Model
+
+**What people do:** Copy entire agent spec contents (instructions, tool schemas, etc.) into the ecosystem model.
+**Why it's wrong:** Blows up context window. A 5-swarm ecosystem with 3 agents each = 15 full specs = easily 50K+ tokens just for the model.
+**Do this instead:** Ecosystem model contains summary registries (key, role, tools list, KB list). Full specs are loaded on-demand only when the overlap analyzer needs to compare specific agent pairs.
+
+### Anti-Pattern 3: Treating Drift as an Error
+
+**What people do:** Block the audit or flag drift as a critical issue requiring immediate resolution.
+**Why it's wrong:** Drift is expected and normal. Someone edited an agent in Orq.ai Studio -- that is fine. Drift detection is informational, not prescriptive.
+**Do this instead:** Report drift with severity levels (cosmetic, behavioral, structural). Let the user decide whether to sync local specs to live state or re-deploy to overwrite live state.
+
+### Anti-Pattern 4: Cross-Swarm Agent Wiring
+
+**What people do:** Create agents that belong to multiple swarms or build cross-swarm orchestration at the Orq.ai agent level.
+**Why it's wrong:** Orq.ai agents are flat (no hierarchy beyond team_of_agents within a single swarm). Cross-swarm coordination happens via shared data (variables, KBs, context) not via agent-to-agent calls across swarms.
+**Do this instead:** Fix proposals should recommend shared context variables, shared KBs, or data contracts -- not cross-swarm agent-as-tool wiring.
+
+### Anti-Pattern 5: Running Full Audit After Every Design
+
+**What people do:** Run the complete 4-stage audit (mapper + drift + overlap + fix proposer) as a mandatory post-pipeline step.
+**Why it's wrong:** Expensive (multiple LLM calls + Orq.ai API calls) and unnecessary when only one swarm exists. Also slows down the primary design flow.
+**Do this instead:** Post-pipeline hook runs lightweight mode only (mapper + overlap check, no drift or fix proposals). Full audit is on-demand via `/orq-agent:audit`.
+
+## Suggested Build Order
+
+Based on dependencies between components:
+
+```
+Phase 1: Foundation (Ecosystem Model)
+  [1] templates/ecosystem-report.md      # Define output format first
+  [2] agents/ecosystem-mapper.md         # Build the mapper against the template
+  [3] Manual test: run mapper against sample Agents/ directory
+
+Phase 2: Analysis Agents
+  [4] agents/drift-detector.md           # Depends on: mapper output format
+  [5] agents/overlap-analyzer.md         # Depends on: mapper output format
+  [6] Manual test: run each against mapper output
+
+Phase 3: Fix Proposals
+  [7] templates/fix-proposal.md          # Define fix proposal format
+  [8] agents/fix-proposer.md             # Depends on: overlap analyzer output
+  [9] Manual test: verify risk classification and spec edit accuracy
+
+Phase 4: Command Integration
+  [10] commands/audit.md                 # Wire all 4 agents together
+  [11] SKILL.md updates                  # Register command and agents
+  [12] End-to-end test: /orq-agent:audit
+
+Phase 5: Auto-Trigger
+  [13] Modify commands/orq-agent.md      # Add Step 7.5 post-pipeline hook
+  [14] End-to-end test: design new swarm, verify auto-trigger fires
+```
+
+**Phase ordering rationale:**
+- Templates before agents: agents need to know their output format
+- Mapper before analysis agents: analysis agents consume the ecosystem model
+- Analysis before fix proposer: fix proposer needs overlap/drift data
+- All agents before command: command orchestrates them
+- Audit command before auto-trigger: auto-trigger spawns a lightweight audit
 
 ## Sources
 
-- [Supabase Realtime Postgres Changes](https://supabase.com/docs/guides/realtime/postgres-changes) -- Subscription patterns, filtering by table and column values. HIGH confidence.
-- [Supabase Realtime with RLS](https://supabase.com/blog/realtime-row-level-security-in-postgresql) -- RLS enforcement on realtime broadcasts. HIGH confidence.
-- [Inngest for Vercel](https://vercel.com/marketplace/inngest) -- Vercel Marketplace integration, durable execution for Next.js. HIGH confidence.
-- [Inngest Steps & Workflows](https://www.inngest.com/docs/features/inngest-functions/steps-workflows) -- Step functions, waitForEvent, parallel execution. HIGH confidence.
-- [Inngest Next.js + Supabase + Vercel](https://medium.com/@cyri113/background-jobs-for-node-js-using-next-js-inngest-supabase-and-vercel-e5148d094e3f) -- Architecture pattern combining all three. MEDIUM confidence (community source).
-- [React Flow Custom Nodes + TypeScript](https://reactflow.dev/learn/advanced-use/typescript) -- Typed node/edge definitions, custom node components. HIGH confidence.
-- [React Flow for Agent Visualization](https://damiandabrowski.medium.com/day-90-of-100-days-agentic-engineer-challenge-ai-agent-interfaces-with-react-flow-21538a35d098) -- Agent swarm visualization with React Flow. MEDIUM confidence.
-- [Anthropic TypeScript SDK](https://github.com/anthropics/anthropic-sdk-typescript) -- @anthropic-ai/sdk, messages.create(), streaming. HIGH confidence.
-- [Claude Streaming with Next.js](https://dev.to/bydaewon/building-a-production-ready-claude-streaming-api-with-nextjs-edge-runtime-3e7) -- SSE streaming pattern. MEDIUM confidence.
-- [Vercel AI SDK + Claude 4](https://ai-sdk.dev/cookbook/guides/claude-4) -- Vercel AI SDK integration with Claude. HIGH confidence.
+- Existing codebase: `orq-agent/SKILL.md`, `orq-agent/commands/orq-agent.md`, `orq-agent/agents/deployer.md`
+- Orq.ai API reference: `orq-agent/references/orqai-api-endpoints.md`
+- Agent spec template: `orq-agent/templates/agent-spec.md`
+- Orchestration template: `orq-agent/templates/orchestration.md`
+- PROJECT.md: V4.0 requirements and architectural context
 
 ---
-*Architecture research for: Orq Agent Designer V3.0 Web UI & Dashboard*
+*Architecture research for: Cross-Swarm Intelligence Layer (V4.0)*
 *Researched: 2026-03-03*
