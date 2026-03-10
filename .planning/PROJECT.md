@@ -39,14 +39,14 @@ Shipped in V2.0 (2026-03-02) — 23 requirements:
 
 ### Active
 
-<!-- V5.0 — Browser Automation -->
+<!-- V2.1 — Experiment Pipeline Restructure -->
 
-- [ ] Application capabilities config file (per-system integration method)
-- [ ] Browser-use detection during spec generation
-- [ ] Playwright script generation for deterministic flows
-- [ ] VPS-hosted MCP server for Playwright scripts
-- [ ] Automated script deployment to VPS
-- [ ] Agent spec wiring with MCP tool references
+- [ ] Native MCP experiment execution (create_experiment with task.type: "agent")
+- [ ] MCP-based dataset operations (create_dataset, create_datapoints)
+- [ ] MCP-based evaluator creation (create_llm_eval, create_python_eval)
+- [ ] Tester agent decomposition (dataset-preparer, experiment-runner, results-analyzer)
+- [ ] Iterator agent decomposition (failure-diagnoser, prompt-editor)
+- [ ] Command file simplification (test.md, iterate.md)
 
 ### Out of Scope
 
@@ -55,19 +55,19 @@ Shipped in V2.0 (2026-03-02) — 23 requirements:
 - Auto-update on launch — updates are manual via `/orq-agent:update`
 - Dynamic/exploratory browser-use — already handled by existing Orq.ai MCP tools
 
-## Current Milestone: V5.0 Browser Automation
+## Current Milestone: V2.1 Experiment Pipeline Restructure
 
-**Goal:** Pipeline detects browser automation needs, generates deterministic Playwright scripts, deploys them to a VPS-hosted MCP server, and wires agent specs with the right MCP tools — end-to-end for at least one real system (e.g., NXT).
+**Goal:** Rewrite the test/iterate pipeline to use native Orq.ai MCP tools for experiments, break monolithic agent files into smaller focused subagents, and reduce token/context load so experiments actually run successfully.
 
 **Target features:**
-- Application capabilities config file defining per-system integration method (API / browser-only / headed browser)
-- Browser-use detection during spec generation (config file + discussion step fallback for unknown systems)
-- Playwright script generation for deterministic flows (login, navigate, extract data, fill forms)
-- VPS-hosted MCP server exposing Playwright scripts as MCP tools
-- Automated script deployment to VPS via MCP
-- Agent spec wiring with correct MCP tool references for browser automation
+- Rewrite experiment execution to use native `create_experiment` MCP tool (task.type: "agent") instead of evaluatorq SDK
+- Use MCP tools for dataset operations (`create_dataset`, `create_datapoints`) and evaluator creation (`create_llm_eval`, `create_python_eval`)
+- Break tester.md (771 lines) into smaller focused agents (dataset-preparer, experiment-runner, results-analyzer)
+- Break iterator.md (544 lines) into smaller focused agents (failure-diagnoser, prompt-editor)
+- Simplify command files to orchestrate smaller agents in sequence
+- Ensure experiments actually run and produce results on Orq.ai
 
-**V5.0 scope:** Fixed/deterministic Playwright scripts only. Dynamic browser-use already handled by existing Orq.ai MCP tools (out of scope). At least one real system (NXT) working end-to-end.
+**V2.1 scope:** Restructure existing test/iterate pipeline only. No new capabilities — same features, better architecture, working experiments.
 
 ## Context
 
@@ -121,4 +121,4 @@ Shipped in V2.0 (2026-03-02) — 23 requirements:
 | Application capabilities config file | Pipeline reads per-system integration method from config; discussion step fills gaps for unknown systems | — Pending |
 
 ---
-*Last updated: 2026-03-03 after V5.0 milestone start*
+*Last updated: 2026-03-10 after V2.1 milestone start*
