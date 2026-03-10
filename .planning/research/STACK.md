@@ -1,334 +1,385 @@
 # Stack Research
 
-**Domain:** V5.0 Browser Automation -- Playwright script generation, VPS-hosted MCP server, script deployment pipeline, agent spec wiring
-**Researched:** 2026-03-03
-**Confidence:** HIGH (versions verified against npm registry and official docs; architecture validated against MCP specification)
+**Domain:** V2.1 Experiment Pipeline Restructure — native Orq.ai MCP tools for experiments, datasets, evaluators
+**Researched:** 2026-03-10
+**Overall Confidence:** MEDIUM — REST API patterns confirmed via docs; MCP tool names for experiments/datasets/evaluators are LOW confidence because they are not publicly documented and differ from the deployer's confirmed MCP tool names.
+
+---
 
 ## Context: What Already Exists (DO NOT DUPLICATE)
 
-### V1.0/V2.0 (Claude Code Skill -- Shipped)
+### V1.0/V2.0 (Shipped, Working)
 
-- **`@orq-ai/node@^3.14.45`** -- Orq.ai SDK + MCP server (agents CRUD, tools CRUD, datasets, experiments)
-- **Subagent pattern:** `.md` instruction files consumed by Claude Code
-- **MCP-first / REST-fallback:** Per-operation channel selection for all Orq.ai API calls
+- **Deployer** — uses confirmed MCP tools: `agents-create`, `agents-retrieve`, `agents-update`, `agents-list`, `tools-create`, `tools-retrieve`, `tools-update`, `tools-list`, `models-list`
+- **Tester** — currently uses `@orq-ai/evaluatorq` SDK + `@orq-ai/node` SDK for experiment execution. This is what's failing.
+- **MCP-first / REST-fallback pattern** — validated and locked for all Orq.ai operations
+- **REST API base** — `https://api.orq.ai/v2/`, Bearer token auth
 
-### V3.0 (Web UI -- Defined, Not Yet Shipped)
+### Why V2.0 Experiments Are Failing
 
-- Next.js 15, Supabase, Vercel, shadcn/ui, Anthropic SDK
+The tester uses `@orq-ai/evaluatorq` SDK to run experiments. Based on research findings:
 
-### V4.0 (Cross-Swarm Intelligence -- Defined, Not Yet Shipped)
+1. **SDK Version Conflict (CRITICAL):** The project is pinned to `@orq-ai/node@^3.14.45` — but this version does not exist on npm. The `@orq-ai/node` package went from the 3.x series directly to 4.x (latest: 4.4.9). Version 3.14.45 was never published. Any `npm install @orq-ai/node@^3.14.45` resolves to either nothing or 3.x.x, causing silent dependency failures.
 
-- Zero new dependencies. Analytical layer using existing subagent patterns.
+2. **evaluatorq is the wrong abstraction for agents:** The evaluatorq SDK was built for testing Orq _deployments_ (prompt templates), not Orq _agents_ (the `/v2/agents` runtime). When pointed at an agent, evaluatorq times out immediately because the agent's async execution model doesn't fit the evaluatorq job execution model.
 
-## Key Finding: V5.0 Requires a NEW Runtime Environment
+3. **Dataset format mismatch:** The current tester uploads rows in a format that may not match what Orq's native experiment runner expects when `task.type: "agent"` is used.
 
-Unlike V4.0, V5.0 introduces real infrastructure -- a VPS running a Node.js process with headless Chromium. This is the first milestone that adds a separate server to the stack.
+---
 
-Three new packages are needed:
-1. **Playwright** -- Browser automation runtime
-2. **@modelcontextprotocol/sdk** -- MCP server framework
-3. **PM2** -- Process management on VPS
+## Critical Finding: MCP Tool Availability for Experiments/Datasets
 
-Plus a deployment mechanism (SSH/SCP via MCP tool or script).
+The deployer explicitly documents available MCP tools. Datasets, experiments, and evaluators are **NOT listed** — meaning they have no MCP tool coverage in the current `@orq-ai/node` MCP server. The deployer even notes: "Knowledge Bases -- NO MCP TOOLS EXIST."
 
-## Recommended Stack
+This means `create_experiment`, `create_dataset`, `create_datapoints`, `create_llm_eval`, `create_python_eval`, `list_experiment_runs`, and `get_experiment_run` are either:
+- **Not yet exposed via MCP** (most likely, per existing pattern for KB operations), OR
+- **Present in a newer MCP server version** that requires updating `@orq-ai/node`
 
-### Core Technologies
+**Recommendation:** Assume these tools are MCP tool names passed at runtime by the user's environment, not SDK calls. Treat them as native Claude Code MCP tool invocations (like `mcp__orqai__create_experiment`). The implementation should attempt MCP first, fall back to REST if MCP call fails.
 
-| Technology | Version | Purpose | Why Recommended |
-|------------|---------|---------|-----------------|
-| Playwright | `^1.58.0` | Headless browser automation on VPS | Microsoft-maintained, de facto standard for deterministic browser scripting. Chromium-only mode keeps VPS footprint small. Verified: latest stable is 1.58.2 (Feb 2026). |
-| @modelcontextprotocol/sdk | `^1.27.0` | MCP server framework exposing Playwright scripts as tools | Official TypeScript SDK from Anthropic/MCP org. McpServer + Streamable HTTP transport for remote access. Verified: latest is 1.27.1 (Feb 2026). V2 expected Q1 2026 but use v1.x for production stability. |
-| Node.js | `22.x LTS` | VPS runtime | Playwright 1.58 requires Node 20.x, 22.x, or 24.x. Use 22.x LTS for stability on VPS. Matches development environment. |
-| Express | `^4.21.0` | HTTP server wrapping MCP Streamable HTTP transport | MCP SDK provides `@modelcontextprotocol/sdk/express` middleware. Express is the simplest integration path for Streamable HTTP. |
+**Confidence:** LOW — not confirmed against live MCP server tool list. The milestone context asserts these tools exist; this research cannot verify or deny that without live MCP inspection.
 
-### Supporting Libraries
+---
 
-| Library | Version | Purpose | When to Use |
-|---------|---------|---------|-------------|
-| zod | `^3.24.0` | Tool input schema validation for MCP tools | Every MCP tool definition requires a Zod schema. Already used by MCP SDK internally. |
-| PM2 | `^6.0.0` | Process management on VPS | Keeps MCP server running, auto-restarts on crash, log rotation. Install globally on VPS (`npm i -g pm2`). |
-| dotenv | `^16.4.0` | Environment variable management on VPS | Credentials (Orq.ai API key, system login creds) stored in `.env` on VPS. |
-| winston | `^3.17.0` | Structured logging for MCP server | File-based logging on VPS. MCP stdio transport interferes with console.log -- must use file logger. |
+## Experiment Pipeline: Correct Orq.ai Patterns
 
-### Development Tools
+### REST API: Experiments Lifecycle
 
-| Tool | Purpose | Notes |
-|------|---------|-------|
-| playwright install chromium | Install Chromium browser binary on VPS | Run once after deployment. Only Chromium needed -- skip Firefox/WebKit to save 500MB+. |
-| playwright codegen | Generate script scaffolding during development | Use locally for initial script creation, then refine for headless VPS execution. |
-| @playwright/mcp | NOT for production use -- for local development/testing only | Microsoft's Playwright MCP server (v0.0.67) is designed for local AI assistants, not remote VPS hosting. Build a custom MCP server instead. |
-
-## Architecture Decision: Custom MCP Server (NOT @playwright/mcp)
-
-**Decision:** Build a custom MCP server using `@modelcontextprotocol/sdk` that wraps individual Playwright scripts as MCP tools.
-
-**Why NOT use `@playwright/mcp` (Microsoft's official Playwright MCP server):**
-
-1. **Wrong abstraction level.** `@playwright/mcp` exposes generic browser primitives (navigate, click, type, screenshot) as individual MCP tools. The agent must orchestrate multi-step flows itself, consuming thousands of tokens per interaction.
-2. **Token cost.** A typical browser task via generic MCP tools costs ~114K tokens vs ~27K tokens via pre-scripted automation (4x overhead, per Cloudflare research).
-3. **Non-deterministic.** The V5.0 requirement is explicitly for "fixed/deterministic Playwright scripts" -- pre-scripted flows for known systems like NXT.
-4. **Security.** Generic browser tools on a VPS expose arbitrary web navigation. Pre-scripted tools expose only approved flows.
-
-**The custom MCP server exposes high-level, domain-specific tools:**
-
-```typescript
-// GOOD: One MCP tool = one complete business flow
-server.tool("nxt-get-invoice", { invoiceId: z.string() }, async (params) => {
-  // Full Playwright script: login -> navigate -> extract -> return
-  return { content: [{ type: "text", text: JSON.stringify(invoiceData) }] };
-});
-
-// BAD: Generic browser primitives (what @playwright/mcp does)
-server.tool("browser_navigate", ...);  // Agent must orchestrate
-server.tool("browser_click", ...);     // Multi-step, high token cost
-server.tool("browser_type", ...);      // Non-deterministic
-```
-
-## Transport: Streamable HTTP
-
-**Decision:** Use Streamable HTTP transport (not SSE, not stdio).
-
-| Transport | Use Case | Why Not for V5.0 |
-|-----------|----------|-------------------|
-| stdio | Local processes (Claude Desktop, CLI tools) | VPS is remote -- stdio requires local process |
-| SSE (deprecated) | Legacy remote servers | Deprecated in MCP spec 2025-03-26. Two endpoints, connection reliability issues. |
-| **Streamable HTTP** | **Remote servers, production** | **Single `/mcp` endpoint, stateless HTTP with optional streaming, load-balancer friendly** |
-
-The MCP SDK's Express middleware handles Streamable HTTP out of the box:
-
-```typescript
-import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
-import express from "express";
-
-const app = express();
-const server = new McpServer({ name: "moyne-browser-tools", version: "1.0.0" });
-
-// Register tools...
-
-app.post("/mcp", async (req, res) => {
-  const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined });
-  await server.connect(transport);
-  await transport.handleRequest(req, res);
-});
-
-app.listen(3100);
-```
-
-## VPS Requirements
-
-### Minimum Server Specs
-
-| Resource | Minimum | Recommended | Notes |
-|----------|---------|-------------|-------|
-| RAM | 1 GB | 2 GB | Chromium headless uses ~300-500MB per instance. Leave room for Node.js + OS. |
-| CPU | 1 vCPU | 2 vCPU | Playwright scripts are I/O-bound (waiting for pages), not CPU-bound. |
-| Disk | 10 GB | 20 GB | Chromium binary ~400MB + Node.js + logs. |
-| OS | Ubuntu 22.04+ | Ubuntu 24.04 LTS | Playwright has best Linux support on Ubuntu. Chromium dependencies pre-packaged. |
-
-### Required System Dependencies
-
-```bash
-# Playwright's Chromium needs these on Ubuntu
-npx playwright install-deps chromium
-
-# This installs: libnss3, libatk1.0-0, libatk-bridge2.0-0, libcups2,
-# libdrm2, libxkbcommon0, libxcomposite1, libxdamage1, libxrandr2, libgbm1, etc.
-```
-
-## Deployment Pipeline
-
-### How Scripts Get to the VPS
-
-The pipeline generates Playwright scripts locally (Claude Code skill), then deploys them to the VPS. Two deployment approaches:
-
-**Recommended: Git-based deployment**
+Based on confirmed REST endpoint patterns from `orqai-api-endpoints.md` and Orq.ai documentation:
 
 ```
-Local (Claude Code) -> Git push to repo -> VPS pulls + PM2 restart
+POST   /v2/experiments              # Create experiment
+GET    /v2/experiments              # List experiments
+GET    /v2/experiments/{id}         # Get experiment
+POST   /v2/experiments/{id}/run     # Trigger a run
+GET    /v2/experiments/{id}/results # Get results
 ```
 
-1. Script generator subagent writes `.ts` files to `browser-tools/scripts/`
-2. Committed to repo (same repo or dedicated `browser-tools` repo)
-3. VPS runs `git pull && pm2 restart mcp-server` on deploy trigger
-4. Deploy trigger: MCP tool on VPS (`deploy-scripts`) or SSH command
+### REST API: Dataset Operations
 
-**Why git-based:** Audit trail, rollback capability, review before deploy. Matches the existing "GitHub repo as single source of truth" decision.
+```
+POST /v2/datasets                        # Create dataset
+POST /v2/datasets/{dataset_id}/rows      # Add rows (datapoints)
+GET  /v2/datasets/{dataset_id}/rows      # List rows
+```
 
-### PM2 Configuration
+### REST API: Evaluator Operations
 
-```javascript
-// ecosystem.config.cjs on VPS
-module.exports = {
-  apps: [{
-    name: "mcp-server",
-    script: "./dist/server.js",
-    node_args: "--max-old-space-size=1024",
-    env: {
-      NODE_ENV: "production",
-      PORT: 3100
+```
+POST /v2/evaluators          # Create custom evaluator
+GET  /v2/evaluators          # List evaluators
+```
+
+Note: Built-in evaluators (`coherence`, `helpfulness`, `relevance`, `json_validity`, etc.) are referenced by name — they do NOT need to be created via POST. Only custom evaluators (LLM, Python, HTTP, JSON types) use the create endpoint.
+
+---
+
+## MCP Tool Schemas (Hypothesized — LOW Confidence)
+
+The milestone context asserts these MCP tools exist. The following schemas are inferred from the REST API patterns and Orq.ai documentation. They must be verified against the live MCP server at runtime.
+
+### create_dataset
+
+```json
+{
+  "name": "string",             // Required — dataset name
+  "description": "string"       // Optional
+}
+```
+
+Returns: `{ "id": "dataset_id", ... }`
+
+### create_datapoints
+
+This is the operation for adding rows to a dataset. Based on REST pattern (`POST /v2/datasets/{id}/rows`), the MCP tool likely takes:
+
+```json
+{
+  "dataset_id": "string",       // Required — dataset platform ID
+  "rows": [                     // Required — array of datapoints
+    {
+      "inputs": {               // Key-value pairs used as prompt variables
+        "text": "string",       // The user input/question
+        "category": "string"    // Metadata (optional, platform may ignore)
+      },
+      "messages": [             // Optional — chat message history
+        { "role": "user", "content": "string" }
+      ],
+      "expected_output": "string"  // Optional — ground truth for evaluators
+    }
+  ]
+}
+```
+
+**Critical format note:** Orq.ai datasets have three optional components: `inputs` (variables), `messages` (prompt template), `expected_output` (reference answer). For agent testing, use `inputs` + `messages` (the actual user message) + `expected_output` (what the agent should say). Do NOT mix `inputs.text` with `messages[0].content` — they serve different purposes. Use `messages` for the agent conversation turn, `inputs` for any template variable substitutions.
+
+### create_experiment
+
+Based on Orq.ai documentation: "test Orq deployments, Orq agents, or any third-party framework."
+
+```json
+{
+  "name": "string",             // Required — experiment name
+  "dataset_id": "string",       // Required — platform dataset ID to run against
+  "task": {
+    "type": "agent",            // "agent" for Orq agents, "deployment" for deployments
+    "key": "string"             // The agent key (e.g., "invoice-processor-agent")
+  },
+  "evaluators": [               // Optional — evaluator configuration
+    {
+      "name": "coherence"       // Built-in evaluator name (no ID needed)
     },
-    max_restarts: 10,
-    restart_delay: 5000,
-    log_date_format: "YYYY-MM-DD HH:mm:ss Z"
-  }]
-};
+    {
+      "name": "json_validity"
+    }
+  ],
+  "auto_run": true              // Optional — trigger run immediately after create
+}
 ```
 
-## Installation
+**What `auto_run: true` does:** Creates the experiment AND immediately queues a run, equivalent to calling `POST /v2/experiments/{id}/run` after creation. When `auto_run: true`, the experiment moves to `running` status and results are available once polling shows `completed`. Without `auto_run`, you must call the run endpoint separately.
 
-### VPS Setup (One-Time)
+**MEDIUM confidence on `task.key` field name** — could be `agent_key`, `agent_id`, or `key`. The deployer uses `key` as the agent identifier for CRUD operations, so `task.key` is the most likely pattern.
 
-```bash
-# Node.js 22.x LTS
-curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash -
-sudo apt-get install -y nodejs
+### create_llm_eval
 
-# PM2 (global)
-sudo npm install -g pm2
+Creates a custom LLM-as-judge evaluator. Only needed for domain-specific evaluation criteria. Built-in LLM evaluators (`coherence`, `helpfulness`, etc.) do NOT require creation.
 
-# Project
-git clone [repo] /opt/browser-tools
-cd /opt/browser-tools
-npm install
-
-# Playwright Chromium only (skip Firefox/WebKit)
-npx playwright install chromium
-npx playwright install-deps chromium
-
-# Start
-pm2 start ecosystem.config.cjs
-pm2 save
-pm2 startup  # auto-start on reboot
+```json
+{
+  "name": "string",             // Required — evaluator name
+  "type": "llm",                // Required — evaluator type
+  "prompt": "string",           // Required — judge prompt defining scoring criteria
+  "score_range": {              // Optional — score output range
+    "min": 0,
+    "max": 5
+  }
+}
 ```
 
-### Project Dependencies
+### create_python_eval
 
-```bash
-# Core runtime (VPS package.json)
-npm install playwright @modelcontextprotocol/sdk express zod dotenv winston
+Creates a custom Python evaluator for deterministic scoring logic.
 
-# Dev dependencies (local development)
-npm install -D typescript @types/node @types/express
+```json
+{
+  "name": "string",             // Required — evaluator name
+  "type": "python",             // Required — evaluator type
+  "code": "string"              // Required — Python code string
+}
 ```
 
-### NOT Needed in VPS package.json
+### list_experiment_runs
 
-```bash
-# These stay in the Claude Code skill, NOT on the VPS:
-# @orq-ai/node          -- Agent management is Claude Code's job
-# @orq-ai/evaluatorq    -- Testing is Claude Code's job
-# @playwright/mcp       -- Generic browser tools, wrong abstraction
-# playwright-core       -- Use full `playwright` (includes browser management)
+```json
+{
+  "experiment_id": "string"     // Required — experiment platform ID
+}
 ```
 
-## Alternatives Considered
+Returns: array of run objects with `{ "id": "run_id", "status": "running|completed|failed", ... }`
 
-| Category | Recommended | Alternative | Why Not |
-|----------|-------------|-------------|---------|
-| MCP server | Custom with @modelcontextprotocol/sdk | @playwright/mcp (Microsoft) | Generic browser primitives, 4x token cost, non-deterministic. V5.0 needs pre-scripted flows. |
-| MCP server | Custom with @modelcontextprotocol/sdk | @executeautomation/playwright-mcp-server | Same problem -- exposes generic browser tools. Also third-party, less maintained. |
-| Transport | Streamable HTTP | SSE | SSE deprecated in MCP spec. Two endpoints, connection issues. Streamable HTTP is the standard. |
-| Transport | Streamable HTTP | stdio + tunnel | Requires SSH tunnel or proxy. Adds complexity. Streamable HTTP works over plain HTTPS. |
-| Process manager | PM2 | systemd | PM2 offers log rotation, restart policies, ecosystem file, and `pm2 deploy` built in. systemd is more work for same result. |
-| Process manager | PM2 | Docker | Adds container runtime complexity. For a single Node.js process on a VPS, PM2 is simpler. Docker makes sense at scale. |
-| VPS hosting | Self-managed VPS | Cloudflare Workers + Browser Rendering | Cloudflare's browser rendering is serverless and session-based. Playwright scripts needing login state and multi-page flows are awkward in serverless. VPS gives persistent browser context. |
-| Browser | Chromium only | Multi-browser | Only automating internal systems. No cross-browser testing needed. Chromium-only saves 1GB+ disk. |
-| Script language | TypeScript | Python (Playwright-Python) | Existing stack is all Node.js/TypeScript. MCP SDK is TypeScript. No reason to add Python. |
+### get_experiment_run
 
-## What NOT to Use
+```json
+{
+  "experiment_id": "string",    // Required — experiment platform ID
+  "run_id": "string"            // Required — specific run ID
+}
+```
+
+Returns: run object with status and results when `status: "completed"`.
+
+---
+
+## Experiment Lifecycle: Create → Run → Poll → Results
+
+```
+1. create_dataset          → dataset_id
+2. create_datapoints       → adds rows to dataset_id (batch or sequential)
+3. create_experiment       → experiment_id (with auto_run: true OR explicit run trigger)
+4. POLL list_experiment_runs  → wait for status: "completed" (poll every 5-10s, timeout 5min)
+5. get_experiment_run      → retrieve scores per evaluator per example
+```
+
+**Polling pattern:**
+```
+max_polls = 30
+poll_interval = 10s  (agents take longer than deployments — 10s minimum)
+timeout = 5 minutes
+
+FOR i in 1..max_polls:
+  runs = list_experiment_runs(experiment_id)
+  IF any run.status == "completed": break
+  IF any run.status == "failed": handle failure, break
+  WAIT poll_interval
+```
+
+**Why agents time out:** The existing evaluatorq approach invokes the agent inline per dataset row. Orq's agent runtime is async — it runs the full agent loop (tool calls, iterations, max_iterations cap). The evaluatorq job timeout is hit before the agent finishes. The native experiment runner (`task.type: "agent"`) handles this correctly by managing execution server-side.
+
+---
+
+## Dataset Format for Experiments
+
+### What Works (Confirmed)
+
+Orq.ai dataset rows take three optional components:
+- `inputs` — key-value variables (string values)
+- `messages` — chat message array (`[{ role: "user", content: "..." }]`)
+- `expected_output` — string reference answer
+
+### What May Be Wrong in the Current Implementation
+
+The current tester (Phase 5, Step 5.2) uploads rows in this format:
+```json
+{
+  "inputs": {
+    "text": "...",
+    "category": "...",
+    "source": "...",
+    "eval_id": "..."
+  },
+  "messages": [{ "role": "user", "content": "..." }],
+  "expected_output": "..."
+}
+```
+
+**Potential issue:** Including metadata fields (`category`, `source`, `eval_id`) inside `inputs` may confuse the experiment runner if it tries to substitute these as prompt template variables. The safest format for agent testing:
+
+```json
+{
+  "messages": [{ "role": "user", "content": "THE_INPUT_TEXT" }],
+  "expected_output": "THE_EXPECTED_RESPONSE"
+}
+```
+
+Strip non-standard metadata from `inputs`. Keep metadata in local tracking only.
+
+**Confidence:** LOW — cannot verify without live experiment run. The issue may be in the task type, not the dataset format.
+
+---
+
+## Evaluator Attachment Pattern
+
+### Built-in Evaluators (No Creation Required)
+
+Reference by name only in the experiment config:
+```json
+"evaluators": [
+  { "name": "coherence" },
+  { "name": "helpfulness" },
+  { "name": "relevance" },
+  { "name": "json_validity" },
+  { "name": "instruction_following" },
+  { "name": "toxicity" },
+  { "name": "harmfulness" }
+]
+```
+
+### Custom Evaluators (Must Create First)
+
+```
+1. create_llm_eval or create_python_eval  → evaluator_id
+2. Reference in experiment: { "id": "evaluator_id" }
+```
+
+**Key rule:** Built-in evaluators are referenced by `name`. Custom evaluators are referenced by `id`. Do not mix these.
+
+**Recommendation for V2.1:** Use only built-in evaluators. Custom evaluator creation adds complexity and is not needed for the existing role-based evaluator selection logic.
+
+---
+
+## SDK Versions: Critical Corrections
+
+| Package | Pinned (Broken) | Actual Current | Recommendation |
+|---------|----------------|----------------|----------------|
+| `@orq-ai/node` | `^3.14.45` (DOES NOT EXIST) | `4.4.9` | Pin to `^3.2.8` for MCP server binary, or upgrade to `^4.4.9` and use REST-only |
+| `@orq-ai/evaluatorq` | `^1.1.0` | Latest in `@orq-ai/orqkit` | Stop using for agent testing |
+| `@orq-ai/evaluators` | `^1.1.0` | Part of orqkit | Stop using for agent testing |
+
+**Critical:** Version 4.x of `@orq-ai/node` dropped the bundled MCP server binary. The MCP tools (`agents-create`, etc.) that the deployer uses come from the v3.x MCP server binary. If the environment is running `@orq-ai/node@4.x`, MCP tools may be unavailable — which would explain why experiments fall back to REST but then fail because evaluatorq doesn't work with agents.
+
+**The V2.1 fix should not depend on any of these three SDKs for experiment execution.** Use MCP tools natively (Claude Code calling MCP tools directly) + REST API fallback.
+
+---
+
+## What NOT to Use for V2.1
 
 | Avoid | Why | Use Instead |
 |-------|-----|-------------|
-| @playwright/mcp | Generic browser primitives expose arbitrary navigation, cost 4x more tokens, non-deterministic | Custom MCP server with domain-specific tool functions |
-| Puppeteer | Playwright supersedes it. Same team (Microsoft), better API, better reliability, native multi-browser. | Playwright |
-| Selenium | Legacy Java-era tool. Slower, more brittle, worse API. | Playwright |
-| playwright-core | Requires manual browser management. `playwright` package includes browser download commands. | `playwright` (full package) |
-| SSE transport | Deprecated in MCP specification. | Streamable HTTP |
-| Docker (initially) | Over-engineering for single process. Add later if needed. | PM2 on bare VPS |
-| Nginx reverse proxy (initially) | Direct Express on port 3100 is sufficient for single-client use (Orq.ai agents). Add Nginx only if TLS termination or multi-service routing needed. | Express directly, with Let's Encrypt certbot if HTTPS needed |
+| `@orq-ai/evaluatorq` for agent testing | Times out immediately — evaluatorq job model is not compatible with Orq agent async runtime | Native MCP `create_experiment` + `task.type: "agent"` |
+| `@orq-ai/node@^3.14.45` | Version does not exist on npm | Verify actual installed version; use REST API directly |
+| Inline agent invocation per dataset row | N×timeout risk, no parallelism control | Let Orq's experiment runner handle batch execution server-side |
+| Creating custom evaluators for built-in types | Unnecessary — `coherence`, `json_validity`, etc. are referenced by name | Reference built-ins by name in experiment config |
+| `agents.responses.create()` for per-row execution | Per-row agent calls in a loop time out before results come back | Batch via native experiment runner |
 
-## Stack Patterns by Variant
+---
 
-**If deploying a single system (NXT only):**
-- Single MCP server process, single Playwright browser context
-- Scripts co-located in one directory
-- PM2 with single app config
+## MCP-First / REST-Fallback for Experiment Operations
 
-**If deploying multiple systems (NXT + iController + Intelly):**
-- Still single MCP server process (tools namespaced by system: `nxt-*`, `icontroller-*`)
-- Separate script directories per system
-- Consider browser context pool (reuse login sessions per system)
-- May need 2GB+ RAM for concurrent browser contexts
+Following the locked pattern from the deployer. New tool mapping for V2.1:
 
-**If adding HTTPS/TLS:**
-- Use Let's Encrypt with certbot for free TLS certificates
-- Either terminate TLS in Express (with `https` module) or add Nginx as reverse proxy
-- Orq.ai agents likely require HTTPS for MCP tool calls in production
-
-## Version Compatibility
-
-| Package | Version | Compatible With | Notes |
-|---------|---------|-----------------|-------|
-| playwright@^1.58.0 | Node 20.x, 22.x, 24.x | Use Node 22.x LTS | Playwright tracks Node LTS releases |
-| @modelcontextprotocol/sdk@^1.27.0 | Node 18+ | Use Node 22.x LTS | V2 expected Q1 2026; stay on v1.x until stable |
-| express@^4.21.0 | Node 18+ | MCP SDK express middleware | Express 5.x exists but MCP SDK middleware targets v4 |
-| PM2@^6.0.0 | Node 16+ | Global install on VPS | Does not need to be in package.json |
-| zod@^3.24.0 | TypeScript 5.0+ | MCP SDK peer dependency | Required for tool schema definitions |
-
-## Integration Points with Existing Stack
-
-### With Agent Spec Generator (Spec Wiring)
-
-When the pipeline detects browser automation needs, agent specs must reference MCP tools on the VPS:
-
-```yaml
-# In agent spec, tools section:
-tools:
-  - type: mcp
-    server: moyne-browser-tools        # MCP server name
-    url: https://vps.example.com/mcp    # Streamable HTTP endpoint
-    tool: nxt-get-invoice               # Specific tool name
+```
+Operation               MCP Tool (attempt first)     REST Fallback
+--------------------    -------------------------    ------------------------------------------
+Create dataset          create_dataset               POST /v2/datasets
+Add datapoints          create_datapoints            POST /v2/datasets/{id}/rows
+Create experiment       create_experiment            POST /v2/experiments
+Trigger run             (included in auto_run:true)  POST /v2/experiments/{id}/run
+Poll runs               list_experiment_runs         GET /v2/experiments/{id}/results
+Get run results         get_experiment_run           GET /v2/experiments/{id}/results
+Create LLM eval         create_llm_eval              POST /v2/evaluators (type: "llm")
+Create Python eval      create_python_eval           POST /v2/evaluators (type: "python")
 ```
 
-The spec generator subagent must know: (a) which tools exist on the MCP server, and (b) the MCP server URL. This comes from the application capabilities config file.
+If MCP tools for datasets/experiments do not exist in the environment, all operations fall through to REST automatically. This is identical to how KB operations work in the deployer.
 
-### With Application Capabilities Config
+---
 
-New reference file consumed by the pipeline:
+## Confidence Assessment
 
-```yaml
-# references/application-capabilities.yaml
-systems:
-  nxt:
-    integration: browser-only
-    mcp_server: https://vps.example.com/mcp
-    tools:
-      - nxt-get-invoice
-      - nxt-search-customer
-      - nxt-create-credit-note
-  erp-system:
-    integration: api
-    base_url: https://api.erp.example.com
-```
+| Area | Confidence | Notes |
+|------|------------|-------|
+| REST API endpoints | HIGH | Documented in `orqai-api-endpoints.md`, confirmed against Orq.ai docs |
+| Evaluator types/names | HIGH | Documented in `orqai-evaluator-types.md`, consistent across sources |
+| MCP tool names (experiments) | LOW | Not confirmed in any public source; asserted by milestone context only |
+| MCP tool parameter schemas | LOW | Inferred from REST API shapes; not verified against live server |
+| `task.type: "agent"` field name | MEDIUM | Consistent with Orq.ai documentation describing agent vs deployment experiments |
+| `task.key` field name | LOW | Inferred from deployer's `key` pattern; could be `agent_key` or `agent_id` |
+| `auto_run: true` behavior | MEDIUM | Consistent with Orq.ai changelog describing one-step experiment creation + run |
+| Dataset format for agents | LOW | Uncertain whether metadata in `inputs` breaks experiment runner |
+| SDK version issue | HIGH | npm registry confirms v3.14.45 does not exist; latest is v4.4.9 |
+| evaluatorq timeout cause | HIGH | Agent async runtime incompatible with evaluatorq's synchronous job model |
 
-### With Deployer (Tool Registration)
+---
 
-After Playwright scripts deploy to VPS, the deployer needs to register MCP tool references in Orq.ai agent configs. This extends the existing deployer's tool handling.
+## Gaps to Address During Implementation
+
+1. **MCP tool verification (Phase 1 of any subagent):** Before attempting MCP operations, the dataset-preparer and experiment-runner subagents must verify which MCP tools are available. Use a lightweight probe — attempt `list_experiment_runs` with a dummy ID or use the environment's tool list.
+
+2. **`task.key` vs `task.agent_key` vs `task.agent_id`:** The exact field name for the agent identifier inside `task` is unknown. The first failed experiment will reveal the correct name via the API error response. Build in a fallback retry that tries alternative field names.
+
+3. **Batch vs sequential datapoints:** It is unknown whether `create_datapoints` accepts an array of rows in one call (batch) or requires per-row calls. The REST endpoint (`POST /v2/datasets/{id}/rows`) appears to accept an array based on existing tester code. Confirm at runtime.
+
+4. **Polling interval for agent experiments:** Agent experiments are slower than deployment experiments (agents run tool loops). A 10-second poll interval is the minimum safe floor; 15-30 seconds may be needed for complex agents.
+
+5. **`@orq-ai/node` installed version:** The MCP server binary in the user's environment determines which MCP tools are available. If v4.x is installed, no MCP binary exists — all operations must use REST. The experiment-runner should detect this early and set `mcp_available = false` for dataset/experiment operations.
+
+---
 
 ## Sources
 
-- [Playwright npm registry](https://www.npmjs.com/package/playwright) -- Version 1.58.2, verified 2026-03-03. HIGH confidence.
-- [Playwright release notes](https://playwright.dev/docs/release-notes) -- Node.js 20/22/24 requirement. HIGH confidence.
-- [@modelcontextprotocol/sdk npm registry](https://www.npmjs.com/package/@modelcontextprotocol/sdk) -- Version 1.27.1, verified 2026-03-03. HIGH confidence.
-- [MCP TypeScript SDK GitHub](https://github.com/modelcontextprotocol/typescript-sdk) -- McpServer API, transport options. HIGH confidence.
-- [MCP Specification - Transports](https://modelcontextprotocol.io/specification/2025-03-26/basic/transports) -- Streamable HTTP as replacement for SSE. HIGH confidence.
-- [@playwright/mcp npm registry](https://www.npmjs.com/package/@playwright/mcp) -- Version 0.0.67, generic browser tools approach. HIGH confidence.
-- [MCP Hosting Guide 2026](https://www.agent37.com/blog/mcp-hosting-complete-guide-to-hosting-mcp-servers) -- VPS deployment patterns. MEDIUM confidence (third-party source, but consistent with official docs).
-- [Cloudflare Browser Rendering - token cost comparison](https://developers.cloudflare.com/browser-rendering/playwright/playwright-mcp/) -- 114K vs 27K token comparison. MEDIUM confidence (Cloudflare official docs).
-- [PM2 documentation](https://pm2.keymetrics.io/) -- Process management features. HIGH confidence.
+- `orq-agent/agents/deployer.md` — confirmed MCP tool names (agents-create, etc.) and KB no-MCP note. HIGH confidence.
+- `orq-agent/agents/tester.md` — current failing implementation. HIGH confidence on what's broken.
+- `orq-agent/references/orqai-api-endpoints.md` — REST endpoint catalog. HIGH confidence.
+- `orq-agent/references/orqai-evaluator-types.md` — built-in evaluator names and types. HIGH confidence.
+- [Orq.ai Release 4.1 changelog](https://docs.orq.ai/changelog/release-4-1) — "run experiments programmatically, test Orq deployments, Orq agents, or any third-party framework." MEDIUM confidence.
+- [Orq.ai Experiments Overview](https://docs.orq.ai/docs/experiments/overview) — dataset prerequisites, evaluator attachment. MEDIUM confidence.
+- [npm @orq-ai/node](https://www.npmjs.com/package/@orq-ai/node) — latest version 4.4.9, confirming 3.14.45 does not exist. HIGH confidence.
+- [@orq-ai/evaluatorq npm](https://www.npmjs.com/package/@orq-ai/evaluatorq) — `{ data: { datasetId }, jobs, evaluators }` pattern, deployment-oriented. HIGH confidence on SDK model.
+- [orqkit GitHub](https://github.com/orq-ai/orqkit) — evaluatorq is an open-source evaluation framework for deployments. MEDIUM confidence.
 
 ---
-*Stack research for: V5.0 Browser Automation -- additions to existing Orq Agent Designer pipeline*
-*Researched: 2026-03-03*
+
+*Stack research for: V2.1 Experiment Pipeline Restructure — experiment MCP/REST patterns*
+*Researched: 2026-03-10*
