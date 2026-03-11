@@ -136,10 +136,10 @@ Plans:
   2. Experiment-runner resolves evaluator IDs by creating custom evaluators via MCP or referencing built-in evaluators by name -- experiments include working evaluators
   3. Experiment-runner executes 3 runs per agent with an adaptive polling loop (10-30s interval) and writes raw per-run per-evaluator scores to `experiment-raw.json`
   4. Experiment-runner accepts a `dataset_id` directly as input for holdout re-test mode -- skipping dataset-preparer entirely
-**Plans**: TBD
+**Plans**: 1 plan
 
 Plans:
-- [ ] 27-01: TBD
+- [ ] 27-01-PLAN.md — Create experiment-runner.md subagent with 6 internal phases (read inputs, resolve evaluators, create experiments, execute runs, export results, write JSON)
 
 ### Phase 28: Results Analyzer
 **Goal**: Users get clear, actionable test results with statistical rigor and backward-compatible output that hardener.md continues to consume without changes
