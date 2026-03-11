@@ -17,12 +17,12 @@ Requirements for V2.1 Experiment Pipeline Restructure. Each maps to roadmap phas
 
 ### Experiment Execution
 
-- [ ] **EXPR-01**: Experiment-runner creates experiments via MCP `create_experiment` (task.type: "agent") with REST fallback
-- [ ] **EXPR-02**: Experiment-runner uses agent `key` (not `orqai_id`) for experiment task configuration
-- [ ] **EXPR-03**: Experiment-runner resolves evaluator IDs (create custom via MCP or use built-in by name)
-- [ ] **EXPR-04**: Experiment-runner executes 3 runs per agent with polling loop (adaptive 10-30s interval)
-- [ ] **EXPR-05**: Experiment-runner accepts `dataset_id` as direct input for holdout re-test mode
-- [ ] **EXPR-06**: Experiment-runner writes `experiment-raw.json` with per-run per-evaluator raw scores
+- [x] **EXPR-01**: Experiment-runner creates experiments via MCP `create_experiment` (task.type: "agent") with REST fallback
+- [x] **EXPR-02**: Experiment-runner uses agent `key` (not `orqai_id`) for experiment task configuration
+- [x] **EXPR-03**: Experiment-runner resolves evaluator IDs (create custom via MCP or use built-in by name)
+- [x] **EXPR-04**: Experiment-runner executes 3 runs per agent with polling loop (adaptive 10-30s interval)
+- [x] **EXPR-05**: Experiment-runner accepts `dataset_id` as direct input for holdout re-test mode
+- [x] **EXPR-06**: Experiment-runner writes `experiment-raw.json` with per-run per-evaluator raw scores
 
 ### Results Analysis
 
@@ -97,12 +97,12 @@ Which phases cover which requirements. Updated during roadmap creation.
 | DATA-03 | Phase 26 | Complete |
 | DATA-04 | Phase 26 | Complete |
 | DATA-05 | Phase 26 | Complete |
-| EXPR-01 | Phase 27 | Pending |
-| EXPR-02 | Phase 27 | Pending |
-| EXPR-03 | Phase 27 | Pending |
-| EXPR-04 | Phase 27 | Pending |
-| EXPR-05 | Phase 27 | Pending |
-| EXPR-06 | Phase 27 | Pending |
+| EXPR-01 | Phase 27 | Complete |
+| EXPR-02 | Phase 27 | Complete |
+| EXPR-03 | Phase 27 | Complete |
+| EXPR-04 | Phase 27 | Complete |
+| EXPR-05 | Phase 27 | Complete |
+| EXPR-06 | Phase 27 | Complete |
 | ANLZ-01 | Phase 28 | Pending |
 | ANLZ-02 | Phase 28 | Pending |
 | ANLZ-03 | Phase 28 | Pending |

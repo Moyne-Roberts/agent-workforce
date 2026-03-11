@@ -104,7 +104,7 @@ Build a Claude Code skill that transforms natural language use case descriptions
 - Decimal phases (e.g., 27.1): Urgent insertions (marked with INSERTED)
 
 - [x] **Phase 26: Dataset Preparer** - New subagent that parses markdown datasets, augments to 30+, splits stratified, and uploads with correct row format via MCP/REST (completed 2026-03-11)
-- [ ] **Phase 27: Experiment Runner** - New subagent that creates and runs experiments via native MCP create_experiment with adaptive polling and triple-run execution
+- [x] **Phase 27: Experiment Runner** - New subagent that creates and runs experiments via native MCP create_experiment with adaptive polling and triple-run execution (completed 2026-03-11)
 - [ ] **Phase 28: Results Analyzer** - New subagent that aggregates triple-run scores, determines pass/fail, produces category-sliced analysis and backward-compatible output
 - [ ] **Phase 29: Test Command Rewrite** - Simplified test.md orchestrating dataset-preparer, experiment-runner, results-analyzer in sequence with intermediate failure checks
 - [ ] **Phase 30: Failure Diagnoser** - New subagent that maps evaluator failures to prompt sections, proposes diffs, and collects HITL approval
@@ -215,7 +215,7 @@ Phases execute in numeric order: 26 -> 27 -> 28 -> 29 -> 30 -> 31 -> 32
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 26. Dataset Preparer | 1/1 | Complete    | 2026-03-11 |
-| 27. Experiment Runner | 0/TBD | Not started | - |
+| 27. Experiment Runner | 1/1 | Complete   | 2026-03-11 |
 | 28. Results Analyzer | 0/TBD | Not started | - |
 | 29. Test Command Rewrite | 0/TBD | Not started | - |
 | 30. Failure Diagnoser | 0/TBD | Not started | - |
