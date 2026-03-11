@@ -11,24 +11,24 @@ See: .planning/PROJECT.md (updated 2026-03-10)
 ## Current Position
 
 Phase: 26 of 32 (Dataset Preparer)
-Plan: 0 of TBD in current phase
-Status: Ready to plan
-Last activity: 2026-03-10 -- Roadmap created for V2.1 (7 phases, 24 requirements)
+Plan: 1 of 1 in current phase
+Status: Phase 26 complete
+Last activity: 2026-03-11 -- Completed 26-01-PLAN.md (dataset-preparer.md subagent)
 
-Progress: [░░░░░░░░░░] 0%
+Progress: [##########] 100% (Phase 26)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 0
-- Average duration: -
-- Total execution time: -
+- Total plans completed: 1
+- Average duration: 2min
+- Total execution time: 2min
 
 **By Phase:**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
-| - | - | - | - |
+| 26 | 1 | 2min | 2min |
 
 ## Accumulated Context
 
@@ -39,6 +39,9 @@ Progress: [░░░░░░░░░░] 0%
 - [V2.1]: Break iterator.md (544 lines) into failure-diagnoser, prompt-editor
 - [V2.1]: Use MCP tools for dataset/evaluator operations with REST fallback
 - [V2.1]: Intermediate JSON files as subagent handoff contracts (not in-memory state)
+- [P26]: REST preferred over MCP for row upload -- MCP create_datapoints schema lacks messages top-level field
+- [P26]: Smoke test mandatory before bulk upload to catch silent null-score failures
+- [P26]: Role inference moved into dataset-preparer for single-pass efficiency with handoff contract
 
 ### Blockers/Concerns
 
@@ -48,7 +51,7 @@ Progress: [░░░░░░░░░░] 0%
 
 ## Session Continuity
 
-Last session: 2026-03-10
-Stopped at: Phase 26 context gathered
-Resume with: `/gsd:plan-phase 26`
-Resume file: `.planning/phases/26-dataset-preparer/26-CONTEXT.md`
+Last session: 2026-03-11
+Stopped at: Completed 26-01-PLAN.md
+Resume with: `/gsd:execute-phase 27` (or next phase)
+Resume file: `.planning/phases/26-dataset-preparer/26-01-SUMMARY.md`

@@ -9,11 +9,11 @@ Requirements for V2.1 Experiment Pipeline Restructure. Each maps to roadmap phas
 
 ### Dataset Preparation
 
-- [ ] **DATA-01**: Dataset-preparer uploads datapoints with required `messages` field (`[{role: "user", content: input}]`)
-- [ ] **DATA-02**: Dataset-preparer uses MCP `create_dataset`/`create_datapoints` with REST fallback
-- [ ] **DATA-03**: Dataset-preparer parses markdown eval pairs, augments to 30+, splits 60/20/20 stratified
-- [ ] **DATA-04**: Dataset-preparer infers agent role (structural/conversational/hybrid) from spec content
-- [ ] **DATA-05**: Dataset-preparer writes `dataset-prep.json` with per-agent dataset IDs and role
+- [x] **DATA-01**: Dataset-preparer uploads datapoints with required `messages` field (`[{role: "user", content: input}]`)
+- [x] **DATA-02**: Dataset-preparer uses MCP `create_dataset`/`create_datapoints` with REST fallback
+- [x] **DATA-03**: Dataset-preparer parses markdown eval pairs, augments to 30+, splits 60/20/20 stratified
+- [x] **DATA-04**: Dataset-preparer infers agent role (structural/conversational/hybrid) from spec content
+- [x] **DATA-05**: Dataset-preparer writes `dataset-prep.json` with per-agent dataset IDs and role
 
 ### Experiment Execution
 
@@ -92,11 +92,11 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| DATA-01 | Phase 26 | Pending |
-| DATA-02 | Phase 26 | Pending |
-| DATA-03 | Phase 26 | Pending |
-| DATA-04 | Phase 26 | Pending |
-| DATA-05 | Phase 26 | Pending |
+| DATA-01 | Phase 26 | Complete |
+| DATA-02 | Phase 26 | Complete |
+| DATA-03 | Phase 26 | Complete |
+| DATA-04 | Phase 26 | Complete |
+| DATA-05 | Phase 26 | Complete |
 | EXPR-01 | Phase 27 | Pending |
 | EXPR-02 | Phase 27 | Pending |
 | EXPR-03 | Phase 27 | Pending |
