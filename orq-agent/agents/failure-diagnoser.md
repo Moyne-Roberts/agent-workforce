@@ -100,7 +100,7 @@ For each failing agent:
 >
 > If no guardrails section exists or no guardrail evaluators are failing, proceed with standard diagnosis below.
 
-1. **Read the agent spec `.md` file** to get the current instructions content
+1. **Read the agent spec `.md` file** at `{swarm_dir}/agents/{agent_key}.md`. If the file does not exist at that path, use Glob to find `{agent_key}.md` within the swarm directory. Read the file to get the current instructions content.
 2. **Parse the XML-tagged sections:** Find content between `<section>` and `</section>` tags within the `## Instructions` code block. Split on `<tag>`/`</tag>` patterns (prompts use simple non-nested XML).
 3. **For each failing evaluator:**
    a. Look at `category_scores` to find WHICH categories are failing (e.g., adversarial vs happy-path)
