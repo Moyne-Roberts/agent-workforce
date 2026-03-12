@@ -216,7 +216,7 @@ Phases execute in numeric order: 26 -> 27 -> 28 -> 29 -> 30 -> 31 -> 32
 |-------|----------------|--------|-----------|
 | 26. Dataset Preparer | 1/1 | Complete    | 2026-03-11 |
 | 27. Experiment Runner | 1/1 | Complete    | 2026-03-11 |
-| 28. Results Analyzer | 1/1 | Complete   | 2026-03-12 |
+| 28. Results Analyzer | 1/1 | Complete    | 2026-03-12 |
 | 29. Test Command Rewrite | 0/TBD | Not started | - |
 | 30. Failure Diagnoser | 0/TBD | Not started | - |
 | 31. Prompt Editor | 0/TBD | Not started | - |
