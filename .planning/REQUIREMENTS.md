@@ -26,11 +26,11 @@ Requirements for V2.1 Experiment Pipeline Restructure. Each maps to roadmap phas
 
 ### Results Analysis
 
-- [ ] **ANLZ-01**: Results-analyzer computes triple-run aggregation (median, variance, 95% CI)
-- [ ] **ANLZ-02**: Results-analyzer determines pass/fail per evaluator per agent against thresholds
-- [ ] **ANLZ-03**: Results-analyzer produces category-sliced scoring from `inputs.category` metadata
-- [ ] **ANLZ-04**: Results-analyzer writes `test-results.json` preserving schema compatibility with hardener.md
-- [ ] **ANLZ-05**: Results-analyzer produces `test-results.md` and terminal summary table
+- [x] **ANLZ-01**: Results-analyzer computes triple-run aggregation (median, variance, 95% CI)
+- [x] **ANLZ-02**: Results-analyzer determines pass/fail per evaluator per agent against thresholds
+- [x] **ANLZ-03**: Results-analyzer produces category-sliced scoring from `inputs.category` metadata
+- [x] **ANLZ-04**: Results-analyzer writes `test-results.json` preserving schema compatibility with hardener.md
+- [x] **ANLZ-05**: Results-analyzer produces `test-results.md` and terminal summary table
 
 ### Test Command
 
@@ -103,11 +103,11 @@ Which phases cover which requirements. Updated during roadmap creation.
 | EXPR-04 | Phase 27 | Complete |
 | EXPR-05 | Phase 27 | Complete |
 | EXPR-06 | Phase 27 | Complete |
-| ANLZ-01 | Phase 28 | Pending |
-| ANLZ-02 | Phase 28 | Pending |
-| ANLZ-03 | Phase 28 | Pending |
-| ANLZ-04 | Phase 28 | Pending |
-| ANLZ-05 | Phase 28 | Pending |
+| ANLZ-01 | Phase 28 | Complete |
+| ANLZ-02 | Phase 28 | Complete |
+| ANLZ-03 | Phase 28 | Complete |
+| ANLZ-04 | Phase 28 | Complete |
+| ANLZ-05 | Phase 28 | Complete |
 | TEST-01 | Phase 29 | Pending |
 | TEST-02 | Phase 29 | Pending |
 | TEST-03 | Phase 29 | Pending |

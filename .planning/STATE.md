@@ -3,12 +3,12 @@ gsd_state_version: 1.0
 milestone: v0.3
 milestone_name: milestone
 status: unknown
-last_updated: "2026-03-11T14:33:40.433Z"
+last_updated: "2026-03-12T14:13:55Z"
 progress:
-  total_phases: 2
-  completed_phases: 2
-  total_plans: 2
-  completed_plans: 2
+  total_phases: 3
+  completed_phases: 3
+  total_plans: 3
+  completed_plans: 3
 ---
 
 # Project State
@@ -18,24 +18,24 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-10)
 
 **Core value:** Any colleague can go from a use case description to deployed, tested agents on Orq.ai -- without touching a terminal or needing technical knowledge.
-**Current focus:** V2.1 Experiment Pipeline Restructure -- Phase 27 (Experiment Runner)
+**Current focus:** V2.1 Experiment Pipeline Restructure -- Phase 28 (Results Analyzer)
 **Previous milestones:** v0.3 shipped 2026-03-01 (11 phases, 28 plans), V2.0 shipped 2026-03-02 (7 phases, 11 plans), V3.0-V5.0 defined
 
 ## Current Position
 
-Phase: 27 of 32 (Experiment Runner)
+Phase: 28 of 32 (Results Analyzer)
 Plan: 1 of 1 in current phase
-Status: Phase 27 complete
-Last activity: 2026-03-11 -- Completed 27-01-PLAN.md (experiment-runner.md subagent)
+Status: Phase 28 complete
+Last activity: 2026-03-12 -- Completed 28-01-PLAN.md (results-analyzer.md subagent)
 
-Progress: [##########] 100% (Phase 27)
+Progress: [##########] 100% (Phase 28)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 2
-- Average duration: 2.5min
-- Total execution time: 5min
+- Total plans completed: 3
+- Average duration: 2.7min
+- Total execution time: 8min
 
 **By Phase:**
 
@@ -43,6 +43,7 @@ Progress: [##########] 100% (Phase 27)
 |-------|-------|-------|----------|
 | 26 | 1 | 2min | 2min |
 | 27 | 1 | 3min | 3min |
+| 28 | 1 | 3min | 3min |
 
 ## Accumulated Context
 
@@ -61,6 +62,11 @@ Progress: [##########] 100% (Phase 27)
 - [P27]: Category overlays (toxicity, harmfulness) attached to ALL experiments -- results-analyzer slices by category
 - [P27]: Holdout re-test mode writes to experiment-raw-holdout.json (separate file)
 - [P27]: Evaluator IDs resolved at runtime via GET /v2/evaluators list-and-filter
+- [P28]: Student's t-distribution (t=4.303, df=2) for 95% CI -- correct for small n=3 samples
+- [P28]: Role-based thresholds applied uniformly to all evaluators (no per-evaluator exceptions)
+- [P28]: Category breakdown in test-results.md only, never in terminal output (LOCKED)
+- [P28]: Scale normalization for worst-case ranking only -- reported scores stay in original scale
+- [P28]: Field mapping: experiment-raw.json 'output' -> test-results.json 'actual_output'
 
 ### Blockers/Concerns
 
@@ -68,7 +74,7 @@ Progress: [##########] 100% (Phase 27)
 
 ## Session Continuity
 
-Last session: 2026-03-11
-Stopped at: Completed 27-01-PLAN.md
-Resume with: `/gsd:execute-phase 28` (or next phase)
-Resume file: `.planning/phases/27-experiment-runner/27-01-SUMMARY.md`
+Last session: 2026-03-12
+Stopped at: Completed 28-01-PLAN.md
+Resume with: `/gsd:execute-phase 29` (or next phase)
+Resume file: `.planning/phases/28-results-analyzer/28-01-SUMMARY.md`
