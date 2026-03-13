@@ -110,7 +110,7 @@ Build a Claude Code skill that transforms natural language use case descriptions
 - [x] **Phase 30: Failure Diagnoser** - New subagent that maps evaluator failures to prompt sections, proposes diffs, and collects HITL approval (completed 2026-03-12)
 - [x] **Phase 31: Prompt Editor** - New subagent that applies approved changes, delegates re-deploy and holdout re-test, and computes before/after score comparison (completed 2026-03-12)
 - [x] **Phase 32: Iterate Command Rewrite** - Simplified iterate.md orchestrating failure-diagnoser and prompt-editor in loop with 5 stop conditions (completed 2026-03-13)
-- [ ] **Phase 33: Fix Iteration Pipeline Wiring** - Fix holdout dataset ID schema mismatch in prompt-editor and forward mcp_available through iterate pipeline
+- [x] **Phase 33: Fix Iteration Pipeline Wiring** - Fix holdout dataset ID schema mismatch in prompt-editor and forward mcp_available through iterate pipeline (completed 2026-03-13)
 
 ## Phase Details
 
@@ -236,7 +236,7 @@ Phases execute in numeric order: 26 -> 27 -> 28 -> 29 -> 30 -> 31 -> 32 -> 33
 | 30. Failure Diagnoser | 2/2 | Complete    | 2026-03-12 |
 | 31. Prompt Editor | 1/1 | Complete    | 2026-03-12 |
 | 32. Iterate Command Rewrite | 1/1 | Complete    | 2026-03-13 |
-| 33. Fix Iteration Pipeline Wiring | 0/TBD | Pending    | - |
+| 33. Fix Iteration Pipeline Wiring | 1/1 | Complete   | 2026-03-13 |
 
 ## Progress Summary
 

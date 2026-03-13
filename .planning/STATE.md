@@ -3,12 +3,12 @@ gsd_state_version: 1.0
 milestone: v0.3
 milestone_name: milestone
 status: unknown
-last_updated: "2026-03-13T14:43:32.237Z"
+last_updated: "2026-03-13T22:42:44.464Z"
 progress:
-  total_phases: 7
-  completed_phases: 7
-  total_plans: 8
-  completed_plans: 8
+  total_phases: 8
+  completed_phases: 8
+  total_plans: 9
+  completed_plans: 9
 ---
 
 # Project State
@@ -18,17 +18,17 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-10)
 
 **Core value:** Any colleague can go from a use case description to deployed, tested agents on Orq.ai -- without touching a terminal or needing technical knowledge.
-**Current focus:** V2.1 Experiment Pipeline Restructure -- Phase 32 (Iterate Command Rewrite) COMPLETE
+**Current focus:** V2.1 Experiment Pipeline Restructure -- Phase 33 (Fix Iteration Pipeline Wiring) COMPLETE, V2.1 at 24/24
 **Previous milestones:** v0.3 shipped 2026-03-01 (11 phases, 28 plans), V2.0 shipped 2026-03-02 (7 phases, 11 plans), V3.0-V5.0 defined
 
 ## Current Position
 
-Phase: 32 of 32 (Iterate Command Rewrite)
+Phase: 33 of 33 (Fix Iteration Pipeline Wiring)
 Plan: 1 of 1 in current phase
-Status: Phase 32 complete
-Last activity: 2026-03-13 -- Completed 32-01-PLAN.md (iterate command rewrite)
+Status: Phase 33 complete
+Last activity: 2026-03-13 -- Completed 33-01-PLAN.md (fix iteration pipeline wiring)
 
-Progress: [##########] 100% (Phase 32)
+Progress: [##########] 100% (Phase 33)
 
 ## Performance Metrics
 
@@ -48,6 +48,7 @@ Progress: [##########] 100% (Phase 32)
 | 30 | 2 | 4min | 2min |
 | 31 | 1 | 2min | 2min |
 | 32 | 1 | 2min | 2min |
+| 33 | 1 | 1min | 1min |
 
 ## Accumulated Context
 
@@ -85,6 +86,7 @@ Progress: [##########] 100% (Phase 32)
 - [Phase 32]: Stale iteration-proposals.json cleaned before loop AND between cycles; iteration-log.md and audit-trail.md preserved as append-only
 - [Phase 32]: Second timeout check added between failure-diagnoser and prompt-editor to avoid starting expensive subagent when time is up
 - [Phase 32]: Step 6 Before column uses initial_scores (pre-all-iterations) not before_cycle_scores for total improvement view
+- [Phase 33]: Keep dataset-prep.json as canonical dataset source (not test-results.json) to avoid circular dependency
 
 ### Blockers/Concerns
 
@@ -93,6 +95,6 @@ Progress: [##########] 100% (Phase 32)
 ## Session Continuity
 
 Last session: 2026-03-13
-Stopped at: Completed 32-01-PLAN.md -- V2.1 Pipeline Restructure COMPLETE
+Stopped at: Completed 33-01-PLAN.md -- V2.1 Pipeline Restructure COMPLETE (24/24 requirements)
 Resume with: Next milestone planning
-Resume file: `.planning/phases/32-iterate-command-rewrite/32-01-SUMMARY.md`
+Resume file: `.planning/phases/33-fix-iteration-pipeline-wiring/33-01-SUMMARY.md`
