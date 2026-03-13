@@ -49,9 +49,9 @@ Requirements for V2.1 Experiment Pipeline Restructure. Each maps to roadmap phas
 
 ### Iterate Command
 
-- [ ] **LOOP-01**: Rewritten iterate.md orchestrates failure-diagnoser -> prompt-editor in loop with stop conditions
-- [ ] **LOOP-02**: Iterate command enforces 5 stop conditions (max_iterations, timeout, min_improvement, all_pass, user_declined)
-- [ ] **LOOP-03**: Iterate command preserves `--agent` flag and produces iteration-log.md + audit-trail.md
+- [x] **LOOP-01**: Rewritten iterate.md orchestrates failure-diagnoser -> prompt-editor in loop with stop conditions
+- [x] **LOOP-02**: Iterate command enforces 5 stop conditions (max_iterations, timeout, min_improvement, all_pass, user_declined)
+- [x] **LOOP-03**: Iterate command preserves `--agent` flag and produces iteration-log.md + audit-trail.md
 
 ## Future Requirements
 
@@ -117,9 +117,9 @@ Which phases cover which requirements. Updated during roadmap creation.
 | ITPIPE-04 | Phase 31 | Complete |
 | ITPIPE-05 | Phase 31 | Complete |
 | ITPIPE-06 | Phase 31 | Complete |
-| LOOP-01 | Phase 32 | Pending |
-| LOOP-02 | Phase 32 | Pending |
-| LOOP-03 | Phase 32 | Pending |
+| LOOP-01 | Phase 32 | Complete |
+| LOOP-02 | Phase 32 | Complete |
+| LOOP-03 | Phase 32 | Complete |
 
 **Coverage:**
 - V2.1 requirements: 24 total

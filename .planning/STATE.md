@@ -3,12 +3,12 @@ gsd_state_version: 1.0
 milestone: v0.3
 milestone_name: milestone
 status: unknown
-last_updated: "2026-03-12T19:14:12.537Z"
+last_updated: "2026-03-13T14:38:26Z"
 progress:
-  total_phases: 6
-  completed_phases: 6
-  total_plans: 7
-  completed_plans: 7
+  total_phases: 7
+  completed_phases: 7
+  total_plans: 8
+  completed_plans: 8
 ---
 
 # Project State
@@ -18,24 +18,24 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-10)
 
 **Core value:** Any colleague can go from a use case description to deployed, tested agents on Orq.ai -- without touching a terminal or needing technical knowledge.
-**Current focus:** V2.1 Experiment Pipeline Restructure -- Phase 31 (Prompt Editor)
+**Current focus:** V2.1 Experiment Pipeline Restructure -- Phase 32 (Iterate Command Rewrite) COMPLETE
 **Previous milestones:** v0.3 shipped 2026-03-01 (11 phases, 28 plans), V2.0 shipped 2026-03-02 (7 phases, 11 plans), V3.0-V5.0 defined
 
 ## Current Position
 
-Phase: 31 of 32 (Prompt Editor)
+Phase: 32 of 32 (Iterate Command Rewrite)
 Plan: 1 of 1 in current phase
-Status: Phase 31 complete
-Last activity: 2026-03-12 -- Completed 31-01-PLAN.md (prompt-editor subagent)
+Status: Phase 32 complete
+Last activity: 2026-03-13 -- Completed 32-01-PLAN.md (iterate command rewrite)
 
-Progress: [##########] 100% (Phase 31)
+Progress: [##########] 100% (Phase 32)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 7
+- Total plans completed: 8
 - Average duration: 2.3min
-- Total execution time: 16min
+- Total execution time: 18min
 
 **By Phase:**
 
@@ -47,6 +47,7 @@ Progress: [##########] 100% (Phase 31)
 | 29 | 1 | 2min | 2min |
 | 30 | 2 | 4min | 2min |
 | 31 | 1 | 2min | 2min |
+| 32 | 1 | 2min | 2min |
 
 ## Accumulated Context
 
@@ -81,6 +82,9 @@ Progress: [##########] 100% (Phase 31)
 - [Phase 31]: Evaluator IDs passed through from test-results.json to experiment-runner to skip re-resolution during holdout re-test
 - [Phase 31]: Before scores snapshotted in memory before test-results.json update, preserving original values in comparison display
 - [Phase 31]: Anti-pattern text reworded to avoid literal 'dataset-preparer' string for grep verification compatibility
+- [Phase 32]: Stale iteration-proposals.json cleaned before loop AND between cycles; iteration-log.md and audit-trail.md preserved as append-only
+- [Phase 32]: Second timeout check added between failure-diagnoser and prompt-editor to avoid starting expensive subagent when time is up
+- [Phase 32]: Step 6 Before column uses initial_scores (pre-all-iterations) not before_cycle_scores for total improvement view
 
 ### Blockers/Concerns
 
@@ -88,7 +92,7 @@ Progress: [##########] 100% (Phase 31)
 
 ## Session Continuity
 
-Last session: 2026-03-12
-Stopped at: Completed 31-01-PLAN.md
-Resume with: `/gsd:execute-phase 32` (or next phase)
-Resume file: `.planning/phases/31-prompt-editor/31-01-SUMMARY.md`
+Last session: 2026-03-13
+Stopped at: Completed 32-01-PLAN.md -- V2.1 Pipeline Restructure COMPLETE
+Resume with: Next milestone planning
+Resume file: `.planning/phases/32-iterate-command-rewrite/32-01-SUMMARY.md`

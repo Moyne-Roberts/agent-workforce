@@ -109,7 +109,7 @@ Build a Claude Code skill that transforms natural language use case descriptions
 - [x] **Phase 29: Test Command Rewrite** - Simplified test.md orchestrating dataset-preparer, experiment-runner, results-analyzer in sequence with intermediate failure checks (completed 2026-03-12)
 - [x] **Phase 30: Failure Diagnoser** - New subagent that maps evaluator failures to prompt sections, proposes diffs, and collects HITL approval (completed 2026-03-12)
 - [x] **Phase 31: Prompt Editor** - New subagent that applies approved changes, delegates re-deploy and holdout re-test, and computes before/after score comparison (completed 2026-03-12)
-- [ ] **Phase 32: Iterate Command Rewrite** - Simplified iterate.md orchestrating failure-diagnoser and prompt-editor in loop with 5 stop conditions
+- [x] **Phase 32: Iterate Command Rewrite** - Simplified iterate.md orchestrating failure-diagnoser and prompt-editor in loop with 5 stop conditions (completed 2026-03-13)
 
 ## Phase Details
 
@@ -220,7 +220,7 @@ Phases execute in numeric order: 26 -> 27 -> 28 -> 29 -> 30 -> 31 -> 32
 | 29. Test Command Rewrite | 1/1 | Complete    | 2026-03-12 |
 | 30. Failure Diagnoser | 2/2 | Complete    | 2026-03-12 |
 | 31. Prompt Editor | 1/1 | Complete    | 2026-03-12 |
-| 32. Iterate Command Rewrite | 0/TBD | Not started | - |
+| 32. Iterate Command Rewrite | 1/1 | Complete   | 2026-03-13 |
 
 ## Progress Summary
 
