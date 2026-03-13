@@ -1,5 +1,25 @@
 # Milestones
 
+## V2.1 Experiment Pipeline Restructure (Shipped: 2026-03-13)
+
+**Phases completed:** 8 phases, 9 plans
+**Timeline:** 3 days (2026-03-11 → 2026-03-13)
+**Deliverables:** 5 new subagents + 2 rewritten commands (2,421 lines)
+**Requirements:** 24/24 satisfied (DATA-01-05, EXPR-01-06, ANLZ-01-05, TEST-01-03, ITPIPE-01-06, LOOP-01-03)
+
+**Key accomplishments:**
+1. Dataset-preparer subagent with MCP/REST upload, smoke test validation, stratified 60/20/20 splits, and JSON handoff contract
+2. Experiment-runner subagent with REST-only execution, adaptive 10-30s polling, holdout re-test mode, and per-run per-evaluator raw scores
+3. Results-analyzer subagent with Student's t 95% CI statistics, role-based pass/fail thresholds, category-sliced scoring, and backward-compatible hardener output
+4. Rewritten test.md orchestrating 3 subagents with validation gates between each step
+5. Failure-diagnoser + prompt-editor subagents for section-level diagnosis, HITL-approved diffs, re-deploy delegation, and before/after score comparison
+6. Rewritten iterate.md with 2-subagent loop, 5 stop conditions, and holdout re-test verification
+
+**Tech debt accepted:** 1 non-blocking item (evaluator_ids passthrough optimization — see V2.1-MILESTONE-AUDIT.md)
+**Archive:** `milestones/V2.1-ROADMAP.md`, `milestones/V2.1-REQUIREMENTS.md`
+
+---
+
 ## V2.0 Autonomous Orq.ai Pipeline (Shipped: 2026-03-02)
 
 **Phases completed:** 7 phases, 11 plans

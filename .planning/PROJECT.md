@@ -37,16 +37,18 @@ Shipped in V2.0 (2026-03-02) — 23 requirements:
 - ✓ Prompt iteration loop with diagnosis, diff proposals, HITL approval, stopping conditions (ITER-01 through ITER-07) — V2.0
 - ✓ Guardrails and hardening via evaluator promotion and quality gates (GUARD-01 through GUARD-03) — V2.0
 
+Shipped in V2.1 (2026-03-13) — 24 requirements:
+
+- ✓ Dataset-preparer subagent with MCP/REST upload, smoke test, stratified splits (DATA-01 through DATA-05) — V2.1
+- ✓ Experiment-runner subagent with REST-only execution, adaptive polling, holdout mode (EXPR-01 through EXPR-06) — V2.1
+- ✓ Results-analyzer subagent with triple-run statistics, category slicing, hardener compat (ANLZ-01 through ANLZ-05) — V2.1
+- ✓ Rewritten test.md orchestrating 3 subagents with validation gates (TEST-01 through TEST-03) — V2.1
+- ✓ Failure-diagnoser + prompt-editor for section-level diagnosis and HITL-approved iteration (ITPIPE-01 through ITPIPE-06) — V2.1
+- ✓ Rewritten iterate.md with 2-subagent loop and 5 stop conditions (LOOP-01 through LOOP-03) — V2.1
+
 ### Active
 
-<!-- V2.1 — Experiment Pipeline Restructure -->
-
-- [ ] Native MCP experiment execution (create_experiment with task.type: "agent")
-- [ ] MCP-based dataset operations (create_dataset, create_datapoints)
-- [ ] MCP-based evaluator creation (create_llm_eval, create_python_eval)
-- [ ] Tester agent decomposition (dataset-preparer, experiment-runner, results-analyzer)
-- [ ] Iterator agent decomposition (failure-diagnoser, prompt-editor)
-- [ ] Command file simplification (test.md, iterate.md)
+(No active requirements — next milestone not yet started)
 
 ### Out of Scope
 
@@ -55,19 +57,9 @@ Shipped in V2.0 (2026-03-02) — 23 requirements:
 - Auto-update on launch — updates are manual via `/orq-agent:update`
 - Dynamic/exploratory browser-use — already handled by existing Orq.ai MCP tools
 
-## Current Milestone: V2.1 Experiment Pipeline Restructure
+## Current State
 
-**Goal:** Rewrite the test/iterate pipeline to use native Orq.ai MCP tools for experiments, break monolithic agent files into smaller focused subagents, and reduce token/context load so experiments actually run successfully.
-
-**Target features:**
-- Rewrite experiment execution to use native `create_experiment` MCP tool (task.type: "agent") instead of evaluatorq SDK
-- Use MCP tools for dataset operations (`create_dataset`, `create_datapoints`) and evaluator creation (`create_llm_eval`, `create_python_eval`)
-- Break tester.md (771 lines) into smaller focused agents (dataset-preparer, experiment-runner, results-analyzer)
-- Break iterator.md (544 lines) into smaller focused agents (failure-diagnoser, prompt-editor)
-- Simplify command files to orchestrate smaller agents in sequence
-- Ensure experiments actually run and produce results on Orq.ai
-
-**V2.1 scope:** Restructure existing test/iterate pipeline only. No new capabilities — same features, better architecture, working experiments.
+V2.1 shipped 2026-03-13. No active milestone. Next milestone candidates: V3.0 (Web UI), V4.0 (Cross-Swarm Intelligence), V5.0 (Browser Automation).
 
 ## Context
 
@@ -80,7 +72,7 @@ Shipped in V2.0 (2026-03-02) — 23 requirements:
 - **Distribution model:** Web app (primary for non-technical users) + Claude Code skill (for technical users). Both share pipeline logic from the same GitHub repo.
 - **Users:** 5-15 Moyne Roberts employees, mostly non-technical. Web UI is the primary interface; Claude Code remains available for developers.
 - **Codebase:** 10,628 lines across orq-agent/ (markdown + JSON). 43 files: 11 agents, 5 commands, 8 references, 7 templates, SKILL.md, install script
-- **Shipped:** v0.3 (2026-03-01, 50 requirements), V2.0 (2026-03-02, 23 requirements), V3.0 (Web UI — defined, not yet shipped), V4.0 (Cross-Swarm Intelligence — defined, not yet shipped)
+- **Shipped:** v0.3 (2026-03-01, 50 requirements), V2.0 (2026-03-02, 23 requirements), V2.1 (2026-03-13, 24 requirements). V3.0-V5.0 defined, not yet shipped
 
 ## Constraints
 
@@ -104,7 +96,7 @@ Shipped in V2.0 (2026-03-02) — 23 requirements:
 | MCP-first with API fallback | MCP covers agents/datasets/evaluators; REST covers tools/prompts/memory | ✓ Good — validated in V2.0 |
 | Modular capability tiers | Users control automation; core tier preserves V1.0 behavior | ✓ Good |
 | XML-tagged prompt strategy | Anthropic context engineering patterns produce consistent output | ✓ Good |
-| Subagents as .md instruction files | LLM reasoning handles diagnosis/proposals — no custom code needed | ✓ Good — iterator, hardener both work this way |
+| Subagents as .md instruction files | LLM reasoning handles diagnosis/proposals — no custom code needed | ✓ Good — validated at scale in V2.1 (5 new subagents) |
 | Per-agent `--agent` flag (not positional args) | Consistent convention across all 4 commands, documented in SKILL.md | ✓ Good |
 | Native `settings.guardrails` API for guardrail attachment | Direct Orq.ai integration, no application-layer workarounds | ✓ Good |
 | Holdout dataset for re-test | Clean isolation between training and iteration testing | ✓ Good |
@@ -121,4 +113,4 @@ Shipped in V2.0 (2026-03-02) — 23 requirements:
 | Application capabilities config file | Pipeline reads per-system integration method from config; discussion step fills gaps for unknown systems | — Pending |
 
 ---
-*Last updated: 2026-03-10 after V2.1 milestone start*
+*Last updated: 2026-03-13 after V2.1 milestone*
