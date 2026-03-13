@@ -217,10 +217,10 @@ Plans:
   1. prompt-editor.md Phase 1.2 reads holdout dataset IDs from `dataset-prep.json` using `agents.{agent_key}.holdout_dataset_id` -- holdout re-test path is reachable
   2. iterate.md Step 5.4 forwards `mcp_available` to prompt-editor context -- deployer skips unnecessary MCP attempts in MCP-unavailable environments
   3. JSON handoff contracts between dataset-prep.json → prompt-editor and iterate.md → prompt-editor are verified aligned
-**Plans**: TBD
+**Plans**: 1 plan
 
 Plans:
-- [ ] 33-01: TBD
+- [ ] 33-01-PLAN.md — Fix holdout dataset ID schema path in prompt-editor and forward mcp_available through iterate pipeline
 
 ## Progress
 
