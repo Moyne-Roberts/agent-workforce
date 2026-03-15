@@ -56,5 +56,6 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-03-15
-Stopped at: V3.0 roadmap created -- ready to plan Phase 34
+Stopped at: Phase 34 context gathered
 Resume with: `/gsd:plan-phase 34`
+Resume file: `.planning/phases/34-foundation-auth/34-CONTEXT.md`
