@@ -3,9 +3,11 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { InviteMemberModal } from "@/components/invite-member-modal";
-import { ChevronRight, Calendar, Play } from "lucide-react";
+import { RunCard } from "@/components/run-card";
+import { ChevronRight, Calendar, Play, Plus } from "lucide-react";
 
 interface PageProps {
   params: Promise<{ id: string }>;
@@ -26,8 +28,14 @@ export default async function ProjectDetailPage({ params }: PageProps) {
     notFound();
   }
 
-  // Fetch member emails for display (using admin would bypass RLS, but we need it for display)
-  // For now, show user_ids -- email display would need a profiles table or admin lookup
+  // Fetch pipeline runs for this project
+  const { data: runs } = await supabase
+    .from("pipeline_runs")
+    .select("*")
+    .eq("project_id", id)
+    .order("created_at", { ascending: false });
+
+  // Fetch member emails for display
   const members: { user_id: string; email?: string }[] = (
     project.project_members ?? []
   ).map((m: { user_id: string }) => ({
@@ -43,6 +51,8 @@ export default async function ProjectDetailPage({ params }: PageProps) {
       day: "numeric",
     }
   );
+
+  const pipelineRuns = runs ?? [];
 
   return (
     <div className="p-6">
@@ -74,56 +84,85 @@ export default async function ProjectDetailPage({ params }: PageProps) {
         <InviteMemberModal projectId={project.id} currentMembers={members} />
       </div>
 
-      <div className="mt-8 grid gap-6 lg:grid-cols-3">
-        {/* Members section */}
-        <Card className="lg:col-span-1">
-          <CardHeader>
-            <CardTitle className="text-sm">
-              Members ({members.length})
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="flex flex-col gap-2">
-              {members.map((member) => (
-                <div
-                  key={member.user_id}
-                  className="flex items-center gap-2"
-                >
-                  <Avatar className="size-7">
-                    <AvatarFallback className="text-xs">
-                      {member.email?.[0]?.toUpperCase() || "U"}
-                    </AvatarFallback>
-                  </Avatar>
-                  <span className="truncate text-sm">
-                    {member.email || `User ${member.user_id.slice(0, 8)}...`}
-                  </span>
+      {/* Tabbed content */}
+      <Tabs defaultValue="runs" className="mt-8">
+        <TabsList>
+          <TabsTrigger value="overview">Overview</TabsTrigger>
+          <TabsTrigger value="runs">Runs</TabsTrigger>
+        </TabsList>
+
+        {/* Overview tab -- existing members content */}
+        <TabsContent value="overview">
+          <div className="grid gap-6 lg:grid-cols-3">
+            <Card className="lg:col-span-1">
+              <CardHeader>
+                <CardTitle className="text-sm">
+                  Members ({members.length})
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="flex flex-col gap-2">
+                  {members.map((member) => (
+                    <div
+                      key={member.user_id}
+                      className="flex items-center gap-2"
+                    >
+                      <Avatar className="size-7">
+                        <AvatarFallback className="text-xs">
+                          {member.email?.[0]?.toUpperCase() || "U"}
+                        </AvatarFallback>
+                      </Avatar>
+                      <span className="truncate text-sm">
+                        {member.email ||
+                          `User ${member.user_id.slice(0, 8)}...`}
+                      </span>
+                    </div>
+                  ))}
                 </div>
+              </CardContent>
+            </Card>
+          </div>
+        </TabsContent>
+
+        {/* Runs tab */}
+        <TabsContent value="runs">
+          <div className="flex items-center justify-between">
+            <h2 className="text-lg font-medium">Pipeline Runs</h2>
+            <Button asChild size="sm">
+              <Link href={`/projects/${id}/new-run`}>
+                <Plus className="mr-1.5 size-4" />
+                New Pipeline Run
+              </Link>
+            </Button>
+          </div>
+
+          {pipelineRuns.length > 0 ? (
+            <div className="mt-4 flex flex-col gap-3">
+              {pipelineRuns.map((run) => (
+                <RunCard key={run.id} run={run} />
               ))}
             </div>
-          </CardContent>
-        </Card>
-
-        {/* Pipeline runs placeholder */}
-        <Card className="lg:col-span-2">
-          <CardHeader>
-            <CardTitle className="text-sm">Pipeline Runs</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="flex flex-col items-center py-8 text-center">
+          ) : (
+            <div className="mt-6 flex flex-col items-center py-12 text-center">
               <div className="rounded-full bg-muted p-3">
                 <Play className="size-5 text-muted-foreground" />
               </div>
-              <p className="mt-3 text-sm font-medium">No pipeline runs yet</p>
-              <p className="mt-1 text-xs text-muted-foreground">
-                Pipeline execution will be available in a future update.
+              <p className="mt-3 text-sm font-medium">
+                No pipeline runs yet
               </p>
-              <Badge variant="outline" className="mt-3">
-                Coming in Phase 35
-              </Badge>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Start your first pipeline run to see results here.
+              </p>
+              <Button asChild size="sm" className="mt-4">
+                <Link href={`/projects/${id}/new-run`}>
+                  <Plus className="mr-1.5 size-4" />
+                  Start your first pipeline run
+                </Link>
+              </Button>
             </div>
-          </CardContent>
-        </Card>
-      </div>
+          )}
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
