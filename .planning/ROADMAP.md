@@ -1,8 +1,8 @@
-# Roadmap: Orq Agent Designer
+# Roadmap: Agent Workforce
 
 ## Overview
 
-Build a Claude Code skill that transforms natural language use case descriptions into complete Orq.ai agent swarm specifications, then autonomously deploys, tests, iterates, and hardens them via the Orq.ai MCP server and API. V3.0 adds a browser-based interface with real-time dashboard, node graph visualization, and HITL approval workflows for non-technical colleagues. V4.0 adds cross-swarm intelligence so that agent swarms don't operate in silos -- overlaps are surfaced, missing coordination is identified, and fixes are proposed across the entire ecosystem. V5.0 extends the pipeline to detect browser automation needs, generate deterministic Playwright scripts, deploy them to a VPS-hosted MCP server, and wire agent specs with the right MCP tools.
+Browser-based interface for creating, deploying, testing, and iterating AI agent swarms on Orq.ai. Non-technical colleagues describe a use case and watch agents get designed, deployed, and tested -- with a real-time dashboard, node graph visualization, and HITL approval workflows. V4.0 adds cross-swarm intelligence so that agent swarms don't operate in silos -- overlaps are surfaced, missing coordination is identified, and fixes are proposed across the entire ecosystem. V5.0 extends the pipeline to detect browser automation needs, generate deterministic Playwright scripts, deploy them to a VPS-hosted MCP server, and wire agent specs with the right MCP tools. CLI skills for technical users are available separately in the orqai-agent-pipeline repo.
 
 ## Milestones
 
@@ -11,7 +11,7 @@ Build a Claude Code skill that transforms natural language use case descriptions
 | **v0.3** | Core Pipeline + V2.0 Foundation -- V1.0 spec generation + V2.0 install infrastructure | **Shipped 2026-03-01** |
 | **V2.0** | Autonomous Orq.ai Pipeline -- deploy, test, iterate, and harden agent swarms via MCP/API | **Shipped 2026-03-02** |
 | **V2.1** | Experiment Pipeline Restructure -- rewrite test/iterate with native MCP, smaller subagents | **Shipped 2026-03-13** |
-| **V3.0** | Web UI & Dashboard -- browser-based pipeline with real-time visibility, node graph, HITL approvals | **In Progress** |
+| **V3.0** | Web UI & Dashboard -- browser-based pipeline with authentication, real-time visibility, node graph, HITL approvals | **In Progress** |
 | **V4.0** | Cross-Swarm Intelligence -- ecosystem mapping, drift detection, overlap analysis, and fix proposals | **Defined** |
 | **V5.0** | Browser Automation -- Playwright script generation, VPS MCP server, automated deployment, agent spec wiring | **Defined** |
 
@@ -76,9 +76,9 @@ Build a Claude Code skill that transforms natural language use case descriptions
 
 ### V3.0 Web UI & Dashboard (Phases 34-38)
 
-**Milestone Goal:** Build a browser-based interface so non-technical colleagues can create, deploy, test, and iterate agent swarms on Orq.ai -- with real-time dashboard, node graph visualization, and HITL approval workflows.
+**Milestone Goal:** Build a browser-based interface so non-technical colleagues can create, deploy, test, and iterate agent swarms on Orq.ai -- with authentication, real-time dashboard, node graph visualization, and HITL approval workflows.
 
-- [ ] **Phase 34: Foundation & Auth** - Next.js app shell, Supabase DB schema with RLS, M365 SSO with tenant restriction, project CRUD
+- [ ] **Phase 34: Foundation & Auth** - Next.js app shell, Supabase DB schema with RLS, Supabase auth (email/password, M365 SSO future), project CRUD
 - [ ] **Phase 35: Pipeline Engine** - Prompt adapter, Inngest durable functions, pipeline state machine, use case input form, run list
 - [ ] **Phase 36: Dashboard & Graph** - Real-time progress timeline, log stream, run list updates, interactive node graph with execution overlay
 - [ ] **Phase 37: HITL Approval** - Pipeline pause/resume, diff viewer, approve/reject flow, email notifications, audit trail
@@ -108,18 +108,18 @@ Build a Claude Code skill that transforms natural language use case descriptions
 ## Phase Details
 
 ### Phase 34: Foundation & Auth
-**Goal**: Users can securely sign in with their work account and organize pipeline work into projects with colleague access
+**Goal**: Users can securely sign in and organize pipeline work into projects with colleague access
 **Depends on**: Nothing (first V3.0 phase)
 **Requirements**: FOUND-01, FOUND-02, PROJ-01, PROJ-02, PROJ-03, PROJ-04
 **Success Criteria** (what must be TRUE):
-  1. User can sign in with their Moyne Roberts M365 account and reach the app dashboard
-  2. A personal Microsoft account is rejected at login (tenant restriction verified)
+  1. User can sign in with email/password and reach the app dashboard
+  2. Auth is configured so M365 SSO can be added as an additional provider without code changes
   3. User can create a named project and invite colleagues to it
   4. User only sees projects they belong to -- no cross-project data leakage
 **Plans**: 3 plans
 
 Plans:
-- [ ] 34-01-PLAN.md -- App scaffold, Supabase auth (M365 SSO + email/password), proxy.ts, DB schema with RLS
+- [ ] 34-01-PLAN.md -- App scaffold, Supabase auth (email/password, M365 SSO future), proxy.ts, DB schema with RLS
 - [ ] 34-02-PLAN.md -- Project list home page, create project modal, invite flow (AD + email), project detail
 - [ ] 34-03-PLAN.md -- Checkpoint: verify auth flow, tenant restriction, project CRUD, invitation
 

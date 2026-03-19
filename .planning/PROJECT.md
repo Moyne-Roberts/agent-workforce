@@ -1,8 +1,8 @@
-# Orq Agent Designer
+# Agent Workforce
 
 ## What This Is
 
-A web-based Orq Agent Designer that lets Moyne Roberts colleagues create production-ready AI agent swarms from a browser. Users type a use case description and watch agents get designed, deployed, and tested on Orq.ai — with a real-time dashboard showing pipeline progress and agent performance. Also available as a Claude Code skill (`/orq-agent`) for technical users.
+A web-based Agent Workforce application that lets Moyne Roberts colleagues create production-ready AI agent swarms from a browser. Users type a use case description and watch agents get designed, deployed, and tested on Orq.ai -- with a real-time dashboard showing pipeline progress and agent performance.
 
 ## Core Value
 
@@ -50,7 +50,7 @@ Shipped in V2.1 (2026-03-13) — 24 requirements:
 
 **V3.0 Web UI & Dashboard:**
 - [ ] Browser-based pipeline with real-time visibility for non-technical colleagues
-- [ ] M365 SSO authentication (Azure AD) — Moyne Roberts employees only
+- [ ] Authentication (email/password primary, M365 SSO when Azure AD is ready)
 - [ ] Self-service use case input to deployed agents via browser
 - [ ] Real-time pipeline dashboard with run list, progress, log stream, and performance scores
 - [ ] Interactive node graph visualization of agent swarms with execution overlay
@@ -60,7 +60,7 @@ Shipped in V2.1 (2026-03-13) — 24 requirements:
 
 - Orq.ai Deployments — output targets Agents API (`/v2/agents`), not the simpler Deployments pattern
 - Real-time agent monitoring/observability — Orq.ai handles this natively
-- Auto-update on launch — updates are manual via `/orq-agent:update`
+- CLI skill management -- lives in orqai-agent-pipeline repo
 - Dynamic/exploratory browser-use — already handled by existing Orq.ai MCP tools
 
 ## Current Milestone: V3.0 Web UI & Dashboard
@@ -68,7 +68,7 @@ Shipped in V2.1 (2026-03-13) — 24 requirements:
 **Goal:** Build a browser-based interface so non-technical colleagues can create, deploy, test, and iterate agent swarms on Orq.ai — with real-time dashboard, node graph visualization, and HITL approval workflows.
 
 **Target features:**
-- Foundation & Auth (Next.js + Supabase + M365 SSO)
+- Foundation & Auth (Next.js + Supabase + email/password + future SSO)
 - Self-Service Pipeline (use case → deployed agents via browser)
 - Pipeline Dashboard (run list, progress, logs, scores)
 - Node Graph (interactive swarm visualization)
@@ -78,24 +78,20 @@ Shipped in V2.1 (2026-03-13) — 24 requirements:
 
 - **Platform:** Orq.ai — Generative AI orchestration platform with Agents API (`/v2/agents`), A2A Protocol support, Task ID-based state persistence, two-step tool execution, and agent versioning via `@version-number` tags
 - **Agent config surface:** key, role, description, model (`provider/model-name`), instructions, settings (max_iterations: 3-15, max_execution_time: ~300s), tools (built-in + function with JSON schema)
-- **V2.0 pipeline:** 4 commands (`deploy`, `test`, `iterate`, `harden`) with 4 subagents (deployer, tester, iterator, hardener). MCP-first with REST API fallback. Per-agent incremental operations via `--agent` flag.
-- **V3.0 stack:** Next.js on Vercel (frontend + API routes), Supabase (auth via M365 SSO, DB, Realtime), Claude API (pipeline prompts), Orq.ai API (agent deployment/testing)
+- **V3.0 stack:** Next.js on Vercel (frontend + API routes), Supabase (auth via email/password + future M365 SSO, DB, Realtime), Claude API (pipeline prompts), Orq.ai API (agent deployment/testing)
 - **V4.0 context:** As swarms multiply across business processes (Invoice-to-Cash, etc.), they develop blind spots — overlapping work, missing handoffs, conflicting actions. The ultra architect layer provides cross-swarm awareness.
 - **V5.0 context:** Many Moyne Roberts systems (NXT, iController, Intelly) lack APIs. Agents interacting with these need browser automation. Fixed Playwright scripts handle deterministic flows; dynamic browser-use is already available via existing Orq.ai MCP tools. Scripts deploy to a VPS-hosted MCP server.
-- **Distribution model:** Web app (primary for non-technical users) + Claude Code skill (for technical users). Both share pipeline logic from the same GitHub repo.
-- **Users:** 5-15 Moyne Roberts employees, mostly non-technical. Web UI is the primary interface; Claude Code remains available for developers.
-- **Codebase:** 10,628 lines across orq-agent/ (markdown + JSON). 43 files: 11 agents, 5 commands, 8 references, 7 templates, SKILL.md, install script
+- **Distribution model:** Web app for all users. CLI skills available separately in orqai-agent-pipeline repo.
+- **Users:** 5-15 Moyne Roberts employees, mostly non-technical. Web UI is the primary interface.
 - **Shipped:** v0.3 (2026-03-01, 50 requirements), V2.0 (2026-03-02, 23 requirements), V2.1 (2026-03-13, 24 requirements). V3.0-V5.0 defined, not yet shipped
 
 ## Constraints
 
 - **Platform:** Must target Orq.ai Agents API — all output specs must be valid for `/v2/agents` endpoint and/or Orq.ai Studio manual setup
-- **Auth:** Must use M365 SSO (Azure AD) — no separate accounts. Moyne Roberts employees only.
+- **Auth:** Email/password auth primary. M365 SSO as additional provider when Azure AD tenant setup is complete.
 - **Hosting:** Vercel for frontend/API, Supabase for data/auth/realtime — no self-hosted infrastructure
 - **Updates:** Pipeline logic must auto-deploy from GitHub repo — no manual deployment steps
-- **Backward compat:** Claude Code skill (`/orq-agent`) must continue working alongside the web app
 - **Users:** Non-technical colleagues must complete the full pipeline without developer assistance
-- **SDK pins:** `@orq-ai/node@^3.14.45`, `@orq-ai/evaluatorq@^1.1.0`, `@orq-ai/evaluators@^1.1.0`
 
 ## Key Decisions
 
@@ -104,7 +100,7 @@ Shipped in V2.1 (2026-03-13) — 24 requirements:
 | Target Orq.ai Agents, not Deployments | Agents support orchestration, persistent state, tool execution loops, and A2A Protocol | ✓ Good |
 | Kebab-case naming convention | Matches Orq.ai's own deployment key patterns | ✓ Good |
 | Directory-per-swarm output structure | Groups related agents with orchestration and datasets | ✓ Good |
-| Claude Code skill distribution via GitHub | Easy install for non-technical users with version management | ✓ Good |
+| Claude Code skill distribution via GitHub | Moved to orqai-agent-pipeline repo | ✓ Good |
 | Smart subagent spawning based on input detail | Avoids unnecessary research, reduces token cost | ✓ Good |
 | MCP-first with API fallback | MCP covers agents/datasets/evaluators; REST covers tools/prompts/memory | ✓ Good — validated in V2.0 |
 | Modular capability tiers | Users control automation; core tier preserves V1.0 behavior | ✓ Good |
@@ -114,7 +110,7 @@ Shipped in V2.1 (2026-03-13) — 24 requirements:
 | Native `settings.guardrails` API for guardrail attachment | Direct Orq.ai integration, no application-layer workarounds | ✓ Good |
 | Holdout dataset for re-test | Clean isolation between training and iteration testing | ✓ Good |
 | HITL approval before any prompt change | Non-technical users maintain trust and control | ✓ Good |
-| Next.js + Supabase + Vercel for web app | Existing tech stack, Supabase Realtime for live updates, M365 SSO support, zero infrastructure management | — Pending |
+| Next.js + Supabase + Vercel for web app | Existing tech stack, Supabase Realtime for live updates, email/password auth primary with SSO swap-in, zero infrastructure management | — Pending |
 | Node graph for swarm visualization | Intuitive representation of agent relationships and data flow, lights up during pipeline execution | — Pending |
 | GitHub repo as single source of truth | Pipeline prompts shared between Claude Code skill and web app, auto-deploy on push | — Pending |
 

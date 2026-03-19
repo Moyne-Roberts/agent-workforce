@@ -59,9 +59,11 @@ Recent decisions affecting current work:
 - AD search passes email (not Supabase user ID) to invite API -- Graph IDs differ from Supabase auth IDs
 - Geist font (shadcn Nova preset) for web app typography -- ships with create-next-app, consistent with shadcn/ui
 - Auto-add project creator as member via DB trigger -- ensures RLS works for newly created projects
-- Next.js + Supabase + Vercel for web app -- Supabase Realtime for live updates, M365 SSO support
+- Next.js + Supabase + Vercel for web app -- Supabase Realtime for live updates, email/password auth primary
 - Node graph for swarm visualization -- React Flow v12 with custom AgentNode components
-- GitHub repo as single source of truth -- pipeline prompts shared between CLI and web app
+- GitHub repo as single source of truth -- pipeline prompts fetched at runtime from orqai-agent-pipeline repo
+- Email/password auth primary while Azure AD setup pending -- M365 SSO swap-in when ready, no throwaway code
+- orq-agent/ CLI skills separated to orqai-agent-pipeline repo -- this repo is web app only
 - Inngest for pipeline orchestration -- durable functions survive Vercel timeouts, waitForEvent for HITL
 - Supabase Broadcast over Postgres Changes -- avoids single-thread RLS bottleneck
 - [Phase 35]: Stage results stored in Supabase pipeline_steps.result, references returned from step.run() -- avoids Inngest state size limits
@@ -74,7 +76,7 @@ Recent decisions affecting current work:
 
 - Prompt adapter is novel engineering with no prior art -- validate in Phase 35 before building UI
 - Inngest waitForEvent race condition (GitHub #1433) -- dual-write pattern needed for HITL approvals
-- Azure AD tenant misconfiguration silently allows any Microsoft account -- must test with personal account in Phase 34
+- Azure AD tenant setup pending -- using email/password auth as workaround, SSO deferred to future addition
 
 ### Pending Todos
 
