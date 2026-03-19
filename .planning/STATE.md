@@ -26,7 +26,7 @@ See: .planning/PROJECT.md (updated 2026-03-13)
 Phase: 35 of 38 (Pipeline Engine)
 Plan: 3 of 4 in current phase
 Status: Executing
-Last activity: 2026-03-15 -- Completed 35-03 (Pipeline UI)
+Last activity: 2026-03-19 - Completed quick task 260319-cl3: Restructure project for frontend-first Agent Workforce with Azure workaround
 
 Progress: [#######...] 75%
 
@@ -81,6 +81,12 @@ Recent decisions affecting current work:
 ### Pending Todos
 
 None yet.
+
+### Quick Tasks Completed
+
+| # | Description | Date | Commit | Directory |
+|---|-------------|------|--------|-----------|
+| 260319-cl3 | Restructure project for frontend-first Agent Workforce with Azure workaround | 2026-03-19 | b234fd3 | [260319-cl3-restructure-project-for-frontend-first-a](./quick/260319-cl3-restructure-project-for-frontend-first-a/) |
 
 ## Session Continuity
 
