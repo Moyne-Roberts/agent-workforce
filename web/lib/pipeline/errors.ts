@@ -12,6 +12,10 @@ const ERROR_MAP: Record<string, string> = {
     "There's a configuration issue with the AI service. Please contact your administrator.",
   ANTHROPIC_OVERLOADED:
     "The AI service is experiencing high demand. The pipeline will automatically retry.",
+  ORQ_AUTH:
+    "There's a configuration issue with the Orq.ai API key. Please check your ORQ_API_KEY.",
+  ORQ_ERROR:
+    "The AI router encountered an error. The pipeline will automatically retry.",
   GITHUB_FETCH_FAILED:
     "Could not fetch pipeline template from GitHub. Check your internet connection.",
   GITHUB_NOT_FOUND:
@@ -36,7 +40,15 @@ export function classifyError(error: Error): string {
     return code;
   }
 
-  // Anthropic API errors
+  // Orq.ai router errors
+  if (message.includes("Orq.ai router error: 401")) {
+    return "ORQ_AUTH";
+  }
+  if (message.includes("Orq.ai router error")) {
+    return "ORQ_ERROR";
+  }
+
+  // Anthropic API errors (passthrough from Orq.ai)
   if (message.includes("rate_limit_error") || message.includes("rate limit")) {
     return "ANTHROPIC_RATE_LIMIT";
   }

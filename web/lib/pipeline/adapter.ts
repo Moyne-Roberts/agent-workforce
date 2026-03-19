@@ -1,20 +1,18 @@
 /**
- * Prompt adapter: translates pipeline .md files into Claude API calls.
+ * Prompt adapter: translates pipeline .md files into Claude API calls
+ * via the Orq.ai router for unified billing.
  *
  * 1. Fetches the .md file from GitHub (runtime, not bundled)
  * 2. Strips YAML frontmatter using gray-matter
  * 3. Builds a user message with context formatted as XML tags
- * 4. Calls Claude messages.create() with the .md content as system prompt
+ * 4. Calls Orq.ai router (OpenAI-compatible) with the .md content as system message
  * 5. Returns the text response
  */
 
-import Anthropic from "@anthropic-ai/sdk";
 import matter from "gray-matter";
 import { getStageByName, getStageUrl } from "./stages";
 
-const claude = new Anthropic({
-  apiKey: process.env.ANTHROPIC_API_KEY,
-});
+const ORQ_ROUTER_URL = "https://api.orq.ai/v2/router/chat/completions";
 
 /**
  * Run the prompt adapter for a given pipeline stage.
@@ -55,17 +53,42 @@ export async function runPromptAdapter(
   // Build user message with XML-tagged context
   const userMessage = buildUserMessage(context);
 
-  // Call Claude API
-  const result = await claude.messages.create({
-    model: "claude-sonnet-4-6",
-    max_tokens: 8192,
-    system: systemPrompt.trim(),
-    messages: [{ role: "user", content: userMessage }],
+  // Call Claude via Orq.ai router
+  const apiKey = process.env.ORQ_API_KEY;
+  if (!apiKey) {
+    const err = new Error("ORQ_API_KEY environment variable is not set");
+    (err as unknown as Record<string, unknown>).code = "ORQ_AUTH";
+    throw err;
+  }
+
+  const result = await fetch(ORQ_ROUTER_URL, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model: "anthropic/claude-sonnet-4-6",
+      max_tokens: 8192,
+      messages: [
+        { role: "system", content: systemPrompt.trim() },
+        { role: "user", content: userMessage },
+      ],
+    }),
   });
 
-  // Extract text response
-  const textBlock = result.content.find((block) => block.type === "text");
-  return textBlock && textBlock.type === "text" ? textBlock.text : "";
+  if (!result.ok) {
+    const body = await result.text();
+    const err = new Error(
+      `Orq.ai router error: ${result.status} ${result.statusText} — ${body}`
+    );
+    (err as unknown as Record<string, unknown>).code =
+      result.status === 401 ? "ORQ_AUTH" : "ORQ_ERROR";
+    throw err;
+  }
+
+  const json = await result.json();
+  return json.choices?.[0]?.message?.content ?? "";
 }
 
 /**

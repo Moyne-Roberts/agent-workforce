@@ -4,18 +4,32 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 const mockFetch = vi.fn();
 vi.stubGlobal("fetch", mockFetch);
 
-// Mock Anthropic SDK
-const mockCreate = vi.fn();
-vi.mock("@anthropic-ai/sdk", () => {
-  return {
-    default: class MockAnthropic {
-      messages = { create: mockCreate };
-    },
-  };
-});
+// Set ORQ_API_KEY for tests
+vi.stubEnv("ORQ_API_KEY", "test-orq-key");
 
 // Must import after mocks are set up
 const { runPromptAdapter } = await import("../adapter");
+
+/** Helper: create a mock fetch response */
+function mockResponse(body: string | object, ok = true, status = 200) {
+  return {
+    ok,
+    status,
+    statusText: ok ? "OK" : "Error",
+    text: () => Promise.resolve(typeof body === "string" ? body : JSON.stringify(body)),
+    json: () => Promise.resolve(typeof body === "object" ? body : JSON.parse(body)),
+  };
+}
+
+/** Helper: Orq.ai router response shape */
+function orqResponse(content: string) {
+  return mockResponse({
+    id: "test-id",
+    object: "chat.completion",
+    choices: [{ message: { role: "assistant", content } }],
+    usage: { prompt_tokens: 10, completion_tokens: 10, total_tokens: 20 },
+  });
+}
 
 describe("runPromptAdapter", () => {
   beforeEach(() => {
@@ -28,96 +42,79 @@ title: Test Agent
 ---
 You are a test agent. Do testing things.`;
 
-    mockFetch.mockResolvedValueOnce({
-      ok: true,
-      text: () => Promise.resolve(mdContent),
-    });
-
-    mockCreate.mockResolvedValueOnce({
-      content: [{ type: "text", text: "Test result" }],
-    });
+    // First call: GitHub fetch for .md file
+    mockFetch.mockResolvedValueOnce(mockResponse(mdContent));
+    // Second call: Orq.ai router
+    mockFetch.mockResolvedValueOnce(orqResponse("Test result"));
 
     await runPromptAdapter("architect", { useCase: "Test use case" });
 
-    expect(mockFetch).toHaveBeenCalledTimes(1);
+    expect(mockFetch).toHaveBeenCalledTimes(2);
     expect(mockFetch.mock.calls[0][0]).toContain("architect.md");
   });
 
-  it("strips YAML frontmatter before passing to Claude", async () => {
+  it("strips YAML frontmatter before passing to Orq.ai", async () => {
     const mdContent = `---
 title: Architect
 version: 1
 ---
 You are the architect agent.`;
 
-    mockFetch.mockResolvedValueOnce({
-      ok: true,
-      text: () => Promise.resolve(mdContent),
-    });
-
-    mockCreate.mockResolvedValueOnce({
-      content: [{ type: "text", text: "Blueprint result" }],
-    });
+    mockFetch.mockResolvedValueOnce(mockResponse(mdContent));
+    mockFetch.mockResolvedValueOnce(orqResponse("Blueprint result"));
 
     await runPromptAdapter("architect", { useCase: "Build something" });
 
-    // The system prompt should NOT contain frontmatter
-    const callArgs = mockCreate.mock.calls[0][0];
-    expect(callArgs.system).not.toContain("title: Architect");
-    expect(callArgs.system).toContain("You are the architect agent.");
+    // The system message should NOT contain frontmatter
+    const orqCall = JSON.parse(mockFetch.mock.calls[1][1].body);
+    const systemMsg = orqCall.messages.find((m: { role: string }) => m.role === "system");
+    expect(systemMsg.content).not.toContain("title: Architect");
+    expect(systemMsg.content).toContain("You are the architect agent.");
   });
 
-  it("calls Claude messages.create with system prompt and user message", async () => {
-    mockFetch.mockResolvedValueOnce({
-      ok: true,
-      text: () => Promise.resolve("You are a test agent."),
-    });
-
-    mockCreate.mockResolvedValueOnce({
-      content: [{ type: "text", text: "Agent output" }],
-    });
+  it("calls Orq.ai router with system and user messages", async () => {
+    mockFetch.mockResolvedValueOnce(mockResponse("You are a test agent."));
+    mockFetch.mockResolvedValueOnce(orqResponse("Agent output"));
 
     const result = await runPromptAdapter("architect", {
       useCase: "Process invoices",
     });
 
-    expect(mockCreate).toHaveBeenCalledTimes(1);
-    const callArgs = mockCreate.mock.calls[0][0];
-    expect(callArgs.system).toBe("You are a test agent.");
-    expect(callArgs.messages[0].role).toBe("user");
-    expect(callArgs.messages[0].content).toContain("Process invoices");
+    expect(mockFetch).toHaveBeenCalledTimes(2);
+
+    // Verify Orq.ai router call
+    const [url, options] = mockFetch.mock.calls[1];
+    expect(url).toBe("https://api.orq.ai/v2/router/chat/completions");
+    expect(options.method).toBe("POST");
+    expect(options.headers.Authorization).toBe("Bearer test-orq-key");
+
+    const body = JSON.parse(options.body);
+    expect(body.model).toBe("anthropic/claude-sonnet-4-6");
+    expect(body.messages[0].role).toBe("system");
+    expect(body.messages[1].role).toBe("user");
+    expect(body.messages[1].content).toContain("Process invoices");
     expect(result).toBe("Agent output");
   });
 
   it("formats context as XML tags in user message", async () => {
-    mockFetch.mockResolvedValueOnce({
-      ok: true,
-      text: () => Promise.resolve("System prompt content"),
-    });
-
-    mockCreate.mockResolvedValueOnce({
-      content: [{ type: "text", text: "Result" }],
-    });
+    mockFetch.mockResolvedValueOnce(mockResponse("System prompt content"));
+    mockFetch.mockResolvedValueOnce(orqResponse("Result"));
 
     await runPromptAdapter("researcher", {
       useCase: "Test case",
       blueprint: "Architecture blueprint here",
     });
 
-    const callArgs = mockCreate.mock.calls[0][0];
-    const userContent = callArgs.messages[0].content;
+    const body = JSON.parse(mockFetch.mock.calls[1][1].body);
+    const userContent = body.messages[1].content;
     expect(userContent).toContain("<use_case>");
     expect(userContent).toContain("Test case");
     expect(userContent).toContain("<blueprint>");
     expect(userContent).toContain("Architecture blueprint here");
   });
 
-  it("throws on fetch failure with classifiable error", async () => {
-    mockFetch.mockResolvedValueOnce({
-      ok: false,
-      status: 404,
-      statusText: "Not Found",
-    });
+  it("throws on GitHub fetch failure with classifiable error", async () => {
+    mockFetch.mockResolvedValueOnce(mockResponse("Not Found", false, 404));
 
     await expect(
       runPromptAdapter("architect", { useCase: "test" })

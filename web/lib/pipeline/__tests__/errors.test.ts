@@ -17,6 +17,22 @@ describe("classifyError", () => {
     expect(classifyError(error)).toBe("ANTHROPIC_OVERLOADED");
   });
 
+  it("classifies Orq.ai auth errors", () => {
+    const error = new Error("Orq.ai router error: 401 Unauthorized — Invalid API key");
+    expect(classifyError(error)).toBe("ORQ_AUTH");
+  });
+
+  it("classifies Orq.ai router errors", () => {
+    const error = new Error("Orq.ai router error: 500 Internal Server Error — ...");
+    expect(classifyError(error)).toBe("ORQ_ERROR");
+  });
+
+  it("classifies Orq.ai auth errors by code", () => {
+    const error = new Error("ORQ_API_KEY not set");
+    (error as unknown as Record<string, unknown>).code = "ORQ_AUTH";
+    expect(classifyError(error)).toBe("ORQ_AUTH");
+  });
+
   it("classifies GitHub fetch failures", () => {
     const error = new Error("Failed to fetch pipeline template");
     (error as unknown as Record<string, unknown>).code = "GITHUB_FETCH_FAILED";
