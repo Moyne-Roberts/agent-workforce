@@ -10,10 +10,15 @@ import { ProjectSearch } from "./project-search";
 export default async function DashboardPage() {
   const supabase = await createClient();
 
-  const { data: projects } = await supabase
+  const { data: { user } } = await supabase.auth.getUser();
+  console.log("[DEBUG] Dashboard user:", user?.id, user?.email);
+
+  const { data: projects, error } = await supabase
     .from("projects")
     .select("*, project_members(user_id)")
     .order("updated_at", { ascending: false });
+
+  console.log("[DEBUG] Projects query:", { count: projects?.length, error });
 
   const projectList = projects ?? [];
 
