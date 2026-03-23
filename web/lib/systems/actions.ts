@@ -201,3 +201,60 @@ export async function unlinkSystemFromProject(
   revalidatePath("/projects/" + projectId);
   return { success: true };
 }
+
+// ---------------------------------------------------------------------------
+// createUploadUrl -- Generate a signed upload URL for Supabase Storage
+// ---------------------------------------------------------------------------
+
+export async function createUploadUrl(
+  bucket: string,
+  path: string
+): Promise<{ signedUrl: string; path: string; token: string } | { error: string }> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return { error: "Not authenticated" };
+  }
+
+  const admin = createAdminClient();
+  const { data, error } = await admin.storage
+    .from(bucket)
+    .createSignedUploadUrl(path);
+
+  if (error || !data) {
+    return { error: error?.message || "Failed to create upload URL" };
+  }
+
+  return { signedUrl: data.signedUrl, path: data.path, token: data.token };
+}
+
+// ---------------------------------------------------------------------------
+// submitSOPUpload -- Send the SOP upload event to Inngest
+// ---------------------------------------------------------------------------
+
+export async function submitSOPUpload(
+  runId: string,
+  taskId: string,
+  sopText: string,
+  screenshotPaths: string[]
+): Promise<{ success: boolean; error?: string }> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return { success: false, error: "Not authenticated" };
+  }
+
+  const { inngest } = await import("@/lib/inngest/client");
+  await inngest.send({
+    name: "automation/sop.uploaded" as const,
+    data: { runId, taskId, sopText, screenshotPaths },
+  });
+
+  return { success: true };
+}
