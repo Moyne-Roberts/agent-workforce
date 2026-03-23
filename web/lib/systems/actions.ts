@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { z } from "zod/v4";
+import type { ConfirmedStep, AnalysisResult } from "@/lib/systems/types";
 
 // ---------------------------------------------------------------------------
 // createSystem -- Create a new system in the registry
@@ -254,6 +255,133 @@ export async function submitSOPUpload(
   await inngest.send({
     name: "automation/sop.uploaded" as const,
     data: { runId, taskId, sopText, screenshotPaths },
+  });
+
+  return { success: true };
+}
+
+// ---------------------------------------------------------------------------
+// reanalyzeSteps -- Send corrections back to Orq.ai for consistency re-analysis
+// ---------------------------------------------------------------------------
+
+export async function reanalyzeSteps(
+  taskId: string,
+  confirmedSteps: ConfirmedStep[]
+): Promise<{ result: AnalysisResult; changed: boolean } | { error: string }> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { error: "Not authenticated" };
+
+  const admin = createAdminClient();
+
+  // Fetch the automation task with SOP text and run_id
+  const { data: task } = await admin
+    .from("automation_tasks")
+    .select("id, sop_text, run_id")
+    .eq("id", taskId)
+    .single();
+
+  if (!task || !task.sop_text) return { error: "Task not found" };
+
+  // Get screenshot files from storage
+  const { data: files } = await admin.storage
+    .from("automation-assets")
+    .list(`${task.run_id}/${taskId}/screenshots`);
+
+  // Download screenshots as base64
+  const screenshots: Array<{
+    base64: string;
+    label: string;
+    mediaType: string;
+  }> = [];
+  for (const file of files || []) {
+    const path = `${task.run_id}/${taskId}/screenshots/${file.name}`;
+    const { data } = await admin.storage
+      .from("automation-assets")
+      .download(path);
+    if (data) {
+      const buffer = Buffer.from(await data.arrayBuffer());
+      const ext = file.name.split(".").pop()?.toLowerCase();
+      screenshots.push({
+        base64: buffer.toString("base64"),
+        label: file.name,
+        mediaType: ext === "png" ? "image/png" : "image/jpeg",
+      });
+    }
+  }
+
+  // Build correction context for re-analysis
+  const corrections = confirmedSteps
+    .filter((s) => s.userCorrection)
+    .map(
+      (s) =>
+        `Step ${s.stepNumber}: User corrected to: ${s.userCorrection}. Action: ${s.action}, Target: ${s.targetElement}, Expected: ${s.expectedResult}`
+    )
+    .join("\n");
+
+  // Import and call vision adapter with correction context
+  const { analyzeScreenshots } = await import("@/lib/pipeline/vision-adapter");
+
+  // Prepend corrections to SOP text for re-analysis
+  const sopWithCorrections = corrections
+    ? `${task.sop_text}\n\n<user_corrections>\n${corrections}\n</user_corrections>`
+    : task.sop_text;
+
+  const result = await analyzeScreenshots(sopWithCorrections, screenshots);
+
+  // Compare with original confirmed steps to detect changes
+  const changed =
+    result.steps.some((newStep, i) => {
+      const oldStep = confirmedSteps[i];
+      if (!oldStep) return true;
+      return (
+        newStep.action !== oldStep.action ||
+        newStep.targetElement !== oldStep.targetElement ||
+        newStep.expectedResult !== oldStep.expectedResult
+      );
+    }) || result.steps.length !== confirmedSteps.length;
+
+  // Update task in DB with new analysis
+  await admin
+    .from("automation_tasks")
+    .update({ analysis_result: result as unknown as Record<string, unknown> })
+    .eq("id", taskId);
+
+  return { result, changed };
+}
+
+// ---------------------------------------------------------------------------
+// confirmAnnotation -- Send the Inngest event to resume the pipeline
+// ---------------------------------------------------------------------------
+
+export async function confirmAnnotation(
+  runId: string,
+  taskId: string,
+  confirmedSteps: ConfirmedStep[]
+): Promise<{ success: boolean; error?: string }> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { success: false, error: "Not authenticated" };
+
+  // Update confirmed steps in DB
+  const admin = createAdminClient();
+  await admin
+    .from("automation_tasks")
+    .update({
+      confirmed_steps: confirmedSteps as unknown as Record<string, unknown>[],
+      status: "confirmed",
+    })
+    .eq("id", taskId);
+
+  // Fire Inngest event to resume the pipeline
+  const { inngest } = await import("@/lib/inngest/client");
+  await inngest.send({
+    name: "automation/annotation.confirmed" as const,
+    data: { runId, taskId, confirmedSteps },
   });
 
   return { success: true };

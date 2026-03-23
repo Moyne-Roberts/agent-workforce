@@ -2,11 +2,13 @@
 
 import { useCallback, useRef, useState } from "react";
 import { FileText, Upload } from "lucide-react";
-import type { TerminalEntry } from "@/lib/systems/types";
+import type { TerminalEntry, AnalysisResult } from "@/lib/systems/types";
 import { TerminalApprovalEntry } from "./terminal-approval-entry";
 import { TerminalSOPPreview } from "./terminal-sop-preview";
 import { TerminalScreenshotUpload } from "./terminal-screenshot-upload";
+import { AnnotationOverlay } from "@/components/annotation/annotation-overlay";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { submitSOPUpload } from "@/lib/systems/actions";
@@ -80,8 +82,39 @@ export function EntryInteraction({ entry }: EntryInteractionProps) {
       return null;
     }
 
-    // annotation-review type will be added in Plan 04
-    case "annotation-review":
+    case "annotation-review": {
+      // Annotation review entry: opens full-width overlay for step confirmation.
+      // Entry metadata is populated by the RunDetailClient broadcast handler when
+      // the annotation-review pipeline step enters "waiting" status. The handler
+      // fetches automation_task data (analysis_result, sop_text) from Supabase
+      // and generates public URLs for screenshots in storage.
+      const taskId = entry.metadata?.taskId as string;
+      const runId = entry.metadata?.runId as string;
+      const analysisResult = entry.metadata?.analysisResult as AnalysisResult | undefined;
+      const sopText = entry.metadata?.sopText as string | undefined;
+      const screenshotUrls = entry.metadata?.screenshotUrls as
+        | Array<{ ref: string; url: string }>
+        | undefined;
+
+      if (!taskId || !runId || !analysisResult || !sopText || !screenshotUrls) {
+        return (
+          <p className="mt-2 text-sm text-muted-foreground">
+            Waiting for AI analysis to complete...
+          </p>
+        );
+      }
+
+      return (
+        <AnnotationReviewInteraction
+          taskId={taskId}
+          runId={runId}
+          analysisResult={analysisResult}
+          sopText={sopText}
+          screenshotUrls={screenshotUrls}
+        />
+      );
+    }
+
     case "user-input":
     default:
       return null;
@@ -277,5 +310,53 @@ function ScreenshotUploadInteraction({
       onUploadComplete={handleUploadComplete}
       disabled={submitted}
     />
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Annotation Review Interaction (opens full-width overlay for step review)
+// ---------------------------------------------------------------------------
+
+function AnnotationReviewInteraction({
+  taskId,
+  runId,
+  analysisResult,
+  sopText,
+  screenshotUrls,
+}: {
+  taskId: string;
+  runId: string;
+  analysisResult: AnalysisResult;
+  sopText: string;
+  screenshotUrls: Array<{ ref: string; url: string }>;
+}) {
+  const [overlayOpen, setOverlayOpen] = useState(false);
+
+  return (
+    <div className="mt-2">
+      <Card>
+        <CardContent className="p-3">
+          <p className="text-sm">
+            AI has analyzed your SOP and screenshots. Review the identified
+            automation steps.
+          </p>
+          <div className="mt-2">
+            <Button size="sm" onClick={() => setOverlayOpen(true)}>
+              Review Steps
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      <AnnotationOverlay
+        open={overlayOpen}
+        onOpenChange={setOverlayOpen}
+        taskId={taskId}
+        runId={runId}
+        analysisResult={analysisResult}
+        sopText={sopText}
+        screenshotUrls={screenshotUrls}
+      />
+    </div>
   );
 }
