@@ -67,7 +67,7 @@ Requirements for V4.0 Browser Automation Builder. Each maps to roadmap phases.
 ### Detection & SOP Intake
 
 - [x] **DETECT-01**: Pipeline auto-detects when a designed agent needs browser automation for a no-API system
-- [ ] **DETECT-02**: User can upload SOP document (Word/PDF) describing the target process
+- [x] **DETECT-02**: User can upload SOP document (Word/PDF) describing the target process
 - [x] **DETECT-03**: User can upload screenshots of the target system screens
 - [x] **DETECT-04**: Structured intake wizard validates SOP completeness before script generation
 - [x] **DETECT-05**: Pipeline skips automation builder when target system has an API
@@ -188,7 +188,7 @@ Requirements for V4.0 Browser Automation Builder. Each maps to roadmap phases.
 | ACTV-03 | Phase 38 | Pending |
 | ACTV-04 | Phase 38 | Pending |
 | DETECT-01 | Phase 40 | Complete |
-| DETECT-02 | Phase 40 | Pending |
+| DETECT-02 | Phase 40 | Complete |
 | DETECT-03 | Phase 40 | Complete |
 | DETECT-04 | Phase 40 | Complete |
 | DETECT-05 | Phase 40 | Complete |
