@@ -2,6 +2,8 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { ChevronRight } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
+import { getChatMessages } from "@/lib/supabase/chat-messages";
+import type { ChatMessage } from "@/lib/pipeline/chat-types";
 import { RunDetailClient } from "./run-detail-client";
 
 interface PageProps {
@@ -36,6 +38,14 @@ export default async function RunDetailPage({ params }: PageProps) {
       a.step_order - b.step_order
   );
 
+  // Fetch chat messages for hydration
+  let chatMessages: ChatMessage[] = [];
+  try {
+    chatMessages = await getChatMessages(run.id);
+  } catch {
+    // Table may not exist yet -- graceful fallback
+  }
+
   return (
     <div>
       {/* Breadcrumb */}
@@ -59,6 +69,7 @@ export default async function RunDetailPage({ params }: PageProps) {
       <RunDetailClient
         run={{ ...run, pipeline_steps: steps }}
         projectId={projectId}
+        chatMessages={chatMessages}
       />
     </div>
   );
