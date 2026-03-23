@@ -66,19 +66,19 @@ Requirements for V4.0 Browser Automation Builder. Each maps to roadmap phases.
 
 ### Detection & SOP Intake
 
-- [ ] **DETECT-01**: Pipeline auto-detects when a designed agent needs browser automation for a no-API system
+- [x] **DETECT-01**: Pipeline auto-detects when a designed agent needs browser automation for a no-API system
 - [ ] **DETECT-02**: User can upload SOP document (Word/PDF) describing the target process
-- [ ] **DETECT-03**: User can upload screenshots of the target system screens
-- [ ] **DETECT-04**: Structured intake wizard validates SOP completeness before script generation
-- [ ] **DETECT-05**: Pipeline skips automation builder when target system has an API
+- [x] **DETECT-03**: User can upload screenshots of the target system screens
+- [x] **DETECT-04**: Structured intake wizard validates SOP completeness before script generation
+- [x] **DETECT-05**: Pipeline skips automation builder when target system has an API
 
 ### AI Vision & Annotation (via Orq.ai)
 
-- [ ] **VISION-01**: AI analyzes screenshots via Orq.ai (Agent or AI Routing) to identify UI elements and layout
-- [ ] **VISION-02**: AI parses SOP document and correlates steps with screenshot elements
-- [ ] **VISION-03**: AI presents annotated screenshots with highlighted elements back to user
+- [x] **VISION-01**: AI analyzes screenshots via Orq.ai (Agent or AI Routing) to identify UI elements and layout
+- [x] **VISION-02**: AI parses SOP document and correlates steps with screenshot elements
+- [x] **VISION-03**: AI presents annotated screenshots with highlighted elements back to user
 - [ ] **VISION-04**: User can confirm or correct AI's interpretation of each automation step
-- [ ] **VISION-05**: AI incorporates user corrections and updates its understanding
+- [x] **VISION-05**: AI incorporates user corrections and updates its understanding
 
 ### Script Generation & Testing
 
@@ -187,16 +187,16 @@ Requirements for V4.0 Browser Automation Builder. Each maps to roadmap phases.
 | ACTV-02 | Phase 38 | Pending |
 | ACTV-03 | Phase 38 | Pending |
 | ACTV-04 | Phase 38 | Pending |
-| DETECT-01 | Phase 40 | Pending |
+| DETECT-01 | Phase 40 | Complete |
 | DETECT-02 | Phase 40 | Pending |
-| DETECT-03 | Phase 40 | Pending |
-| DETECT-04 | Phase 40 | Pending |
-| DETECT-05 | Phase 40 | Pending |
-| VISION-01 | Phase 40 | Pending |
-| VISION-02 | Phase 40 | Pending |
-| VISION-03 | Phase 40 | Pending |
+| DETECT-03 | Phase 40 | Complete |
+| DETECT-04 | Phase 40 | Complete |
+| DETECT-05 | Phase 40 | Complete |
+| VISION-01 | Phase 40 | Complete |
+| VISION-02 | Phase 40 | Complete |
+| VISION-03 | Phase 40 | Complete |
 | VISION-04 | Phase 40 | Pending |
-| VISION-05 | Phase 40 | Pending |
+| VISION-05 | Phase 40 | Complete |
 | SCRIPT-01 | Phase 41 | Pending |
 | SCRIPT-02 | Phase 41 | Pending |
 | SCRIPT-03 | Phase 41 | Pending |
