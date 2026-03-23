@@ -316,22 +316,15 @@ export const executePipeline = inngest.createFunction(
       // Narrator interjection for stages with needsNarration (architect, spec-generator)
       if (stage.needsNarration && stepRef.output && !stepRef.skipped) {
         const narratorPrompt = stage.name === "architect"
-          ? "You are a friendly narrator explaining an AI agent swarm design to a non-technical user. Summarize the architecture: what agents were designed, their roles, and how they work together. Be conversational and encouraging. Keep it to 3-5 paragraphs."
-          : "You are a friendly narrator explaining AI agent specifications to a non-technical user. Highlight the key capabilities of each agent, what they can do, and any important configuration. Be conversational. Keep it to 3-5 paragraphs.";
+          ? "You are a friendly narrator explaining an AI agent swarm design to a non-technical user. List the agents with their names and roles in a compact format (bullet points, 1-2 lines each). Do NOT write long paragraphs or elaborate descriptions. End by asking if this looks right. Keep it under 15 lines total."
+          : "You are a friendly narrator explaining AI agent specifications to a non-technical user. For each agent, list 2-3 key highlights (model, main tools, key instruction). Use bullet points, keep it compact. Do NOT write long paragraphs. End by asking if these look good. Keep it under 20 lines total.";
 
         // OUTSIDE step.run() -- streaming is incompatible with Inngest memoization
         const narratorMessageId = crypto.randomUUID();
         await streamNarrator(runId, narratorPrompt, stepRef.output, narratorMessageId, `${stage.name}-summary`);
 
-        // Save a "What do you think?" prompt message
+        // Mark as waiting for user confirmation (narrator message already ends with a question)
         await step.run(`${stage.name}-confirm-prompt`, async () => {
-          const promptMsg = stage.name === "architect"
-            ? "What do you think of this design? You can confirm to continue, or share feedback and I'll adjust."
-            : "Do these specifications look good? Confirm to continue, or share your feedback.";
-          const msgId = await saveChatMessage(runId, "assistant", promptMsg, `${stage.name}-summary`);
-          await broadcastChatMessage(runId, { id: msgId, role: "assistant", content: promptMsg, stageName: `${stage.name}-summary` });
-
-          // Mark as waiting
           const admin = createAdminClient();
           await admin.from("pipeline_runs").update({ status: "waiting" }).eq("id", runId);
           await broadcastStepUpdate(runId, { stepName: stage.name, status: "waiting", displayName: stage.displayName, runStatus: "waiting" });

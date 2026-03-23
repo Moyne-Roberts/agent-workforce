@@ -313,7 +313,10 @@ export function RunDetailClient({ run, projectId, chatMessages }: RunDetailClien
         setDiscussionTurnIndex((prev) => prev + 1);
       } else if (previousWaitingStage) {
         // Architect/spec review -- use review server action
-        const decision = message.toLowerCase().trim() === "confirm" ? "confirmed" as const : "feedback" as const;
+        const decision = message.toLowerCase().trim() === "confirm"
+          || message.toLowerCase().trim() === "yes"
+          || message.toLowerCase().trim() === "looks good"
+            ? "confirmed" as const : "feedback" as const;
         const feedback = decision === "feedback" ? message : undefined;
         await submitReviewResponse(run.id, previousWaitingStage, decision, feedback);
       }
