@@ -218,12 +218,13 @@ Plans:
   3. AI analyzes uploaded screenshots via Orq.ai (Agent or AI Routing) and presents annotated screenshots with highlighted UI elements back to the user
   4. AI parses the SOP document and correlates each step with specific elements identified in the screenshots
   5. User can confirm or correct the AI's interpretation of each step, and the AI incorporates corrections into its updated understanding
-**Plans**: TBD
+**Plans**: 4 plans
 
 Plans:
-- [ ] 40-01: TBD
-- [ ] 40-02: TBD
-- [ ] 40-03: TBD
+- [ ] 40-01-PLAN.md -- DB schema (systems, system_project_links, automation_tasks), TypeScript types, npm install (react-markdown, remark-gfm), pipeline constants, events, systems registry UI
+- [ ] 40-02-PLAN.md -- Terminal interaction panel (replaces Sheet drawer), card-based entry rendering, approval migration, extended status badge, RunDetailClient rewrite
+- [ ] 40-03-PLAN.md -- Automation detector Inngest step, vision adapter (Orq.ai multimodal), pipeline branch, SOP upload/paste UI, screenshot upload with signed URLs
+- [ ] 40-04-PLAN.md -- Annotation review overlay (full-width Dialog), side-by-side SOP + screenshots, per-step confirm/edit, CSS overlay highlights, re-analysis with corrections
 
 ### Phase 41: Script Generation, Testing & MCP Deployment
 **Goal**: AI generates Playwright scripts from confirmed automation steps, tests them on Browserless.io with user-visible Session Replay, iterates until stable, and deploys verified scripts as MCP tools attached to the target Orq.ai agent
@@ -273,8 +274,8 @@ V4.0: 39 -> 40 -> 41 -> 42
 | 36. Dashboard & Graph | V3.0 | 4/4 | Complete | 2026-03-23 |
 | 37. HITL Approval | 4/4 | Complete    | 2026-03-23 | - |
 | 38. Swarm Activation | V3.0 | 0/TBD | Not started | - |
-| 39. Infrastructure & Credential Foundation | 3/3 | Complete   | 2026-03-23 | - |
-| 40. Detection, SOP Upload & Vision Analysis | V4.0 | 0/TBD | Not started | - |
+| 39. Infrastructure & Credential Foundation | 3/3 | Complete    | 2026-03-23 | - |
+| 40. Detection, SOP Upload & Vision Analysis | V4.0 | 0/4 | Not started | - |
 | 41. Script Generation, Testing & MCP Deployment | V4.0 | 0/TBD | Not started | - |
 | 42. Standalone Automations & Triggers | V4.0 | 0/TBD | Not started | - |
 
