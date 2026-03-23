@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v0.3
 milestone_name: milestone
-status: completed
-stopped_at: Phase 39 UI-SPEC approved
-last_updated: "2026-03-23T10:12:23.997Z"
-last_activity: 2026-03-23 -- Phase 37 Plan 03 executed
+status: executing
+stopped_at: Completed 39-00-PLAN.md
+last_updated: "2026-03-23T10:48:12.986Z"
+last_activity: 2026-03-23 -- Phase 39 Plan 00 executed
 progress:
   total_phases: 9
   completed_phases: 4
-  total_plans: 15
-  completed_plans: 15
-  percent: 100
+  total_plans: 18
+  completed_plans: 16
+  percent: 89
 ---
 
 # Project State
@@ -21,17 +21,17 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-23)
 
 **Core value:** Any colleague can go from a use case description to deployed, tested agents on Orq.ai -- through a browser UI with real-time visibility, visual agent graphs, and in-app approvals -- without touching a terminal or needing technical knowledge.
-**Current focus:** Phase 37 HITL Approval complete -- ready for Phase 38 Swarm Activation
-**Previous milestones:** v0.3 shipped 2026-03-01, V2.0 shipped 2026-03-02, V2.1 shipped 2026-03-13, V3.0 in progress (100% plans complete)
+**Current focus:** Phase 39 Infrastructure & Credential Foundation -- Plan 00 complete, Plans 01-02 remaining
+**Previous milestones:** v0.3 shipped 2026-03-01, V2.0 shipped 2026-03-02, V2.1 shipped 2026-03-13, V3.0 in progress
 
 ## Current Position
 
-Phase: 37 of 42 (HITL Approval) -- COMPLETE
-Plan: 4 of 4 in current phase (all complete)
-Status: Phase Complete
-Last activity: 2026-03-23 -- Phase 37 Plan 03 executed
+Phase: 39 of 42 (Infrastructure & Credential Foundation)
+Plan: 1 of 3 in current phase (39-00 complete)
+Status: In Progress
+Last activity: 2026-03-23 -- Phase 39 Plan 00 executed
 
-Progress: [██████████] 100%
+Progress: [█████████░] 89%
 
 ## Performance Metrics
 
@@ -49,6 +49,7 @@ Progress: [██████████] 100%
 | Phase 37-hitl-approval P01 | 2min | 2 tasks | 6 files |
 | Phase 37-hitl-approval P02 | 4min | 2 tasks | 7 files |
 | Phase 37-hitl-approval P03 | 4min | 3 tasks | 6 files |
+| Phase 39 P00 | 3min | 2 tasks | 8 files |
 
 ## Accumulated Context
 
@@ -70,6 +71,9 @@ Recent decisions affecting current work:
 - [Phase 37-hitl-approval P02]: Installed sonner for toast notifications -- standard shadcn/ui toast provider
 - [Phase 37-hitl-approval P02]: Default unified diff view in narrow containers (<600px), split view on wider layouts
 - [Phase 37-hitl-approval]: Email send uses dynamic import inside step.run for Inngest memoization safety, best-effort with try/catch
+- [Phase 39]: Singleton health_checks table with TEXT PK DEFAULT 'latest' for single-row upsert pattern
+- [Phase 39]: Auth profile types use TEXT primary key for readable type IDs matching TypeScript string literals
+- [Phase 39]: No UPDATE/DELETE RLS policies on credentials -- all mutations via admin client in server actions
 
 ### Blockers/Concerns
 
@@ -83,7 +87,7 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-23T09:58:02.352Z
-Stopped at: Phase 39 UI-SPEC approved
-Resume with: `/gsd:execute-phase 37` to continue with plan 37-02
-Resume file: .planning/phases/39-infrastructure-credential-foundation/39-UI-SPEC.md
+Last session: 2026-03-23T10:48:12.981Z
+Stopped at: Completed 39-00-PLAN.md
+Resume with: `/gsd:execute-phase 39` to continue with plan 39-01
+Resume file: .planning/phases/39-infrastructure-credential-foundation/39-01-PLAN.md
