@@ -193,7 +193,7 @@ Plans:
 ### Phase 37.1: Conversational Pipeline
 **Goal**: The pipeline is a streaming conversation — an AI narrator asks clarifying questions, explains what it's designing, shows results, and gets user feedback at key decision points, mirroring the CLI skill experience
 **Depends on**: Phase 37 (uses HITL approval infrastructure, terminal panel, broadcast)
-**Requirements**: UAT gaps — interactive dialogue, discussion phase, streaming narration
+**Requirements**: UAT-DIALOGUE, UAT-DISCUSSION, UAT-STREAMING
 **Success Criteria** (what must be TRUE):
   1. User sees a streaming chat conversation in the run detail page, not just status cards
   2. Before the pipeline runs, a discussion phase asks clarifying questions about the use case (multi-turn)
@@ -201,10 +201,13 @@ Plans:
   4. After the spec-generator stage, user sees spec highlights and can approve or request changes
   5. Silent stages (tool-resolver, researcher, etc.) show brief status messages in the chat without extra API calls
   6. User has a text input field to respond at interaction points, and the pipeline resumes based on their response
-**Plans**: TBD
+**Plans**: 4 plans
 
 Plans:
-- [ ] TBD (run /gsd:plan-phase 37.1 to break down)
+- [ ] 37.1-01-PLAN.md -- DB schema (pipeline_chat_messages), types, Inngest event, broadcast chat-token helpers, discussion server action
+- [ ] 37.1-02-PLAN.md -- Streaming narrator module, discussion agent module, pipeline.ts modifications (discussion loop, narrator interjections, template messages)
+- [ ] 37.1-03-PLAN.md -- Chat UI components (ChatMessageBubble, ChatInput, ChatPanel with RAF token accumulation, StageProgressBar)
+- [ ] 37.1-04-PLAN.md -- RunDetailClient wiring (ChatPanel replaces TerminalPanel, server page hydration, server action dispatch), end-to-end verification
 
 ### Phase 38: Swarm Activation
 **Goal**: External systems can trigger pipeline runs and check status via authenticated webhook endpoints
@@ -303,6 +306,7 @@ V4.0: 39 -> 40 -> 41 -> 42
 | 35. Pipeline Engine | V3.0 | 4/4 | Complete | 2026-03-22 |
 | 36. Dashboard & Graph | V3.0 | 4/4 | Complete | 2026-03-23 |
 | 37. HITL Approval | 4/4 | Complete    | 2026-03-23 | - |
+| 37.1 Conversational Pipeline | V3.0 | 0/4 | Not started | - |
 | 38. Swarm Activation | V3.0 | 0/TBD | Not started | - |
 | 39. Infrastructure & Credential Foundation | 3/3 | Complete    | 2026-03-23 | - |
 | 40. Detection, SOP Upload & Vision Analysis | 5/5 | Complete    | 2026-03-23 | - |
