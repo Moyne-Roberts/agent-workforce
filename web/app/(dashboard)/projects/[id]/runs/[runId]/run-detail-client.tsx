@@ -17,15 +17,15 @@ import {
 } from "@/components/step-status-badge";
 import { type PipelineStep } from "@/components/step-log-panel";
 import { SwarmGraph } from "@/components/graph/swarm-graph";
-import {
-  useBroadcast,
-  type StepUpdatePayload,
-} from "@/lib/supabase/broadcast";
+import { useBroadcast } from "@/lib/supabase/broadcast-client";
+import type { StepUpdatePayload } from "@/lib/supabase/broadcast";
 import { createClient } from "@/lib/supabase/client";
 import { retryPipeline } from "../../new-run/actions";
-import { ApprovalHistory } from "@/components/approval/approval-history";
-import { TerminalPanel } from "@/components/terminal/terminal-panel";
-import type { TerminalEntry } from "@/lib/systems/types";
+import { ChatPanel } from "@/components/chat/chat-panel";
+import type { ChatMessage } from "@/lib/pipeline/chat-types";
+import { submitDiscussionResponse } from "@/lib/pipeline/discussion-action";
+import { submitReviewResponse } from "@/lib/pipeline/review";
+import { PIPELINE_STAGES } from "@/lib/pipeline/stages";
 
 interface PipelineRun {
   id: string;
@@ -44,6 +44,7 @@ interface PipelineRun {
 interface RunDetailClientProps {
   run: PipelineRun;
   projectId: string;
+  chatMessages: ChatMessage[];
 }
 
 function formatRelativeTime(dateStr: string): string {
@@ -73,13 +74,18 @@ function formatDurationBetween(
   return `${minutes}m ${remainingSeconds}s`;
 }
 
-export function RunDetailClient({ run, projectId }: RunDetailClientProps) {
+export function RunDetailClient({ run, projectId, chatMessages }: RunDetailClientProps) {
   const [steps, setSteps] = useState<PipelineStep[]>(run.pipeline_steps);
   const [runStatus, setRunStatus] = useState(run.status);
   const [stepsCompleted, setStepsCompleted] = useState(run.steps_completed);
   const [isRetrying, setIsRetrying] = useState(false);
   const [useCaseExpanded, setUseCaseExpanded] = useState(false);
-  const [terminalEntries, setTerminalEntries] = useState<TerminalEntry[]>([]);
+  const [waitingStage, setWaitingStage] = useState<string | null>(() => {
+    // Check if any step is currently waiting
+    const waitingStep = run.pipeline_steps.find((s) => s.status === "waiting");
+    return waitingStep?.name ?? null;
+  });
+  const [discussionTurnIndex, setDiscussionTurnIndex] = useState(0);
   const [approvalMap, setApprovalMap] = useState<Record<string, PipelineStep["approvalData"]>>({});
   const [approvalHistory, setApprovalHistory] = useState<Array<{
     id: string;
@@ -96,6 +102,18 @@ export function RunDetailClient({ run, projectId }: RunDetailClientProps) {
   // ---------------------------------------------------------------------------
 
   const supabase = useMemo(() => createClient(), []);
+
+  // Build stage statuses for StageProgressBar
+  const stageStatuses = useMemo(() => {
+    return PIPELINE_STAGES.map((stage) => {
+      const step = steps.find((s) => s.name === stage.name);
+      return {
+        name: stage.name,
+        displayName: stage.displayName,
+        status: (step?.status ?? "pending") as "pending" | "running" | "complete" | "failed" | "waiting",
+      };
+    });
+  }, [steps]);
 
   async function fetchApprovalData(approvalId: string, stepName: string) {
     try {
@@ -120,42 +138,11 @@ export function RunDetailClient({ run, projectId }: RunDetailClientProps) {
           ...prev,
           [stepName]: approvalData,
         }));
-        // Also update terminal entries with approval data
-        setTerminalEntries((prev) =>
-          prev.map((e) =>
-            e.stepName === stepName
-              ? { ...e, type: "approval" as const, metadata: { approvalData } }
-              : e
-          )
-        );
       }
     } catch {
       // Best-effort -- approval panel will show loading state
     }
   }
-
-  // ---------------------------------------------------------------------------
-  // Initialize terminal entries from pipeline steps on mount
-  // ---------------------------------------------------------------------------
-
-  useEffect(() => {
-    const entries: TerminalEntry[] = steps.map((step) => ({
-      id: step.id,
-      type: step.status === "waiting" && approvalMap[step.name]
-        ? "approval" as const
-        : "status" as const,
-      timestamp: step.started_at || step.completed_at || run.created_at,
-      stepName: step.name,
-      displayName: step.display_name,
-      status: step.status,
-      content: step.log || step.error_message || step.display_name,
-      metadata: approvalMap[step.name]
-        ? { approvalData: approvalMap[step.name] }
-        : undefined,
-    }));
-    setTerminalEntries(entries);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // Mount only
 
   // Fetch approval data for any existing waiting steps on mount
   useEffect(() => {
@@ -185,14 +172,6 @@ export function RunDetailClient({ run, projectId }: RunDetailClientProps) {
                 ...prev,
                 [step.name]: approvalData,
               }));
-              // Update terminal entry with approval data
-              setTerminalEntries((prev) =>
-                prev.map((e) =>
-                  e.stepName === step.name
-                    ? { ...e, type: "approval" as const, metadata: { approvalData } }
-                    : e
-                )
-              );
             }
           });
       }
@@ -252,6 +231,8 @@ export function RunDetailClient({ run, projectId }: RunDetailClientProps) {
               status: payload.status as StepStatus,
               log: payload.log ?? step.log,
               duration_ms: payload.durationMs ?? step.duration_ms,
+              // Apply architect result so graph populates in real-time
+              ...(payload.result ? { result: payload.result } : {}),
             }
           : step
       )
@@ -263,35 +244,12 @@ export function RunDetailClient({ run, projectId }: RunDetailClientProps) {
       setRunStatus(payload.runStatus);
     }
 
-    // Update terminal entries
-    setTerminalEntries((prev) => {
-      const existing = prev.find((e) => e.stepName === payload.stepName);
-      if (existing) {
-        return prev.map((e) =>
-          e.stepName === payload.stepName
-            ? {
-                ...e,
-                status: payload.status,
-                content: payload.log || payload.displayName,
-                displayName: payload.displayName,
-              }
-            : e
-        );
-      }
-      // New step not yet in entries -- append
-      return [
-        ...prev,
-        {
-          id: crypto.randomUUID(),
-          type: "status" as const,
-          timestamp: new Date().toISOString(),
-          stepName: payload.stepName,
-          displayName: payload.displayName,
-          status: payload.status,
-          content: payload.log || payload.displayName,
-        },
-      ];
-    });
+    // Track waiting stage for chat input state
+    if (payload.status === "waiting") {
+      setWaitingStage(payload.stepName);
+    } else if (payload.status === "running" || payload.status === "complete") {
+      setWaitingStage((prev) => (prev === payload.stepName ? null : prev));
+    }
 
     // Fetch approval data when step enters waiting state
     if (payload.status === "waiting" && payload.approvalId) {
@@ -338,29 +296,32 @@ export function RunDetailClient({ run, projectId }: RunDetailClientProps) {
             : entry
         )
       );
-      // Update terminal entries with new approval status
-      setTerminalEntries((prev) =>
-        prev.map((e) => {
-          const meta = e.metadata?.approvalData as { id?: string } | undefined;
-          if (meta?.id === payload.approvalId) {
-            return {
-              ...e,
-              metadata: {
-                ...e.metadata,
-                approvalData: {
-                  ...meta,
-                  status: payload.decision,
-                  decidedBy: payload.decidedBy,
-                  comment: payload.comment,
-                },
-              },
-            };
-          }
-          return e;
-        })
-      );
     }, [])
   );
+
+  // ---------------------------------------------------------------------------
+  // Chat message handler -- dispatches to correct server action
+  // ---------------------------------------------------------------------------
+
+  const handleSendMessage = useCallback(async (message: string) => {
+    const previousWaitingStage = waitingStage;
+    try {
+      setWaitingStage(null); // Optimistic: disable input while sending
+      if (previousWaitingStage === "discussion") {
+        await submitDiscussionResponse(run.id, message, discussionTurnIndex);
+        setDiscussionTurnIndex((prev) => prev + 1);
+      } else if (previousWaitingStage) {
+        // Architect/spec review -- use review server action
+        const decision = message.toLowerCase().trim() === "confirm" ? "confirmed" as const : "feedback" as const;
+        const feedback = decision === "feedback" ? message : undefined;
+        await submitReviewResponse(run.id, previousWaitingStage, decision, feedback);
+      }
+    } catch (error) {
+      console.error("Failed to send message:", error);
+      // Restore waitingStage so the user can retry
+      setWaitingStage(previousWaitingStage);
+    }
+  }, [run.id, waitingStage, discussionTurnIndex]);
 
   // ---------------------------------------------------------------------------
   // Retry handler
@@ -382,7 +343,7 @@ export function RunDetailClient({ run, projectId }: RunDetailClientProps) {
         <div>
           <div className="flex items-center gap-3">
             <h1 className="text-2xl font-semibold">
-              {run.name || "Pipeline Run"}
+              {run.name || "Agent Swarm"}
             </h1>
             <StepStatusBadge status={runStatus as StepStatus} />
           </div>
@@ -448,27 +409,23 @@ export function RunDetailClient({ run, projectId }: RunDetailClientProps) {
         </Card>
       )}
 
-      {/* Graph area + Terminal panel side-by-side */}
+      {/* Graph area + Chat panel side-by-side */}
       <div className="relative mt-4 flex" style={{ height: 'calc(100vh - 13rem)' }}>
         {/* Graph area -- fills remaining width */}
         <div className="flex-1 min-w-0">
           <SwarmGraph runId={run.id} steps={steps} runStatus={runStatus} />
         </div>
 
-        {/* Terminal panel -- fixed 400px right column */}
+        {/* Chat panel -- fixed 400px right column */}
         <div className="w-[400px] shrink-0 border-l flex flex-col">
-          <TerminalPanel
+          <ChatPanel
             runId={run.id}
-            entries={terminalEntries}
-            onEntriesChange={setTerminalEntries}
+            initialMessages={chatMessages}
+            stages={stageStatuses}
+            isWaitingForInput={!!waitingStage}
+            waitingStage={waitingStage}
+            onSendMessage={handleSendMessage}
           />
-
-          {/* Approval History at the bottom of terminal panel */}
-          {approvalHistory.length > 0 && (
-            <div className="border-t p-4">
-              <ApprovalHistory entries={approvalHistory} />
-            </div>
-          )}
         </div>
       </div>
     </div>
