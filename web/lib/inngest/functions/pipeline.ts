@@ -18,9 +18,11 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { runPromptAdapter } from "@/lib/pipeline/adapter";
 import { PIPELINE_STAGES, AUTOMATION_STAGES } from "@/lib/pipeline/stages";
 import { toPlainEnglish } from "@/lib/pipeline/errors";
-import { broadcastStepUpdate, broadcastRunUpdate } from "@/lib/supabase/broadcast";
+import { broadcastStepUpdate, broadcastRunUpdate, broadcastChatMessage } from "@/lib/supabase/broadcast";
 import { detectAutomationNeeds } from "@/lib/pipeline/automation-detector";
 import { analyzeScreenshots } from "@/lib/pipeline/vision-adapter";
+import { runDiscussionTurn } from "@/lib/pipeline/discussion-agent";
+import { saveChatMessage } from "@/lib/supabase/chat-messages";
 
 /**
  * Context keys expected by each pipeline stage.
@@ -134,8 +136,73 @@ export const executePipeline = inngest.createFunction(
     // These are loaded from DB on resume, not from Inngest state
     const stageResults: Record<string, string> = {};
 
+    // Discussion phase -- multi-turn conversation before architect
+    let enrichedUseCase = useCase;
+
+    if (!event.data.resumeFromStep) {
+      const conversationMessages: Array<{ role: string; content: string }> = [];
+
+      for (let turn = 0; turn < 5; turn++) {
+        const aiTurn = await step.run(`discussion-ask-${turn}`, async () => {
+          const response = await runDiscussionTurn(conversationMessages, useCase);
+          // Strip <discussion_complete> tag from visible text
+          const visibleText = response.replace(/<discussion_complete>/g, "").trim();
+          return { text: response, visibleText, done: response.includes("<discussion_complete>") };
+        });
+
+        // Save AI message to DB + broadcast
+        await step.run(`discussion-save-ai-${turn}`, async () => {
+          const msgId = await saveChatMessage(runId, "assistant", aiTurn.visibleText, "discussion", turn);
+          await broadcastChatMessage(runId, { id: msgId, role: "assistant", content: aiTurn.visibleText, stageName: "discussion" });
+        });
+
+        conversationMessages.push({ role: "assistant", content: aiTurn.text });
+
+        if (aiTurn.done) break;
+
+        // Dual-write: mark as waiting BEFORE waitForEvent
+        await step.run(`discussion-waiting-${turn}`, async () => {
+          const admin = createAdminClient();
+          await admin.from("pipeline_runs").update({ status: "waiting" }).eq("id", runId);
+          await broadcastStepUpdate(runId, { stepName: "discussion", status: "waiting", displayName: "Waiting for your response", runStatus: "waiting" });
+        });
+
+        // Wait for user response
+        const userEvent = await step.waitForEvent(`discussion-wait-${turn}`, {
+          event: "pipeline/discussion.responded",
+          timeout: "1h",
+          if: `async.data.runId == "${runId}"`,
+        });
+
+        if (!userEvent) break; // Timeout -- proceed with what we have
+
+        conversationMessages.push({ role: "user", content: userEvent.data.message });
+
+        // Mark run as running again
+        await step.run(`discussion-resume-${turn}`, async () => {
+          const admin = createAdminClient();
+          await admin.from("pipeline_runs").update({ status: "running" }).eq("id", runId);
+          await broadcastStepUpdate(runId, { stepName: "discussion", status: "running", displayName: "Discussing your use case", runStatus: "running" });
+        });
+      }
+
+      // Build enriched use case from discussion
+      const userClarifications = conversationMessages
+        .filter((m) => m.role === "user")
+        .map((m) => m.content);
+      if (userClarifications.length > 0) {
+        enrichedUseCase = `${useCase}\n\nUser clarifications:\n${userClarifications.join("\n")}`;
+      }
+
+      // Mark discussion as complete
+      await step.run("discussion-complete", async () => {
+        await broadcastStepUpdate(runId, { stepName: "discussion", status: "complete", displayName: "Discussion complete", runStatus: "running" });
+      });
+    }
+
     // Execute each stage as a separate Inngest step
     for (const stage of PIPELINE_STAGES) {
+      if (stage.name === "discussion") continue; // Handled above
       const stepRef = await step.run(stage.name, async () => {
         const admin = createAdminClient();
         const startTime = Date.now();
@@ -176,11 +243,11 @@ export const executePipeline = inngest.createFunction(
           });
         }
 
-        // Build context from previous stage results
+        // Build context from previous stage results (enrichedUseCase includes discussion clarifications)
         const contextBuilder = STAGE_CONTEXT_MAP[stage.name];
         const context = contextBuilder
-          ? contextBuilder(stageResults, useCase)
-          : { useCase };
+          ? contextBuilder(stageResults, enrichedUseCase)
+          : { useCase: enrichedUseCase };
 
         // Call prompt adapter (non-streaming Claude API call)
         const result = await runPromptAdapter(stage.name, context);
@@ -212,7 +279,7 @@ export const executePipeline = inngest.createFunction(
           .update({ steps_completed: (currentRun?.steps_completed || 0) + 1 })
           .eq("id", runId);
 
-        // Broadcast step complete
+        // Broadcast step complete (include result for architect so graph populates live)
         await broadcastStepUpdate(runId, {
           stepName: stage.name,
           status: "complete",
@@ -221,6 +288,7 @@ export const executePipeline = inngest.createFunction(
           stepsCompleted: (currentRun?.steps_completed || 0) + 1,
           runStatus: "running",
           log: `Completed ${stage.displayName} in ${Math.round(durationMs / 1000)}s`,
+          ...(stage.name === "architect" ? { result: { output: result } } : {}),
         });
 
         // Return a reference, NOT the full output (Pitfall 6)

@@ -17,6 +17,12 @@ export interface PipelineStage {
   stepOrder: number;
   /** Whether this stage requires human approval before its changes are applied */
   needsApproval?: boolean;
+  /** Whether this stage pauses for user review/confirmation before continuing */
+  needsReview?: boolean;
+  /** Whether this stage gets a streaming narrator summary after completion */
+  needsNarration?: boolean;
+  /** Template chat message shown for silent stages (no API call) */
+  templateMessage?: string;
 }
 
 const PIPELINE_REPO_RAW_URL =
@@ -25,46 +31,61 @@ const PIPELINE_REPO_RAW_URL =
 
 export const PIPELINE_STAGES: PipelineStage[] = [
   {
+    name: "discussion",
+    mdFile: "", // Not used -- discussion uses discussion-agent.ts directly
+    displayName: "Discussing your use case",
+    stepOrder: 0,
+  },
+  {
     name: "architect",
     mdFile: "orq-agent/agents/architect.md",
     displayName: "Designing agent swarm architecture",
     stepOrder: 1,
+    needsReview: true,
+    needsNarration: true,
   },
   {
     name: "tool-resolver",
     mdFile: "orq-agent/agents/tool-resolver.md",
     displayName: "Resolving available tools",
     stepOrder: 2,
+    templateMessage: "Finding the right tools for your agents...",
   },
   {
     name: "researcher",
     mdFile: "orq-agent/agents/researcher.md",
     displayName: "Researching domain context",
     stepOrder: 3,
+    templateMessage: "Researching your domain to make agents smarter...",
   },
   {
     name: "spec-generator",
     mdFile: "orq-agent/agents/spec-generator.md",
     displayName: "Generating agent specifications",
     stepOrder: 4,
+    needsApproval: true,
+    needsNarration: true,
   },
   {
     name: "orchestration-generator",
     mdFile: "orq-agent/agents/orchestration-generator.md",
     displayName: "Generating orchestration config",
     stepOrder: 5,
+    templateMessage: "Setting up how your agents will work together...",
   },
   {
     name: "dataset-generator",
     mdFile: "orq-agent/agents/dataset-generator.md",
     displayName: "Generating test datasets",
     stepOrder: 6,
+    templateMessage: "Creating test scenarios for your agents...",
   },
   {
     name: "readme-generator",
     mdFile: "orq-agent/agents/readme-generator.md",
     displayName: "Generating documentation",
     stepOrder: 7,
+    templateMessage: "Writing documentation for your swarm...",
   },
 ];
 
