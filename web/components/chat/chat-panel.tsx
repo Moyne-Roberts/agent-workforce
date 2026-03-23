@@ -167,9 +167,6 @@ export function ChatPanel({
 
   return (
     <div className="flex h-full flex-col">
-      {/* Stage progress bar at top */}
-      <StageProgressBar stages={stages} />
-
       {/* Scrollable chat messages */}
       <div
         ref={scrollRef}

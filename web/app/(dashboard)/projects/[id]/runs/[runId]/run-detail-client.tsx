@@ -26,6 +26,7 @@ import type { ChatMessage } from "@/lib/pipeline/chat-types";
 import { submitDiscussionResponse } from "@/lib/pipeline/discussion-action";
 import { submitReviewResponse } from "@/lib/pipeline/review";
 import { PIPELINE_STAGES } from "@/lib/pipeline/stages";
+import { StageProgressBar } from "@/components/chat/stage-progress-bar";
 
 interface PipelineRun {
   id: string;
@@ -409,15 +410,20 @@ export function RunDetailClient({ run, projectId, chatMessages }: RunDetailClien
         </Card>
       )}
 
-      {/* Graph area + Chat panel side-by-side */}
+      {/* Graph | Progress Timeline | Chat — 3-column layout */}
       <div className="relative mt-4 flex" style={{ height: 'calc(100vh - 13rem)' }}>
         {/* Graph area -- fills remaining width */}
         <div className="flex-1 min-w-0">
           <SwarmGraph runId={run.id} steps={steps} runStatus={runStatus} />
         </div>
 
-        {/* Chat panel -- fixed 400px right column */}
-        <div className="w-[400px] shrink-0 border-l flex flex-col">
+        {/* Vertical progress timeline -- narrow middle column */}
+        <div className="w-[180px] shrink-0">
+          <StageProgressBar stages={stageStatuses} />
+        </div>
+
+        {/* Chat panel -- wider right column */}
+        <div className="w-[480px] shrink-0 border-l flex flex-col">
           <ChatPanel
             runId={run.id}
             initialMessages={chatMessages}
