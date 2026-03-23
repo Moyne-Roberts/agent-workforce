@@ -42,8 +42,7 @@ The web pipeline automatically stays in sync with the orqai-agent-pipeline GitHu
 - Before calling architect stage, query the project's linked systems from DB and serialize to markdown matching `systems.md` format
 - Pass serialized systems as a `<systems>` context tag in the user message — architect prompt works identically to CLI
 - Systems can be linked in BOTH project settings AND at pipeline start time (with option to add new systems inline in both places)
-- When architect detects a system from the use case that isn't in the registry: pipeline pauses at a HITL checkpoint via the terminal panel, user adds the system inline, pipeline resumes with updated context
-- This follows the conversational terminal panel pattern from Phase 40 — the pipeline "asks" the user to add the missing system
+- Unknown system detection and HITL checkpoint deferred to Phase 37.1 (Conversational Pipeline) — requires architect output inspection, Inngest step.waitForEvent, terminal panel integration, and architect re-run, which aligns better with the conversational pipeline phase
 
 ### Claude's Discretion
 - Manifest JSON schema design (exact field names and structure)
@@ -129,7 +128,7 @@ The web pipeline automatically stays in sync with the orqai-agent-pipeline GitHu
 <deferred>
 ## Deferred Ideas
 
-None — discussion stayed within phase scope
+- **Systems HITL checkpoint** — When architect detects a system not in the registry, pipeline should pause at a HITL checkpoint via the terminal panel, user adds the system inline, pipeline resumes with updated context. Deferred to Phase 37.1 (Conversational Pipeline) which implements the conversational interaction model needed for this (architect output inspection + step.waitForEvent + terminal panel + architect re-run)
 
 </deferred>
 
