@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v0.3
 milestone_name: milestone
-status: completed
-stopped_at: Phase 43 context gathered
-last_updated: "2026-03-23T17:29:54.725Z"
-last_activity: 2026-03-23 -- Phase 40 Plan 04 executed (annotation overlay, re-analysis, confirmation)
+status: executing
+stopped_at: Completed 37.1-01-PLAN.md
+last_updated: "2026-03-23T19:02:03.455Z"
+last_activity: "2026-03-23 -- Phase 37.1 Plan 01 executed (foundation: types, DB, broadcast, server action)"
 progress:
-  total_phases: 10
+  total_phases: 11
   completed_phases: 6
-  total_plans: 23
-  completed_plans: 23
-  percent: 100
+  total_plans: 30
+  completed_plans: 24
+  percent: 80
 ---
 
 # Project State
@@ -21,17 +21,17 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-23)
 
 **Core value:** Any colleague can go from a use case description to deployed, tested agents on Orq.ai -- through a browser UI with real-time visibility, visual agent graphs, and in-app approvals -- without touching a terminal or needing technical knowledge.
-**Current focus:** Phase 40 Detection, SOP Upload & Vision Analysis -- Plans 00-03 complete, Plan 04 remaining
+**Current focus:** Phase 37.1 Conversational Pipeline -- Plan 01 complete, Plans 02-03 remaining
 **Previous milestones:** v0.3 shipped 2026-03-01, V2.0 shipped 2026-03-02, V2.1 shipped 2026-03-13, V3.0 in progress
 
 ## Current Position
 
-Phase: 40 of 42 (Detection, SOP Upload & Vision Analysis)
-Plan: 5 of 5 in current phase (40-00, 40-01, 40-02, 40-03, 40-04 complete)
-Status: Phase Complete
-Last activity: 2026-03-23 -- Phase 40 Plan 04 executed (annotation overlay, re-analysis, confirmation)
+Phase: 37.1 (Conversational Pipeline)
+Plan: 1 of 3 in current phase (37.1-01 complete)
+Status: In Progress
+Last activity: 2026-03-23 -- Phase 37.1 Plan 01 executed (foundation: types, DB, broadcast, server action)
 
-Progress: [██████████] 100%
+Progress: [████████░░] 80%
 
 ## Performance Metrics
 
@@ -57,6 +57,7 @@ Progress: [██████████] 100%
 | Phase 40 P02 | 4min | 2 tasks | 6 files |
 | Phase 40 P03 | 6min | 2 tasks | 7 files |
 | Phase 40-detection-sop-upload-vision-analysis P04 | 5min | 2 tasks | 6 files |
+| Phase 37.1-conversational-pipeline P01 | 3min | 2 tasks | 7 files |
 
 ## Accumulated Context
 
@@ -101,6 +102,7 @@ Recent decisions affecting current work:
 - [Phase 40-03]: Signed URL upload pattern: server action generates URL, client uploads directly to Supabase Storage
 - [Phase 40-detection-sop-upload-vision-analysis]: Dynamic import for server actions in overlay handleFinalize to avoid client/server bundling conflicts
 - [Phase 40-detection-sop-upload-vision-analysis]: AnnotationOverlay manages currentAnalysis state separately from props for re-analysis updates
+- [Phase 37.1]: Persistent channel pattern for chat token streaming (createChatBroadcaster returns {send,close}) vs open-send-close for complete messages
 
 ### Blockers/Concerns
 
@@ -114,7 +116,7 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-23T17:29:54.716Z
-Stopped at: Phase 43 context gathered
+Last session: 2026-03-23T19:02:03.451Z
+Stopped at: Completed 37.1-01-PLAN.md
 Resume with: `/gsd:execute-phase` for Phase 40 Plan 04
-Resume file: .planning/phases/43-upstream-sync-orq-agent-pipeline-agent-workforce/43-CONTEXT.md
+Resume file: None
