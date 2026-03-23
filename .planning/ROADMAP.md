@@ -169,11 +169,13 @@ Plans:
   3. User can approve or reject with an optional comment, and the pipeline resumes automatically
   4. User receives an email notification when an approval is waiting for them
   5. All approval decisions are logged with timestamp, user identity, and comment (audit trail)
-**Plans**: TBD
+**Plans**: 4 plans
 
 Plans:
-- [ ] 37-01: TBD
-- [ ] 37-02: TBD
+- [ ] 37-00-PLAN.md -- Wave 0: test stubs (6 test files), npm install (react-diff-viewer-continued, resend)
+- [ ] 37-01-PLAN.md -- DB schema (approval_requests), Inngest events, Broadcast extension, approval helpers, pipeline waitForEvent integration
+- [ ] 37-02-PLAN.md -- Approval UI (DiffViewer, ApprovalPanel, ApprovalBadge), StepStatusBadge + StepLogPanel waiting state, RunDetailClient wiring
+- [ ] 37-03-PLAN.md -- Email notifications (Resend), audit trail UI (ApprovalHistory), graph node waiting state, end-to-end verification
 
 ### Phase 38: Swarm Activation
 **Goal**: External systems can trigger pipeline runs and check status via authenticated webhook endpoints
@@ -268,7 +270,7 @@ V4.0: 39 -> 40 -> 41 -> 42
 | 34. Foundation & Auth | V3.0 | 3/3 | Complete | 2026-03-20 |
 | 35. Pipeline Engine | V3.0 | 4/4 | Complete | 2026-03-22 |
 | 36. Dashboard & Graph | V3.0 | 4/4 | Complete | 2026-03-23 |
-| 37. HITL Approval | V3.0 | 0/TBD | Not started | - |
+| 37. HITL Approval | V3.0 | 0/4 | Not started | - |
 | 38. Swarm Activation | V3.0 | 0/TBD | Not started | - |
 | 39. Infrastructure & Credential Foundation | V4.0 | 0/TBD | Not started | - |
 | 40. Detection, SOP Upload & Vision Analysis | V4.0 | 0/TBD | Not started | - |
