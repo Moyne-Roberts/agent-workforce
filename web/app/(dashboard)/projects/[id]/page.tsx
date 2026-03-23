@@ -130,7 +130,7 @@ export default async function ProjectDetailPage({ params }: PageProps) {
       <Tabs defaultValue="runs" className="mt-8">
         <TabsList>
           <TabsTrigger value="overview">Overview</TabsTrigger>
-          <TabsTrigger value="runs">Runs</TabsTrigger>
+          <TabsTrigger value="runs">Creations</TabsTrigger>
           <TabsTrigger value="swarm-graph">Swarm Graph</TabsTrigger>
           <TabsTrigger value="settings">Settings</TabsTrigger>
         </TabsList>
@@ -171,11 +171,11 @@ export default async function ProjectDetailPage({ params }: PageProps) {
         {/* Runs tab */}
         <TabsContent value="runs">
           <div className="flex items-center justify-between">
-            <h2 className="text-lg font-medium">Pipeline Runs</h2>
+            <h2 className="text-lg font-medium">Agent Swarms</h2>
             <Button asChild size="sm">
               <Link href={`/projects/${id}/new-run`}>
                 <Plus className="mr-1.5 size-4" />
-                New Pipeline Run
+                Create Agent Swarm
               </Link>
             </Button>
           </div>
@@ -190,15 +190,15 @@ export default async function ProjectDetailPage({ params }: PageProps) {
                 <Play className="size-5 text-muted-foreground" />
               </div>
               <p className="mt-3 text-sm font-medium">
-                No pipeline runs yet
+                No agent swarms yet
               </p>
               <p className="mt-1 text-xs text-muted-foreground">
-                Start your first pipeline run to see results here.
+                Create your first agent swarm to see results here.
               </p>
               <Button asChild size="sm" className="mt-4">
                 <Link href={`/projects/${id}/new-run`}>
                   <Plus className="mr-1.5 size-4" />
-                  Start your first pipeline run
+                  Create your first agent swarm
                 </Link>
               </Button>
             </div>

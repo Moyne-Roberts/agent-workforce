@@ -81,7 +81,7 @@ export function TerminalPanel({
     <div className="flex h-full flex-col">
       {/* Header bar */}
       <div className="flex items-center justify-between border-b px-4 py-3">
-        <h2 className="text-sm font-semibold">Pipeline Activity</h2>
+        <h2 className="text-sm font-semibold">Activity</h2>
         <Badge variant="secondary" className="text-xs">
           {entries.length}
         </Badge>

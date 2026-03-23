@@ -4,6 +4,7 @@ import { useCallback, useRef, useState } from "react";
 import { FileText, Upload } from "lucide-react";
 import type { TerminalEntry, AnalysisResult } from "@/lib/systems/types";
 import { TerminalApprovalEntry } from "./terminal-approval-entry";
+import { TerminalReviewEntry } from "./terminal-review-entry";
 import { TerminalSOPPreview } from "./terminal-sop-preview";
 import { TerminalScreenshotUpload } from "./terminal-screenshot-upload";
 import { AnnotationOverlay } from "@/components/annotation/annotation-overlay";
@@ -33,6 +34,9 @@ export function EntryInteraction({ entry }: EntryInteractionProps) {
 
     case "approval":
       return <TerminalApprovalEntry entry={entry} />;
+
+    case "review":
+      return <TerminalReviewEntry entry={entry} />;
 
     case "prompt": {
       // Render action buttons if present in metadata

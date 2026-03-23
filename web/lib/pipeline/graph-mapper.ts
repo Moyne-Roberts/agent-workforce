@@ -66,17 +66,18 @@ export function parseArchitectOutput(output: string): AgentNodeData[] {
   const agents: AgentNodeData[] = [];
 
   // Split into sections by headings that look like agent definitions
-  // Match patterns: ## Agent: Name, ### Name, ## Name (Agent), **Name** (as heading)
+  // Require "Agent:" prefix to avoid matching reference/metadata headings
+  // Match patterns: ## Agent: Name, ### Agent: Name
   const sections = output.split(
-    /(?=^#{1,3}\s+(?:Agent:\s*)?[A-Z])/m
+    /(?=^#{1,3}\s+Agent:\s*[A-Z])/m
   );
 
   for (const section of sections) {
     if (!section.trim()) continue;
 
-    // Extract agent name from heading
+    // Extract agent name from heading (requires "Agent:" prefix)
     const nameMatch = section.match(
-      /^#{1,3}\s+(?:Agent:\s*)?(.+?)(?:\s*\(.*?\))?\s*$/m
+      /^#{1,3}\s+Agent:\s*(.+?)(?:\s*\(.*?\))?\s*$/m
     );
     if (!nameMatch) continue;
 

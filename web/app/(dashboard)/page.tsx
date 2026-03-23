@@ -88,8 +88,8 @@ export default async function DashboardPage() {
             Create your first project to get started
           </h2>
           <p className="mt-1 max-w-sm text-sm text-muted-foreground">
-            Projects help you organize pipeline runs, manage team access, and
-            track results.
+            Projects help you organize agent swarm creations, manage team access,
+            and track results.
           </p>
           <div className="mt-6">
             <CreateProjectModal

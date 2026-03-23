@@ -67,12 +67,12 @@ export default function NewRunPage() {
           Project
         </Link>
         <ChevronRight className="size-3.5" />
-        <span className="font-medium text-foreground">New Pipeline Run</span>
+        <span className="font-medium text-foreground">Create Agent Swarm</span>
       </nav>
 
       {/* Page header */}
       <div className="mb-6">
-        <h1 className="text-2xl font-semibold">New Pipeline Run</h1>
+        <h1 className="text-2xl font-semibold">Create Agent Swarm</h1>
         <p className="mt-1 text-sm text-muted-foreground">
           Describe your use case and we&apos;ll design an agent swarm for it
         </p>

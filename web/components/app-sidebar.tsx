@@ -6,8 +6,6 @@ import {
   FolderOpen,
   Play,
   Settings,
-  KeyRound,
-  Activity,
   LogOut,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
@@ -34,10 +32,8 @@ import {
 const navItems = [
   { title: "Dashboard", href: "/", icon: Home },
   { title: "Projects", href: "/", icon: FolderOpen },
-  { title: "Runs", href: "/runs", icon: Play },
+  { title: "Creations", href: "/runs", icon: Play },
   { title: "Settings", href: "/settings", icon: Settings },
-  { title: "Credentials", href: "/settings?tab=credentials", icon: KeyRound },
-  { title: "Health", href: "/settings?tab=health", icon: Activity },
 ];
 
 interface AppSidebarProps {
@@ -80,7 +76,7 @@ export function AppSidebar({ user }: AppSidebarProps) {
           <SidebarMenuItem>
             <div className="flex items-center gap-2 px-2 py-1.5">
               <span className="text-sm font-semibold group-data-[collapsible=icon]:hidden">
-                Pipeline Manager
+                Agent Workforce
               </span>
               <SidebarTrigger className="ml-auto" />
             </div>
