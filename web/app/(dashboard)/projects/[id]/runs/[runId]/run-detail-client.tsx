@@ -34,6 +34,7 @@ import {
 } from "@/lib/supabase/broadcast";
 import { createClient } from "@/lib/supabase/client";
 import { retryPipeline } from "../../new-run/actions";
+import { ApprovalHistory } from "@/components/approval/approval-history";
 
 interface PipelineRun {
   id: string;
@@ -90,6 +91,15 @@ export function RunDetailClient({ run, projectId }: RunDetailClientProps) {
   const [useCaseExpanded, setUseCaseExpanded] = useState(false);
   const [showJumpButton, setShowJumpButton] = useState(false);
   const [approvalMap, setApprovalMap] = useState<Record<string, PipelineStep["approvalData"]>>({});
+  const [approvalHistory, setApprovalHistory] = useState<Array<{
+    id: string;
+    stepName: string;
+    status: "pending" | "approved" | "rejected" | "expired";
+    decidedBy?: string;
+    decidedAt?: string;
+    comment?: string | null;
+    createdAt: string;
+  }>>([]);
   const timelineRef = useRef<HTMLDivElement>(null);
   const activeStepRef = useRef<HTMLDivElement>(null);
   const userScrolledRef = useRef(false);
@@ -175,6 +185,31 @@ export function RunDetailClient({ run, projectId }: RunDetailClientProps) {
     }
   }, []);
 
+  // Fetch all approval requests for audit trail on mount
+  useEffect(() => {
+    supabase
+      .from("approval_requests")
+      .select("id, step_name, status, decided_by, decided_at, comment, created_at")
+      .eq("run_id", run.id)
+      .order("created_at", { ascending: false })
+      .then(({ data }) => {
+        if (data) {
+          setApprovalHistory(
+            data.map((d) => ({
+              id: d.id,
+              stepName: d.step_name,
+              status: d.status as "pending" | "approved" | "rejected" | "expired",
+              decidedBy: d.decided_by || undefined,
+              decidedAt: d.decided_at || undefined,
+              comment: d.comment,
+              createdAt: d.created_at,
+            }))
+          );
+        }
+      });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [run.id]);
+
   // ---------------------------------------------------------------------------
   // Broadcast subscription for step updates (replaces 5-second polling)
   // ---------------------------------------------------------------------------
@@ -230,6 +265,19 @@ export function RunDetailClient({ run, projectId }: RunDetailClientProps) {
         }
         return updated;
       });
+      // Also update approval history
+      setApprovalHistory((prev) =>
+        prev.map((entry) =>
+          entry.id === payload.approvalId
+            ? {
+                ...entry,
+                status: payload.decision as "pending" | "approved" | "rejected" | "expired",
+                decidedBy: payload.decidedBy,
+                comment: payload.comment,
+              }
+            : entry
+        )
+      );
     }, [])
   );
 
@@ -395,6 +443,13 @@ export function RunDetailClient({ run, projectId }: RunDetailClientProps) {
                 />
               </div>
             ))}
+
+            {/* Approval History */}
+            {approvalHistory.length > 0 && (
+              <div className="mt-4">
+                <ApprovalHistory entries={approvalHistory} />
+              </div>
+            )}
           </div>
 
           {/* Jump to active step button */}

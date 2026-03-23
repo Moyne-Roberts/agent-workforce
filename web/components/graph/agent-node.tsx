@@ -2,7 +2,7 @@
 
 import { memo, useState, useEffect, useRef } from "react";
 import { Handle, Position, type NodeProps } from "@xyflow/react";
-import { Wrench, CheckCircle2 } from "lucide-react";
+import { Wrench, CheckCircle2, PauseCircle } from "lucide-react";
 import {
   Tooltip,
   TooltipContent,
@@ -20,6 +20,7 @@ const statusClasses: Record<AgentNodeData["status"], string> = {
   running: "border-blue-500 shadow-blue-500/20 shadow-lg animate-pulse",
   complete: "border-green-500 shadow-green-500/10 shadow-md",
   failed: "border-destructive shadow-destructive/10 shadow-md",
+  waiting: "border-amber-500 shadow-amber-500/20 shadow-lg animate-pulse",
 };
 
 // ---------------------------------------------------------------------------
@@ -77,6 +78,11 @@ const AgentNode = memo(function AgentNode({ data }: AgentNodeProps) {
             {/* Complete checkmark */}
             {data.status === "complete" && (
               <CheckCircle2 className="absolute top-2 right-2 size-4 text-green-500" />
+            )}
+
+            {/* Waiting indicator */}
+            {data.status === "waiting" && (
+              <PauseCircle className="absolute top-2 right-2 size-4 text-amber-500" />
             )}
 
             {/* Agent name */}

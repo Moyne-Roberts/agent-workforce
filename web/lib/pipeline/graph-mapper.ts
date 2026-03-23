@@ -20,7 +20,7 @@ export interface AgentNodeData {
   model: string;
   toolCount: number;
   tools: string[];
-  status: "idle" | "running" | "complete" | "failed";
+  status: "idle" | "running" | "complete" | "failed" | "waiting";
   score?: number;
   description?: string;
   instructions?: string;
@@ -188,6 +188,8 @@ export function mapPipelineToGraph(
       status = "running";
     } else if (runStatus === "failed" && index === 0) {
       status = "failed";
+    } else if (runStatus === "waiting") {
+      status = index === 0 ? "waiting" : "idle";
     }
 
     return {
@@ -300,7 +302,9 @@ export function mapStepToNodeStatus(
         ? ("running" as const)
         : stepStatus === "failed"
           ? ("failed" as const)
-          : ("idle" as const);
+          : stepStatus === "waiting"
+            ? ("waiting" as const)
+            : ("idle" as const);
 
   return nodes.map((node, i) =>
     i === bestMatchIndex
