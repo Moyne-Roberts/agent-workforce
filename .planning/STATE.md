@@ -10,8 +10,8 @@ progress:
   total_phases: 9
   completed_phases: 5
   total_plans: 23
-  completed_plans: 21
-  percent: 87
+  completed_plans: 22
+  percent: 91
 ---
 
 # Project State
@@ -27,11 +27,11 @@ See: .planning/PROJECT.md (updated 2026-03-23)
 ## Current Position
 
 Phase: 40 of 42 (Detection, SOP Upload & Vision Analysis)
-Plan: 3 of 5 in current phase (40-00, 40-02 complete)
+Plan: 4 of 5 in current phase (40-00, 40-01, 40-02 complete)
 Status: In Progress
-Last activity: 2026-03-23 -- Phase 40 Plan 02 executed (terminal panel UI)
+Last activity: 2026-03-23 -- Phase 40 Plan 01 executed (foundation infrastructure)
 
-Progress: [█████████░] 87%
+Progress: [█████████░] 91%
 
 ## Performance Metrics
 
@@ -53,6 +53,7 @@ Progress: [█████████░] 87%
 | Phase 39 P01 | 3min | 2 tasks | 13 files |
 | Phase 39 P02 | 6min | 2 tasks | 15 files |
 | Phase 40 P00 | 1min | 1 tasks | 4 files |
+| Phase 40 P01 | 6min | 2 tasks | 10 files |
 | Phase 40 P02 | 4min | 2 tasks | 6 files |
 
 ## Accumulated Context
@@ -84,6 +85,8 @@ Recent decisions affecting current work:
 - [Phase 39-02]: Used z.refine() instead of z.check() for Zod v4 record validation -- .check() API differs from plan spec
 - [Phase 39-02]: Health components created in Task 1 commit since settings page imports them directly
 - [Phase 40-00]: Followed Phase 37 it.todo() stub pattern exactly for consistency
+- [Phase 40-01]: Radio group for integration method selection -- no shadcn Select installed, radio provides better UX with descriptive subtitles
+- [Phase 40-01]: Systems registry follows exact credentials pattern: global table with project linking, RLS on created_by, admin client for mutations
 - [Phase 40-02]: TerminalPanel uses relative positioning with absolute Jump to latest button inside panel container
 - [Phase 40-02]: Pipeline steps converted to TerminalEntry[] on mount, broadcast updates sync both steps (graph) and entries (panel)
 - [Phase 40-02]: ApprovalHistory rendered below terminal panel in collapsible border-t section
@@ -100,7 +103,7 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-23T13:40:40.924Z
-Stopped at: Completed 40-02-PLAN.md
+Last session: 2026-03-23T13:40:01Z
+Stopped at: Completed 40-01-PLAN.md
 Resume with: `/gsd:execute-phase` for Phase 40 Plan 03
-Resume file: None
+Resume file: .planning/phases/40-detection-sop-upload-vision-analysis/40-03-PLAN.md
