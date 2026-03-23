@@ -18,6 +18,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { runPromptAdapter } from "@/lib/pipeline/adapter";
 import { PIPELINE_STAGES } from "@/lib/pipeline/stages";
 import { toPlainEnglish } from "@/lib/pipeline/errors";
+import { broadcastStepUpdate, broadcastRunUpdate } from "@/lib/supabase/broadcast";
 
 /**
  * Context keys expected by each pipeline stage.
@@ -67,7 +68,7 @@ export const executePipeline = inngest.createFunction(
       // Find the last running step
       const { data: failedStep } = await admin
         .from("pipeline_steps")
-        .select("id, name")
+        .select("id, name, display_name")
         .eq("run_id", runId)
         .eq("status", "running")
         .single();
@@ -87,6 +88,19 @@ export const executePipeline = inngest.createFunction(
         .from("pipeline_runs")
         .update({ status: "failed" })
         .eq("id", runId);
+
+      // Broadcast failure to real-time subscribers
+      await broadcastStepUpdate(runId, {
+        stepName: failedStep?.name || "unknown",
+        status: "failed",
+        displayName: failedStep?.display_name || failedStep?.name || "Unknown Step",
+        runStatus: "failed",
+      });
+      await broadcastRunUpdate(runId, {
+        runId,
+        status: "failed",
+        stepsCompleted: 0,
+      });
     },
   },
   { event: "pipeline/run.started" },
@@ -103,6 +117,14 @@ export const executePipeline = inngest.createFunction(
           started_at: new Date().toISOString(),
         })
         .eq("id", runId);
+
+      // Broadcast run started
+      await broadcastRunUpdate(runId, {
+        runId,
+        status: "running",
+        stepsCompleted: 0,
+      });
+
       return { started: true };
     });
 
@@ -142,6 +164,14 @@ export const executePipeline = inngest.createFunction(
               started_at: new Date().toISOString(),
             })
             .eq("id", existingStep.id);
+
+          // Broadcast step running
+          await broadcastStepUpdate(runId, {
+            stepName: stage.name,
+            status: "running",
+            displayName: stage.displayName,
+            runStatus: "running",
+          });
         }
 
         // Build context from previous stage results
@@ -180,6 +210,17 @@ export const executePipeline = inngest.createFunction(
           .update({ steps_completed: (currentRun?.steps_completed || 0) + 1 })
           .eq("id", runId);
 
+        // Broadcast step complete
+        await broadcastStepUpdate(runId, {
+          stepName: stage.name,
+          status: "complete",
+          displayName: stage.displayName,
+          durationMs,
+          stepsCompleted: (currentRun?.steps_completed || 0) + 1,
+          runStatus: "running",
+          log: `Completed ${stage.displayName} in ${Math.round(durationMs / 1000)}s`,
+        });
+
         // Return a reference, NOT the full output (Pitfall 6)
         return {
           skipped: false,
@@ -203,6 +244,21 @@ export const executePipeline = inngest.createFunction(
           completed_at: new Date().toISOString(),
         })
         .eq("id", runId);
+
+      // Broadcast pipeline completion
+      await broadcastStepUpdate(runId, {
+        stepName: "pipeline-complete",
+        status: "complete",
+        displayName: "Pipeline Complete",
+        runStatus: "complete",
+        stepsCompleted: PIPELINE_STAGES.length,
+      });
+      await broadcastRunUpdate(runId, {
+        runId,
+        status: "complete",
+        stepsCompleted: PIPELINE_STAGES.length,
+      });
+
       return { completed: true };
     });
 
