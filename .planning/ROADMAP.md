@@ -270,7 +270,7 @@ V4.0: 39 -> 40 -> 41 -> 42
 | 34. Foundation & Auth | V3.0 | 3/3 | Complete | 2026-03-20 |
 | 35. Pipeline Engine | V3.0 | 4/4 | Complete | 2026-03-22 |
 | 36. Dashboard & Graph | V3.0 | 4/4 | Complete | 2026-03-23 |
-| 37. HITL Approval | 1/4 | In Progress|  | - |
+| 37. HITL Approval | 2/4 | In Progress|  | - |
 | 38. Swarm Activation | V3.0 | 0/TBD | Not started | - |
 | 39. Infrastructure & Credential Foundation | V4.0 | 0/TBD | Not started | - |
 | 40. Detection, SOP Upload & Vision Analysis | V4.0 | 0/TBD | Not started | - |
