@@ -6,7 +6,8 @@ import {
   FolderOpen,
   Play,
   Settings,
-  User,
+  KeyRound,
+  Activity,
   LogOut,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
@@ -35,7 +36,8 @@ const navItems = [
   { title: "Projects", href: "/", icon: FolderOpen },
   { title: "Runs", href: "/runs", icon: Play },
   { title: "Settings", href: "/settings", icon: Settings },
-  { title: "Profile", href: "/settings", icon: User },
+  { title: "Credentials", href: "/settings?tab=credentials", icon: KeyRound },
+  { title: "Health", href: "/settings?tab=health", icon: Activity },
 ];
 
 interface AppSidebarProps {
