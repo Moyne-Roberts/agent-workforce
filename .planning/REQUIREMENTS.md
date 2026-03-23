@@ -39,12 +39,12 @@ Requirements for V3.0 Web UI & Dashboard. Each maps to roadmap phases.
 
 ### HITL Approval
 
-- [ ] **HITL-01**: Pipeline pauses and creates an approval request when prompt changes are proposed
-- [ ] **HITL-02**: User sees a diff view of proposed changes with plain-English explanation
-- [ ] **HITL-03**: User can approve or reject changes with optional comment
-- [ ] **HITL-04**: Pipeline resumes automatically after approval decision
-- [ ] **HITL-05**: User receives email notification when approval is needed
-- [ ] **HITL-06**: All approval decisions are logged with timestamp, user, and comment (audit trail)
+- [x] **HITL-01**: Pipeline pauses and creates an approval request when prompt changes are proposed
+- [x] **HITL-02**: User sees a diff view of proposed changes with plain-English explanation
+- [x] **HITL-03**: User can approve or reject changes with optional comment
+- [x] **HITL-04**: Pipeline resumes automatically after approval decision
+- [x] **HITL-05**: User receives email notification when approval is needed
+- [x] **HITL-06**: All approval decisions are logged with timestamp, user, and comment (audit trail)
 
 ### Projects & Access
 
@@ -173,12 +173,12 @@ Requirements for V4.0 Browser Automation Builder. Each maps to roadmap phases.
 | GRAPH-02 | Phase 36 | Complete |
 | GRAPH-03 | Phase 36 | Complete |
 | GRAPH-04 | Phase 36 | Complete |
-| HITL-01 | Phase 37 | Pending |
-| HITL-02 | Phase 37 | Pending |
-| HITL-03 | Phase 37 | Pending |
-| HITL-04 | Phase 37 | Pending |
-| HITL-05 | Phase 37 | Pending |
-| HITL-06 | Phase 37 | Pending |
+| HITL-01 | Phase 37 | Complete |
+| HITL-02 | Phase 37 | Complete |
+| HITL-03 | Phase 37 | Complete |
+| HITL-04 | Phase 37 | Complete |
+| HITL-05 | Phase 37 | Complete |
+| HITL-06 | Phase 37 | Complete |
 | PROJ-01 | Phase 34 | Complete |
 | PROJ-02 | Phase 34 | Complete |
 | PROJ-03 | Phase 34 | Complete |
