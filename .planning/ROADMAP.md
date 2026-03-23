@@ -2,7 +2,7 @@
 
 ## Overview
 
-Browser-based interface for creating, deploying, testing, and iterating AI agent swarms on Orq.ai. Non-technical colleagues describe a use case and watch agents get designed, deployed, and tested -- with a real-time dashboard, node graph visualization, and HITL approval workflows. V4.0 adds cross-swarm intelligence so that agent swarms don't operate in silos -- overlaps are surfaced, missing coordination is identified, and fixes are proposed across the entire ecosystem. V5.0 extends the pipeline to detect browser automation needs, generate deterministic Playwright scripts, deploy them to a VPS-hosted MCP server, and wire agent specs with the right MCP tools. CLI skills for technical users are available separately in the orqai-agent-pipeline repo.
+Browser-based interface for creating, deploying, testing, and iterating AI agent swarms on Orq.ai. Non-technical colleagues describe a use case and watch agents get designed, deployed, and tested -- with a real-time dashboard, node graph visualization, and HITL approval workflows. V4.0 adds a browser automation builder so that agents can interact with no-API systems (NXT, iController, Intelly) -- users upload SOPs and screenshots, AI generates and tests Playwright scripts on Browserless.io, and verified scripts deploy as MCP tools attached to agents. CLI skills for technical users are available separately in the orqai-agent-pipeline repo.
 
 ## Milestones
 
@@ -12,8 +12,8 @@ Browser-based interface for creating, deploying, testing, and iterating AI agent
 | **V2.0** | Autonomous Orq.ai Pipeline -- deploy, test, iterate, and harden agent swarms via MCP/API | **Shipped 2026-03-02** |
 | **V2.1** | Experiment Pipeline Restructure -- rewrite test/iterate with native MCP, smaller subagents | **Shipped 2026-03-13** |
 | **V3.0** | Web UI & Dashboard -- browser-based pipeline with authentication, real-time visibility, node graph, HITL approvals | **In Progress** |
-| **V4.0** | Cross-Swarm Intelligence -- ecosystem mapping, drift detection, overlap analysis, and fix proposals | **Defined** |
-| **V5.0** | Browser Automation -- Playwright script generation, VPS MCP server, automated deployment, agent spec wiring | **Defined** |
+| **V4.0** | Browser Automation Builder -- SOP + screenshots to MCP tools for no-API systems via Browserless.io | **Defined** |
+| **V5.0** | Cross-Swarm Intelligence -- ecosystem mapping, drift detection, overlap analysis, and fix proposals | **Defined** |
 
 ---
 
@@ -84,24 +84,24 @@ Browser-based interface for creating, deploying, testing, and iterating AI agent
 - [ ] **Phase 37: HITL Approval** - Pipeline pause/resume, diff viewer, approve/reject flow, email notifications, audit trail
 - [ ] **Phase 38: Swarm Activation** - Webhook endpoints for external pipeline triggering with API key auth and status polling
 
-<details>
-<summary>V4.0 Cross-Swarm Intelligence (Phases 39-43) -- DEFINED</summary>
+### V4.0 Browser Automation Builder (Phases 39-42)
 
-- [ ] Phase 39: Ecosystem Foundation -- Unified inventory of all swarms from local specs and live Orq.ai state
-- [ ] Phase 40: Drift Detection -- Field-by-field comparison between spec and deployed state
-- [ ] Phase 41: Overlap & Gap Analysis -- Semantic role overlap, tool duplication, blind spot identification
-- [ ] Phase 42: Fix Proposals -- Structured fix proposals with diff previews, risk classification, HITL approval
-- [ ] Phase 43: Command Integration & Auto-Trigger -- On-demand audit command and auto-trigger after new swarm designs
+**Milestone Goal:** Add a browser automation builder to the pipeline so agents can interact with no-API systems (NXT, iController, Intelly) -- users upload SOPs and screenshots, AI analyzes and generates Playwright scripts, scripts are tested on Browserless.io, and verified automations deploy as MCP tools attached to agents. Standalone automations and scheduling extend the capability beyond the agent pipeline.
 
-</details>
+- [ ] **Phase 39: Infrastructure & Credential Foundation** - Browserless.io connectivity, Supabase Storage for uploads, MCP adapter route, credential vault with encrypted storage
+- [ ] **Phase 40: Detection, SOP Upload & Vision Analysis** - No-API system detection, SOP/screenshot upload wizard, AI vision analysis via Orq.ai, annotated step confirmation with user
+- [ ] **Phase 41: Script Generation, Testing & MCP Deployment** - Playwright script generation, Browserless.io execution with Session Replay, iterative test-fix loop, MCP tool deployment and agent attachment
+- [ ] **Phase 42: Standalone Automations & Triggers** - Standalone automation creation (conversational and SOP-based), dashboard management, scheduling, webhooks, Zapier integration
 
 <details>
-<summary>V5.0 Browser Automation (Phases 44-47) -- DEFINED</summary>
+<summary>V5.0 Cross-Swarm Intelligence -- DEFINED</summary>
 
-- [ ] Phase 44: Capabilities Config & VPS Scaffold -- Application capabilities config file, VPS MCP server setup
-- [ ] Phase 45: Script Generation & Pipeline Integration -- Playwright script generator, pipeline browser-use detection
-- [ ] Phase 46: Deployment, Wiring & NXT Validation -- Automated script deployment to VPS, agent spec wiring
-- [ ] Phase 47: Hardening & Second System -- Script health monitoring, iController validation
+Phase numbers TBD (after V4.0 phases are finalized).
+
+- [ ] Ecosystem Foundation -- Unified inventory of all swarms from local specs and live Orq.ai state
+- [ ] Drift Detection -- Field-by-field comparison between spec and deployed state
+- [ ] Overlap & Gap Analysis -- Semantic role overlap, tool duplication, blind spot identification
+- [ ] Fix Proposals -- Structured fix proposals with diff previews, risk classification, HITL approval
 
 </details>
 
@@ -136,10 +136,10 @@ Plans:
 **Plans**: 4 plans
 
 Plans:
-- [ ] 35-01-PLAN.md -- Database schema (pipeline_runs/steps/files), Inngest setup, prompt adapter, stage definitions, error mapper
-- [ ] 35-02-PLAN.md -- Pipeline durable function (Inngest step-per-stage), server action to trigger runs, retry-from-failed-step
-- [ ] 35-03-PLAN.md -- New run form (use case textarea, file upload), run detail page (step timeline, expandable logs, retry)
-- [ ] 35-04-PLAN.md -- Run list UI (project tabs, global runs page, run cards), end-to-end verification checkpoint
+- [x] 35-01-PLAN.md -- Database schema (pipeline_runs/steps/files), Inngest setup, prompt adapter, stage definitions, error mapper
+- [x] 35-02-PLAN.md -- Pipeline durable function (Inngest step-per-stage), server action to trigger runs, retry-from-failed-step
+- [x] 35-03-PLAN.md -- New run form (use case textarea, file upload), run detail page (step timeline, expandable logs, retry)
+- [x] 35-04-PLAN.md -- Run list UI (project tabs, global runs page, run cards), end-to-end verification checkpoint
 
 ### Phase 36: Dashboard & Graph
 **Goal**: Users have real-time visibility into pipeline execution through a live timeline, log stream, and interactive agent swarm graph
@@ -189,19 +189,91 @@ Plans:
 Plans:
 - [ ] 38-01: TBD
 
+### Phase 39: Infrastructure & Credential Foundation
+**Goal**: The platform has verified connectivity to Browserless.io, secure credential storage, file upload infrastructure, and an MCP tool hosting route -- all validated before any automation features are built
+**Depends on**: Phase 35 (uses Inngest pipeline, Supabase DB, Next.js API routes)
+**Requirements**: CRED-01, CRED-02, CRED-03, CRED-04
+**Success Criteria** (what must be TRUE):
+  1. User can store credentials for a target system and see them listed (names only, values hidden) in the web app
+  2. Stored credentials can be injected into a Browserless.io script execution without exposing them in logs or client-side code
+  3. User receives a reminder notification when stored credentials are approaching their rotation date
+  4. Different target systems can use different authentication methods (username/password, SSO token, certificate) via per-system auth profiles
+  5. Browserless.io connectivity, Supabase Storage uploads, and MCP adapter route all respond successfully from an Inngest step (infrastructure smoke test)
+**Plans**: TBD
+
+Plans:
+- [ ] 39-01: TBD
+- [ ] 39-02: TBD
+
+### Phase 40: Detection, SOP Upload & Vision Analysis
+**Goal**: The pipeline detects when agents need browser automation, guides users through SOP and screenshot upload, and uses AI vision to build a confirmed step-by-step understanding of the target process
+**Depends on**: Phase 39
+**Requirements**: DETECT-01, DETECT-02, DETECT-03, DETECT-04, DETECT-05, VISION-01, VISION-02, VISION-03, VISION-04, VISION-05
+**Success Criteria** (what must be TRUE):
+  1. Pipeline automatically identifies when a designed agent targets a no-API system and activates the automation builder -- and skips it when the target system has an API
+  2. User can upload an SOP document (Word or PDF) and screenshots of the target system through a guided wizard that validates completeness
+  3. AI analyzes uploaded screenshots via Orq.ai (Agent or AI Routing) and presents annotated screenshots with highlighted UI elements back to the user
+  4. AI parses the SOP document and correlates each step with specific elements identified in the screenshots
+  5. User can confirm or correct the AI's interpretation of each step, and the AI incorporates corrections into its updated understanding
+**Plans**: TBD
+
+Plans:
+- [ ] 40-01: TBD
+- [ ] 40-02: TBD
+- [ ] 40-03: TBD
+
+### Phase 41: Script Generation, Testing & MCP Deployment
+**Goal**: AI generates Playwright scripts from confirmed automation steps, tests them on Browserless.io with user-visible Session Replay, iterates until stable, and deploys verified scripts as MCP tools attached to the target Orq.ai agent
+**Depends on**: Phase 40
+**Requirements**: SCRIPT-01, SCRIPT-02, SCRIPT-03, SCRIPT-04, SCRIPT-05, SCRIPT-06, SCRIPT-07, SCRIPT-08, MCPTL-01, MCPTL-02, MCPTL-03
+**Success Criteria** (what must be TRUE):
+  1. AI generates a Playwright script using getByRole/getByText locators from the confirmed automation steps and executes it on Browserless.io
+  2. User can watch a Session Replay recording of the test execution to see exactly what happened in the browser
+  3. When a script fails, AI diagnoses the failure using DOM accessibility tree context and proposes fixes -- iterating up to 5 times or until the script stabilizes
+  4. Auth state persists across test iterations via cookies/localStorage so the user does not need to re-authenticate the target system repeatedly
+  5. Verified script deploys as an MCP tool on the Vercel deployment, automatically attaches to the Orq.ai agent, and the agent can successfully call the tool during execution
+**Plans**: TBD
+
+Plans:
+- [ ] 41-01: TBD
+- [ ] 41-02: TBD
+- [ ] 41-03: TBD
+
+### Phase 42: Standalone Automations & Triggers
+**Goal**: Users can create and manage browser automations independently of the agent pipeline, with scheduling and external trigger capabilities for recurring execution
+**Depends on**: Phase 41 (reuses script generation, testing, and deployment infrastructure)
+**Requirements**: AUTO-01, AUTO-02, AUTO-03, AUTO-04, TRIG-01, TRIG-02, TRIG-03, TRIG-04
+**Success Criteria** (what must be TRUE):
+  1. User can create a browser automation directly from the dashboard without starting an agent pipeline run
+  2. Simple automations can be described conversationally (no SOP or screenshots needed), while complex automations use the full SOP + screenshot flow
+  3. User can view, edit, and delete their automations from a management dashboard
+  4. User can schedule an automation to run on a recurring basis (daily, weekly, or custom cron) and trigger it via webhook
+  5. Automation results are returned to the caller -- webhook response for direct triggers, callback URL for Zapier integration
+**Plans**: TBD
+
+Plans:
+- [ ] 42-01: TBD
+- [ ] 42-02: TBD
+
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 34 -> 35 -> 36 -> 37 -> 38
+V3.0: 34 -> 35 -> 36 -> 37 -> 38
+V4.0: 39 -> 40 -> 41 -> 42
 (Phase 38 depends on Phase 35, not 37 -- can execute in parallel with 36/37 if needed)
+(Phase 39 depends on Phase 35 infrastructure, not V3.0 completion -- but V3.0 should ship first)
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
-| 34. Foundation & Auth | 3/3 | Complete    | 2026-03-20 | 2026-03-20 |
-| 35. Pipeline Engine | 4/4 | Complete   | 2026-03-22 | - |
-| 36. Dashboard & Graph | 4/4 | Complete    | 2026-03-23 | 2026-03-23 |
+| 34. Foundation & Auth | V3.0 | 3/3 | Complete | 2026-03-20 |
+| 35. Pipeline Engine | V3.0 | 4/4 | Complete | 2026-03-22 |
+| 36. Dashboard & Graph | V3.0 | 4/4 | Complete | 2026-03-23 |
 | 37. HITL Approval | V3.0 | 0/TBD | Not started | - |
 | 38. Swarm Activation | V3.0 | 0/TBD | Not started | - |
+| 39. Infrastructure & Credential Foundation | V4.0 | 0/TBD | Not started | - |
+| 40. Detection, SOP Upload & Vision Analysis | V4.0 | 0/TBD | Not started | - |
+| 41. Script Generation, Testing & MCP Deployment | V4.0 | 0/TBD | Not started | - |
+| 42. Standalone Automations & Triggers | V4.0 | 0/TBD | Not started | - |
 
 ## Progress Summary
 
@@ -210,6 +282,6 @@ Phases execute in numeric order: 34 -> 35 -> 36 -> 37 -> 38
 | v0.3 | 1-05.2 (11 phases) | 28/28 | **Shipped** | 2026-03-01 |
 | V2.0 | 6-11 (7 phases) | 11/11 | **Shipped** | 2026-03-02 |
 | V2.1 | 26-33 (8 phases) | 9/9 | **Shipped** | 2026-03-13 |
-| V3.0 | 34-38 (5 phases) | 0/TBD | **In Progress** | - |
-| V4.0 | 39-43 (5 phases) | 0/TBD | **Defined** | - |
-| V5.0 | 44-47 (4 phases) | 0/TBD | **Defined** | - |
+| V3.0 | 34-38 (5 phases) | 11/TBD | **In Progress** | - |
+| V4.0 | 39-42 (4 phases) | 0/TBD | **Defined** | - |
+| V5.0 | TBD | 0/TBD | **Defined** | - |

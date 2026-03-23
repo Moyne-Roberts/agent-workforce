@@ -1,55 +1,50 @@
 ---
 gsd_state_version: 1.0
-milestone: v0.3
-milestone_name: milestone
-status: executing
-stopped_at: Completed 36-03-PLAN.md
-last_updated: "2026-03-23T07:02:49.268Z"
-last_activity: 2026-03-23 - Completed 36-03-PLAN.md (Page Integration)
+milestone: V4.0
+milestone_name: Browser Automation Builder
+status: planned
+stopped_at: Roadmap created for V4.0
+last_updated: "2026-03-23"
+last_activity: 2026-03-23 - V4.0 roadmap created (4 phases, 33 requirements mapped)
 progress:
-  total_phases: 5
-  completed_phases: 3
-  total_plans: 11
-  completed_plans: 11
-  percent: 100
+  total_phases: 4
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
+  percent: 0
 ---
 
 # Project State
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-03-13)
+See: .planning/PROJECT.md (updated 2026-03-23)
 
 **Core value:** Any colleague can go from a use case description to deployed, tested agents on Orq.ai -- through a browser UI with real-time visibility, visual agent graphs, and in-app approvals -- without touching a terminal or needing technical knowledge.
-**Current focus:** Phase 36 -- Dashboard & Graph (Phase 35 complete as of 2026-03-22)
-**Previous milestones:** v0.3 shipped 2026-03-01 (11 phases, 28 plans), V2.0 shipped 2026-03-02 (7 phases, 11 plans), V2.1 shipped 2026-03-13 (8 phases, 9 plans)
+**Current focus:** V4.0 Browser Automation Builder -- roadmap created, ready for Phase 39 planning
+**Previous milestones:** v0.3 shipped 2026-03-01, V2.0 shipped 2026-03-02, V2.1 shipped 2026-03-13, V3.0 in progress (91%)
 
 ## Current Position
 
-Phase: 36 of 38 (Dashboard & Graph)
-Plan: 4 of 4 in current phase
-Status: Executing
-Last activity: 2026-03-23 - Completed 36-03-PLAN.md (Page Integration)
+Phase: 39 of 42 (Infrastructure & Credential Foundation)
+Plan: 0 of TBD in current phase
+Status: Ready to plan
+Last activity: 2026-03-23 -- V4.0 roadmap created
 
-Progress: [██████████] 100%
+Progress: [░░░░░░░░░░] 0%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 8 (V3.0)
-- Average duration: 4 min
-- Total execution time: 0.4 hours
+- Total plans completed: 0 (V4.0)
+- Average duration: -
+- Total execution time: 0 hours
 
 **By Phase:**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
-| 34-foundation-auth | 3 | 11 min | 4 min |
-| 35-pipeline-engine | 4 | 16 min | 4 min |
-| 36-dashboard-graph | 1 | 2 min | 2 min |
-| Phase 36 P01 | 6min | 2 tasks | 7 files |
-| Phase 36 P02 | 4min | 2 tasks | 7 files |
-| Phase 36 P03 | 5min | 3 tasks | 6 files |
+| - | - | - | - |
 
 ## Accumulated Context
 
@@ -58,53 +53,27 @@ Progress: [██████████] 100%
 Decisions are logged in PROJECT.md Key Decisions table.
 Recent decisions affecting current work:
 
-- Direct Claude messages.create() over Agent SDK -- pipeline stages are predetermined, not agent-decided
-- GitHub raw URL for .md file fetching with PIPELINE_REPO_RAW_URL env var -- runtime fetching per user decision
-- Vitest for test framework -- ESM-native, fast, TypeScript out of the box
-- Invite API uses upsert with onConflict for idempotent member addition -- prevents duplicate member errors
-- Database trigger handles auto-membership on project creation -- no client-side second insert needed
-- AD search passes email (not Supabase user ID) to invite API -- Graph IDs differ from Supabase auth IDs
-- Geist font (shadcn Nova preset) for web app typography -- ships with create-next-app, consistent with shadcn/ui
-- Auto-add project creator as member via DB trigger -- ensures RLS works for newly created projects
-- Next.js + Supabase + Vercel for web app -- Supabase Realtime for live updates, email/password auth primary
-- Node graph for swarm visualization -- React Flow v12 with custom AgentNode components
-- GitHub repo as single source of truth -- pipeline prompts fetched at runtime from orqai-agent-pipeline repo
-- Email/password auth primary while Azure AD setup pending -- M365 SSO swap-in when ready, no throwaway code
-- orq-agent/ CLI skills separated to orqai-agent-pipeline repo -- this repo is web app only
-- Inngest for pipeline orchestration -- durable functions survive Vercel timeouts, waitForEvent for HITL
-- Supabase Broadcast over Postgres Changes -- avoids single-thread RLS bottleneck
-- [Phase 35]: Stage results stored in Supabase pipeline_steps.result, references returned from step.run() -- avoids Inngest state size limits
-- [Phase 35]: retryPipeline resets failed step AND all subsequent steps -- ensures clean slate for re-execution
-- [Phase 35]: Client-only new-run page with useActionState for form submission -- simpler than server/client split
-- [Phase 35]: Server component + client wrapper pattern for run detail -- server fetches, client polls and handles interactivity
-- [Phase 35]: 5-second polling via router.refresh() for live updates -- simple, replaced by Supabase Realtime in Phase 36
-- [Phase 36]: jsdom as global test environment replacing node -- all new tests are component tests, existing pure-logic tests work fine in jsdom
-- [Phase 36]: it.todo() stubs over it.skip() for Wave 0 -- avoids import errors from non-existent source modules
-- [Phase 36]: Broadcast channel naming: run:{runId} for per-run updates, runs:live for global run list
-- [Phase 36]: Structural source-code assertions over full React rendering tests for ReactFlow components -- avoids complex context mocking
-- [Phase 36]: Double unknown cast for React Flow v12 node.data to AgentNodeData -- RF v12 types use Record<string, unknown>
-- [Phase 36]: Graph fills viewport as primary view, step timeline in Sheet drawer -- graph is the centerpiece of the real-time experience
-- [Phase 36]: RunListLive uses server-fetch + client-subscribe pattern -- SSR initial data with Broadcast live updates
+- Browser automation as pipeline stage -- SOP + screenshots to Playwright script to MCP tool, inline during agent creation
+- Browserless.io for cloud execution -- no VPS management, SaaS handles Playwright runtime
+- AI vision via Orq.ai (Agent or AI Routing) -- NOT direct Claude API, uses existing Orq.ai router
+- MCP tool as automation output -- verified Playwright script deployed as MCP tool, attached to Orq.ai agent
+- Fixed scripts over dynamic browser-use -- deterministic Playwright for known flows; dynamic already solved via existing MCP tools
+- Session Replay (RRWeb) replaces custom recording -- built-in Browserless.io capability for showing results to users
+- REST /function and BaaS WebSocket both needed -- simple automations via REST, stateful multi-step via BaaS
 
 ### Blockers/Concerns
 
-- Prompt adapter is novel engineering with no prior art -- validate in Phase 35 before building UI
-- Inngest waitForEvent race condition (GitHub #1433) -- dual-write pattern needed for HITL approvals
-- Azure AD tenant setup complete -- M365 SSO verified working with tenant restriction (2026-03-20)
+- Orq.ai router multimodal passthrough -- must test whether chat completions router forwards image content blocks to Claude. If not, need direct Claude API for vision. This is the #1 verification item for Phase 39.
+- Inngest waitForEvent race condition (GitHub #1433) -- dual-write gate pattern needed for HITL interactions (carried from V3.0)
+- Browserless.io execution strategy -- REST /function vs WebSocket connectOverCDP tradeoffs need Phase 39 verification
 
 ### Pending Todos
 
 None yet.
 
-### Quick Tasks Completed
-
-| # | Description | Date | Commit | Directory |
-|---|-------------|------|--------|-----------|
-| 260319-cl3 | Restructure project for frontend-first Agent Workforce with Azure workaround | 2026-03-19 | b234fd3 | [260319-cl3-restructure-project-for-frontend-first-a](./quick/260319-cl3-restructure-project-for-frontend-first-a/) |
-
 ## Session Continuity
 
-Last session: 2026-03-23T06:04:07.128Z
-Stopped at: Completed 36-03-PLAN.md
-Resume with: `/gsd:execute-phase 36` to continue with plan 36-04 (if exists) or next phase
+Last session: 2026-03-23
+Stopped at: V4.0 roadmap created
+Resume with: `/gsd:plan-phase 39` to begin Infrastructure & Credential Foundation planning
 Resume file: None

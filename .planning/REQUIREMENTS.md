@@ -187,6 +187,39 @@ Requirements for V4.0 Browser Automation Builder. Each maps to roadmap phases.
 | ACTV-02 | Phase 38 | Pending |
 | ACTV-03 | Phase 38 | Pending |
 | ACTV-04 | Phase 38 | Pending |
+| DETECT-01 | Phase 40 | Pending |
+| DETECT-02 | Phase 40 | Pending |
+| DETECT-03 | Phase 40 | Pending |
+| DETECT-04 | Phase 40 | Pending |
+| DETECT-05 | Phase 40 | Pending |
+| VISION-01 | Phase 40 | Pending |
+| VISION-02 | Phase 40 | Pending |
+| VISION-03 | Phase 40 | Pending |
+| VISION-04 | Phase 40 | Pending |
+| VISION-05 | Phase 40 | Pending |
+| SCRIPT-01 | Phase 41 | Pending |
+| SCRIPT-02 | Phase 41 | Pending |
+| SCRIPT-03 | Phase 41 | Pending |
+| SCRIPT-04 | Phase 41 | Pending |
+| SCRIPT-05 | Phase 41 | Pending |
+| SCRIPT-06 | Phase 41 | Pending |
+| SCRIPT-07 | Phase 41 | Pending |
+| SCRIPT-08 | Phase 41 | Pending |
+| MCPTL-01 | Phase 41 | Pending |
+| MCPTL-02 | Phase 41 | Pending |
+| MCPTL-03 | Phase 41 | Pending |
+| CRED-01 | Phase 39 | Pending |
+| CRED-02 | Phase 39 | Pending |
+| CRED-03 | Phase 39 | Pending |
+| CRED-04 | Phase 39 | Pending |
+| AUTO-01 | Phase 42 | Pending |
+| AUTO-02 | Phase 42 | Pending |
+| AUTO-03 | Phase 42 | Pending |
+| AUTO-04 | Phase 42 | Pending |
+| TRIG-01 | Phase 42 | Pending |
+| TRIG-02 | Phase 42 | Pending |
+| TRIG-03 | Phase 42 | Pending |
+| TRIG-04 | Phase 42 | Pending |
 
 **V3.0 Coverage:**
 - V3.0 requirements: 32 total
@@ -194,10 +227,10 @@ Requirements for V4.0 Browser Automation Builder. Each maps to roadmap phases.
 - Unmapped: 0
 
 **V4.0 Coverage:**
-- V4.0 requirements: 32 total
-- Mapped to phases: 0
-- Unmapped: 32 (pending roadmap creation)
+- V4.0 requirements: 33 total (corrected from 32 -- SCRIPT category has 8 requirements)
+- Mapped to phases: 33
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-03-15*
-*Last updated: 2026-03-23 after V4.0 requirements definition*
+*Last updated: 2026-03-23 after V4.0 roadmap creation*
