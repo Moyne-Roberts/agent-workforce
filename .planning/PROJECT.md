@@ -48,13 +48,21 @@ Shipped in V2.1 (2026-03-13) — 24 requirements:
 
 ### Active
 
-**V3.0 Web UI & Dashboard:**
+**V3.0 Web UI & Dashboard** (executing — 91%):
 - [ ] Browser-based pipeline with real-time visibility for non-technical colleagues
 - [ ] Authentication (email/password primary, M365 SSO when Azure AD is ready)
 - [ ] Self-service use case input to deployed agents via browser
 - [ ] Real-time pipeline dashboard with run list, progress, log stream, and performance scores
 - [ ] Interactive node graph visualization of agent swarms with execution overlay
 - [ ] HITL approval flow with in-app approve/reject, queue, history, and email notifications
+
+**V4.0 Browser Automation Builder** (planning):
+- [ ] Pipeline stage that detects agents needing browser automation for no-API systems
+- [ ] SOP document + screenshot upload flow within the pipeline
+- [ ] AI-driven screenshot annotation and step-by-step confirmation with user
+- [ ] Playwright script generation from SOP + screenshot understanding
+- [ ] Script execution and iterative testing on Browserless.io
+- [ ] Deployment of verified script as MCP tool attached to the Orq.ai agent
 
 ### Out of Scope
 
@@ -63,27 +71,30 @@ Shipped in V2.1 (2026-03-13) — 24 requirements:
 - CLI skill management -- lives in orqai-agent-pipeline repo
 - Dynamic/exploratory browser-use — already handled by existing Orq.ai MCP tools
 
-## Current Milestone: V3.0 Web UI & Dashboard
+## Current Milestone: V4.0 Browser Automation Builder
 
-**Goal:** Build a browser-based interface so non-technical colleagues can create, deploy, test, and iterate agent swarms on Orq.ai — with real-time dashboard, node graph visualization, and HITL approval workflows.
+**Goal:** Add a pipeline stage that takes users from SOP document + screenshots to a working MCP tool — so agents can interact with no-API systems (NXT, iController, Intelly) through verified Playwright scripts running on Browserless.io.
 
 **Target features:**
-- Foundation & Auth (Next.js + Supabase + email/password + future SSO)
-- Self-Service Pipeline (use case → deployed agents via browser)
-- Pipeline Dashboard (run list, progress, logs, scores)
-- Node Graph (interactive swarm visualization)
-- HITL Approval Flow (in-app approve/reject with notifications)
+- No-API system detection within pipeline (auto-detect when agent needs browser automation)
+- SOP + screenshot upload and AI-driven analysis (vision reads screenshots, parses SOP)
+- Conversational annotation flow (AI presents understanding, user confirms/corrects)
+- Playwright script generation and Browserless.io execution
+- Iterative testing with user feedback until automation works reliably
+- MCP tool deployment and automatic attachment to the Orq.ai agent
+
+**Previous milestone:** V3.0 Web UI & Dashboard (executing, 91% complete)
 
 ## Context
 
 - **Platform:** Orq.ai — Generative AI orchestration platform with Agents API (`/v2/agents`), A2A Protocol support, Task ID-based state persistence, two-step tool execution, and agent versioning via `@version-number` tags
 - **Agent config surface:** key, role, description, model (`provider/model-name`), instructions, settings (max_iterations: 3-15, max_execution_time: ~300s), tools (built-in + function with JSON schema)
 - **V3.0 stack:** Next.js on Vercel (frontend + API routes), Supabase (auth via email/password + future M365 SSO, DB, Realtime), Claude API (pipeline prompts), Orq.ai API (agent deployment/testing)
-- **V4.0 context:** As swarms multiply across business processes (Invoice-to-Cash, etc.), they develop blind spots — overlapping work, missing handoffs, conflicting actions. The ultra architect layer provides cross-swarm awareness.
-- **V5.0 context:** Many Moyne Roberts systems (NXT, iController, Intelly) lack APIs. Agents interacting with these need browser automation. Fixed Playwright scripts handle deterministic flows; dynamic browser-use is already available via existing Orq.ai MCP tools. Scripts deploy to a VPS-hosted MCP server.
+- **V4.0 context:** Many Moyne Roberts systems (NXT, iController, Intelly) lack APIs. The pipeline detects when an agent needs browser automation, guides the user through SOP + screenshot upload, generates Playwright scripts via AI vision, tests on Browserless.io, and deploys as MCP tools attached to agents. The entire flow is a pipeline stage — user just validates, AI does the heavy lifting.
+- **V5.0 context:** As swarms multiply across business processes (Invoice-to-Cash, etc.), they develop blind spots — overlapping work, missing handoffs, conflicting actions. The ultra architect layer provides cross-swarm awareness.
 - **Distribution model:** Web app for all users. CLI skills available separately in orqai-agent-pipeline repo.
 - **Users:** 5-15 Moyne Roberts employees, mostly non-technical. Web UI is the primary interface.
-- **Shipped:** v0.3 (2026-03-01, 50 requirements), V2.0 (2026-03-02, 23 requirements), V2.1 (2026-03-13, 24 requirements). V3.0-V5.0 defined, not yet shipped
+- **Shipped:** v0.3 (2026-03-01, 50 requirements), V2.0 (2026-03-02, 23 requirements), V2.1 (2026-03-13, 24 requirements). V3.0 executing (91%), V4.0-V5.0 defined
 
 ## Constraints
 
@@ -114,12 +125,14 @@ Shipped in V2.1 (2026-03-13) — 24 requirements:
 | Node graph for swarm visualization | Intuitive representation of agent relationships and data flow, lights up during pipeline execution | — Pending |
 | GitHub repo as single source of truth | Pipeline prompts shared between Claude Code skill and web app, auto-deploy on push | — Pending |
 
-| Cross-swarm intelligence layer | Swarms grow siloed; need ecosystem-level awareness to prevent overlaps and missing handoffs | — Pending |
-| Dual source of truth (specs + Orq.ai) | Drift detection requires reading both local specs and live deployed state | — Pending |
-| Auto-apply low-risk, escalate structural | Shared context additions are safe; rewiring agent relationships needs human judgment | — Pending |
-| MCP server on VPS for Playwright scripts | Agents call browser automation via MCP tools; VPS handles Playwright runtime. Non-technical users never touch it. | — Pending |
+| Browser automation as pipeline stage | SOP + screenshots → Playwright script → MCP tool, all inline during initial agent creation. User validates, AI builds. | — Pending |
+| Browserless.io for cloud execution | No VPS management; Browserless.io handles Playwright runtime in the cloud | — Pending |
+| AI vision for screenshot analysis | Claude vision reads screenshots, annotates them, presents understanding back to user for confirmation | — Pending |
+| MCP tool as automation output | Verified Playwright script deployed as MCP tool and attached to the Orq.ai agent automatically | — Pending |
 | Fixed scripts over dynamic browser-use | Deterministic Playwright scripts for known flows; dynamic browser-use already solved via existing Orq.ai MCP tools | — Pending |
-| Application capabilities config file | Pipeline reads per-system integration method from config; discussion step fills gaps for unknown systems | — Pending |
+| Cross-swarm intelligence layer (V5.0) | Swarms grow siloed; need ecosystem-level awareness to prevent overlaps and missing handoffs | — Pending |
+| Dual source of truth (V5.0) | Drift detection requires reading both local specs and live deployed state | — Pending |
+| Auto-apply low-risk, escalate structural (V5.0) | Shared context additions are safe; rewiring agent relationships needs human judgment | — Pending |
 
 ---
-*Last updated: 2026-03-13 after V3.0 milestone start*
+*Last updated: 2026-03-23 after V4.0 milestone start*
