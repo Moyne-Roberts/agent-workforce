@@ -37,9 +37,9 @@ export default async function RunDetailPage({ params }: PageProps) {
   );
 
   return (
-    <div className="p-6">
+    <div>
       {/* Breadcrumb */}
-      <nav className="mb-4 flex items-center gap-1 text-sm text-muted-foreground">
+      <nav className="mb-4 flex items-center gap-1 px-6 pt-6 text-sm text-muted-foreground">
         <Link href="/" className="hover:text-foreground transition-colors">
           Dashboard
         </Link>
