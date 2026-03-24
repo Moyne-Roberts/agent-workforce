@@ -65,68 +65,82 @@ export function parseArchitectOutput(output: string): AgentNodeData[] {
 
   const agents: AgentNodeData[] = [];
 
-  // Split into sections by headings that look like agent definitions
-  // Require "Agent:" prefix to avoid matching reference/metadata headings
-  // Match patterns: ## Agent: Name, ### Agent: Name
+  // The architect output uses multiple possible formats:
+  // Format A (Orq.ai pipeline): "### 1. agent-key-name" with Role:, Model recommendation:, Tools needed:
+  // Format B (legacy): "## Agent: Name" with Role:, Model:, Tools:
+  //
+  // Split by numbered agent headings (### N. name) or "## Agent:" prefix
   const sections = output.split(
-    /(?=^#{1,3}\s+Agent:\s*[A-Z])/m
+    /(?=^#{1,3}\s+(?:\d+\.\s+|Agent:\s*))/m
   );
 
   for (const section of sections) {
     if (!section.trim()) continue;
 
-    // Extract agent name from heading (requires "Agent:" prefix)
-    const nameMatch = section.match(
-      /^#{1,3}\s+Agent:\s*(.+?)(?:\s*\(.*?\))?\s*$/m
+    // Try Format A: "### 1. agent-key-name" or "### N. agent-key-name"
+    let nameMatch = section.match(
+      /^#{1,3}\s+\d+\.\s+(.+?)(?:\s*\(.*?\))?\s*$/m
     );
+
+    // Try Format B: "## Agent: Name"
+    if (!nameMatch) {
+      nameMatch = section.match(
+        /^#{1,3}\s+Agent:\s*(.+?)(?:\s*\(.*?\))?\s*$/m
+      );
+    }
+
     if (!nameMatch) continue;
 
     const name = nameMatch[1].trim().replace(/\*\*/g, "");
 
-    // Extract role (handles **Role:** and Role: formats)
+    // Skip non-agent sections (Orchestration, Architecture, etc.)
+    // Agent names follow kebab-case with -agent suffix, or contain "Agent" in the name
+    const lowerName = name.toLowerCase();
+    if (!lowerName.includes("agent") && !lowerName.match(/^[a-z]+-[a-z]+/)) {
+      // Check if section has Role: field — if not, skip
+      if (!/\bRole\b/i.test(section)) continue;
+    }
+
+    // Extract role (handles **Role:** , Role:, **Responsibility:** formats)
     const roleMatch = section.match(
-      /\*{0,2}Role\*{0,2}:\*{0,2}\s*(.+?)(?:\n|$)/i
+      /\*{0,2}(?:Role|Responsibility)\*{0,2}:\*{0,2}\s*(.+?)(?:\n|$)/i
     );
     const role = roleMatch ? roleMatch[1].trim() : "Agent";
 
-    // Extract model (handles **Model:** and Model: formats)
+    // Extract model (handles Model:, Model recommendation:, **Model:** formats)
     const modelMatch = section.match(
-      /\*{0,2}Model\*{0,2}:\*{0,2}\s*(.+?)(?:\n|$)/i
+      /\*{0,2}Model(?:\s+recommendation)?\*{0,2}:\*{0,2}\s*(.+?)(?:\n|$)/i
     );
     const model = modelMatch ? modelMatch[1].trim() : "default";
 
-    // Extract tools (handles **Tools:** and Tools: formats)
+    // Extract tools (handles Tools:, Tools needed:, **Tools:** formats)
     const toolsMatch = section.match(
-      /\*{0,2}Tools?\*{0,2}:\*{0,2}\s*(.+?)(?:\n\n|\n(?=\*{0,2}[A-Z])|\n#{1,3}|$)/i
+      /\*{0,2}Tools?\s*(?:needed)?\*{0,2}:\*{0,2}\s*(.+?)(?:\n\n|\n(?=\*{0,2}[A-Z])|\n#{1,3}|$)/i
     );
     let tools: string[] = [];
     if (toolsMatch) {
       const toolsText = toolsMatch[1].trim();
-      // Handle comma-separated or bullet-list formats
-      if (toolsText.includes("\n")) {
-        tools = toolsText
-          .split(/\n/)
-          .map((t) => t.replace(/^[-*]\s*/, "").trim())
-          .filter(Boolean);
-      } else {
-        tools = toolsText
-          .split(/,\s*/)
-          .map((t) => t.trim())
-          .filter(Boolean);
+      // Skip "none", "geen", "(geen)", "(none)" etc.
+      if (!/^\(?(?:none|geen|no tools|n\/a)/i.test(toolsText)) {
+        if (toolsText.includes("\n")) {
+          tools = toolsText
+            .split(/\n/)
+            .map((t) => t.replace(/^[-*]\s*/, "").trim())
+            .filter(Boolean);
+        } else {
+          tools = toolsText
+            .split(/,\s*/)
+            .map((t) => t.trim())
+            .filter(Boolean);
+        }
       }
     }
 
-    // Extract description (handles **Description:** and Description: formats)
+    // Extract description (handles Description:, Responsibility: as fallback)
     const descMatch = section.match(
       /\*{0,2}Description\*{0,2}:\*{0,2}\s*(.+?)(?:\n\n|\n(?=\*{0,2}[A-Z])|\n#{1,3}|$)/i
     );
     const description = descMatch ? descMatch[1].trim() : undefined;
-
-    // Extract instructions (handles **Instructions:** and Instructions: formats)
-    const instrMatch = section.match(
-      /\*{0,2}Instructions?\*{0,2}:\*{0,2}\s*(.+?)(?:\n\n|\n(?=\*{0,2}[A-Z])|\n#{1,3}|$)/i
-    );
-    const instructions = instrMatch ? instrMatch[1].trim() : undefined;
 
     agents.push({
       name,
@@ -136,7 +150,6 @@ export function parseArchitectOutput(output: string): AgentNodeData[] {
       tools,
       status: "idle",
       description,
-      instructions,
     });
   }
 

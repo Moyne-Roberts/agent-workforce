@@ -12,6 +12,7 @@ import type { PipelineStep } from "@/components/step-log-panel";
 // Test data
 // ---------------------------------------------------------------------------
 
+// Format B: legacy "## Agent: Name" format
 const SAMPLE_ARCHITECT_OUTPUT = `
 ## Agent: Orchestrator
 **Role:** Coordinates all sub-agents and manages workflow
@@ -30,6 +31,30 @@ const SAMPLE_ARCHITECT_OUTPUT = `
 **Model:** claude-sonnet-4-20250514
 **Tools:** code_interpreter
 **Description:** Writes formal specifications from research
+`;
+
+// Format A: Orq.ai pipeline "### N. agent-key" format (actual production output)
+const SAMPLE_ORQAI_OUTPUT = `
+### 1. poetry-concept-agent
+Role: Gedichtconceptualist & Structuurarchitect
+Model recommendation: anthropic/claude-sonnet-4-5
+Tools needed: (geen)
+Receives from: user input
+Passes to: poetry-writer-agent
+
+### 2. poetry-writer-agent
+Role: Creatief Dichter
+Model recommendation: anthropic/claude-opus-4-5
+Tools needed: (geen)
+Receives from: poetry-concept-agent
+Passes to: poetry-editor-agent
+
+### 3. poetry-editor-agent
+Role: Literair Redacteur & Opmaakspecialist
+Model recommendation: anthropic/claude-sonnet-4-5
+Tools needed: (geen)
+Receives from: poetry-writer-agent
+Passes to: final output
 `;
 
 function makePipelineStep(overrides: Partial<PipelineStep> = {}): PipelineStep {
@@ -65,6 +90,19 @@ describe("parseArchitectOutput", () => {
     expect(agents[1].role).toBe("Gathers domain context and relevant information");
     expect(agents[2].name).toBe("Spec Writer");
     expect(agents[2].role).toBe("Generates detailed agent specifications");
+  });
+
+  it("parses Orq.ai numbered agent format (### N. agent-key)", () => {
+    const agents = parseArchitectOutput(SAMPLE_ORQAI_OUTPUT);
+
+    expect(agents.length).toBe(3);
+    expect(agents[0].name).toBe("poetry-concept-agent");
+    expect(agents[0].role).toBe("Gedichtconceptualist & Structuurarchitect");
+    expect(agents[0].model).toBe("anthropic/claude-sonnet-4-5");
+    expect(agents[0].tools).toEqual([]);
+    expect(agents[1].name).toBe("poetry-writer-agent");
+    expect(agents[1].model).toBe("anthropic/claude-opus-4-5");
+    expect(agents[2].name).toBe("poetry-editor-agent");
   });
 
   it("returns empty array for empty or malformed output", () => {
