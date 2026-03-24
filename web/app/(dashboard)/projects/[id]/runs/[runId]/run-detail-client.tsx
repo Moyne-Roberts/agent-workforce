@@ -84,7 +84,14 @@ export function RunDetailClient({ run, projectId, chatMessages }: RunDetailClien
   const [waitingStage, setWaitingStage] = useState<string | null>(() => {
     // Check if any step is currently waiting
     const waitingStep = run.pipeline_steps.find((s) => s.status === "waiting");
-    return waitingStep?.name ?? null;
+    if (waitingStep) return waitingStep.name;
+    // Fallback: if run status is "waiting", find the last completed step and assume it's waiting for review
+    if (run.status === "waiting") {
+      const completedSteps = run.pipeline_steps.filter((s) => s.status === "complete");
+      const lastComplete = completedSteps.sort((a, b) => (a.step_order ?? 0) - (b.step_order ?? 0)).pop();
+      return lastComplete?.name ?? "discussion";
+    }
+    return null;
   });
   const [discussionTurnIndex, setDiscussionTurnIndex] = useState(0);
   const [approvalMap, setApprovalMap] = useState<Record<string, PipelineStep["approvalData"]>>({});
@@ -421,12 +428,12 @@ export function RunDetailClient({ run, projectId, chatMessages }: RunDetailClien
         </div>
 
         {/* Vertical progress timeline -- narrow middle column */}
-        <div className="w-[180px] shrink-0">
+        <div className="w-[180px] shrink-0 overflow-hidden">
           <StageProgressBar stages={stageStatuses} />
         </div>
 
-        {/* Chat panel -- wider right column */}
-        <div className="w-[480px] shrink-0 border-l flex flex-col">
+        {/* Chat panel -- wider right column, overflow-hidden keeps input pinned */}
+        <div className="w-[480px] shrink-0 border-l flex flex-col overflow-hidden">
           <ChatPanel
             runId={run.id}
             initialMessages={chatMessages}
