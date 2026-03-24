@@ -70,11 +70,39 @@ Browser-based interface for creating, deploying, testing, and iterating AI agent
 
 </details>
 
+### Phase 38.1: Full Pipeline Lifecycle
+**Goal**: Users can deploy designed agent swarms to Orq.ai, run automated tests, iterate on prompt quality based on test results, and harden agents with production guardrails — all from the web UI
+**Depends on**: Phase 37.1 (uses conversational pipeline, chat UI, streaming narrator)
+**Requirements**: DEPLOY-WEB-01 through DEPLOY-WEB-04, TEST-WEB-01 through TEST-WEB-04, ITER-WEB-01 through ITER-WEB-03, HARD-WEB-01
+**Success Criteria** (what must be TRUE):
+  1. After specs are generated, the pipeline deploys agents to Orq.ai via MCP/REST and shows deployment status in the chat
+  2. User can trigger automated testing — datasets are prepared, experiments run 3x, results analyzed with statistical summaries
+  3. When tests reveal failures, the pipeline diagnoses issues, proposes prompt fixes, and asks user for approval before applying
+  4. User can apply guardrails (promoted from test evaluators) to harden production agents
+  5. The iterate loop (diagnose → fix → re-deploy → re-test) runs up to 5 times or until the user is satisfied
+**Plans**: TBD
+
+Plans:
+- [ ] TBD (run /gsd:plan-phase 38.1 to break down)
+
+**Pipeline stages to add (9 agents from orqai-agent-pipeline repo):**
+| Stage | Agent File | Purpose |
+|-------|-----------|---------|
+| deployer | deployer.md | Deploy agents, tools, KBs to Orq.ai via MCP/REST |
+| dataset-preparer | dataset-preparer.md | Prepare, augment, and upload test datasets |
+| experiment-runner | experiment-runner.md | Run 3x experiments with evaluator selection |
+| results-analyzer | results-analyzer.md | Statistical analysis of experiment results |
+| tester | tester.md | Orchestrate the full test pipeline (dataset → experiment → analysis) |
+| failure-diagnoser | failure-diagnoser.md | Map test failures to specific prompt sections |
+| prompt-editor | prompt-editor.md | Apply approved prompt changes and re-deploy |
+| iterator | iterator.md | Orchestrate diagnose → fix → re-test loop |
+| hardener | hardener.md | Promote test evaluators to production guardrails |
+
 ### Phase 43: Upstream Sync: orq-agent-pipeline -> agent-workforce
 
-**Goal:** Implement a formal sync workflow that detects changes in the orqai-agent-pipeline GitHub repo and propagates required updates to agent-workforce. New agents, renamed/deleted files, structural prompt changes, and new context requirements must be surfaced automatically -- no manual discovery.
-**Requirements**: (1) Pipeline manifest tracking expected file paths, input context tags, and output format contracts (2) Change detection that classifies upstream diffs by impact tier (transparent / monitor / review / code-change) (3) Auto-update PIPELINE_STAGES + STAGE_CONTEXT_MAP when agents are added/removed (4) Pass systems.md content as context to architect stage (5) GitHub webhook or scheduled check that creates issues/PRs for tier 2-3 changes (6) Support future iterations -- new pipeline agents surfaced without manual discovery
-**Depends on:** Phase 40
+**Goal:** Implement a formal sync workflow so that future changes to agent prompts, new agents, or structural changes in the orqai-agent-pipeline GitHub repo are automatically detected and propagated to the web pipeline — no manual discovery needed
+**Requirements**: (1) Pipeline manifest tracking expected file paths, input context tags, and output format contracts (2) Change detection that classifies upstream diffs by impact tier (transparent / monitor / review / code-change) (3) Auto-update PIPELINE_STAGES + STAGE_CONTEXT_MAP when agents are added/removed/renamed (4) GitHub webhook or scheduled check that creates issues/PRs for breaking changes (5) Dashboard UI showing sync status and pending upstream changes
+**Depends on:** Phase 38.1 (all agents must be in the pipeline before sync can track them)
 **Plans:** 3 plans
 
 Plans:
@@ -96,6 +124,7 @@ Plans:
 - [ ] **Phase 37: HITL Approval** - Pipeline pause/resume, diff viewer, approve/reject flow, email notifications, audit trail
 - [ ] **Phase 37.1: Conversational Pipeline** - Streaming chat interface, discussion phase, architect/spec review with user interaction, narrator summaries, chat UI with user input
 - [ ] **Phase 38: Swarm Activation** - Webhook endpoints for external pipeline triggering with API key auth and status polling
+- [ ] **Phase 38.1: Full Pipeline Lifecycle** - Add deploy, test, iterate, and harden stages to web pipeline (9 agents: deployer, dataset-preparer, experiment-runner, results-analyzer, tester, failure-diagnoser, prompt-editor, iterator, hardener)
 
 ### V4.0 Browser Automation Builder (Phases 39-42)
 
