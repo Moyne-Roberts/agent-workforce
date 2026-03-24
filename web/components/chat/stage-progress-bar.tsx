@@ -3,6 +3,8 @@
 import { useState } from "react";
 import { cn } from "@/lib/utils";
 import { Check, Loader2, AlertCircle, Clock, ChevronRight, X } from "lucide-react";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 
 interface StageStatus {
   name: string;
@@ -115,10 +117,10 @@ export function StageProgressBar({ stages }: StageProgressBarProps) {
                 <X className="size-4" />
               </button>
             </div>
-            <div className="overflow-y-auto p-4" style={{ maxHeight: 'calc(80vh - 3rem)' }}>
-              <pre className="whitespace-pre-wrap text-xs leading-relaxed text-foreground/80">
-                {selectedStage.output}
-              </pre>
+            <div className="overflow-y-auto p-4 prose prose-sm dark:prose-invert max-w-none" style={{ maxHeight: 'calc(80vh - 3rem)' }}>
+              <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                {selectedStage.output ?? ""}
+              </ReactMarkdown>
             </div>
           </div>
         </div>
