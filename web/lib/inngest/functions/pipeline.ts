@@ -158,19 +158,53 @@ export const executePipeline = inngest.createFunction(
       }
     }
 
+    // Track which conversation turns have been completed (survives replays)
+    let converseTurnCounter = 0;
+
     // Helper: run one conversation turn (stream to user, get action)
+    // Uses a memoized step to generate a turn ID, then streams outside step.run()
+    // On replay, if the turn already has a response in DB, skip the stream
     async function converse(
       phase: string,
       stageOutput?: string,
       completedStage?: string,
     ): Promise<PipelineAction> {
-      // Always reload history from DB — survives retries
-      const history = await loadConversationHistory();
+      const turnId = `converse-${converseTurnCounter++}`;
+
+      // Memoized: register this turn so we can track it
+      const turnInfo = await step.run(`${turnId}-prepare`, async () => {
+        const history = await getChatMessages(runId);
+        // Count how many assistant messages exist — if this turn's response is already saved, skip
+        const assistantCount = history.filter(m => m.role === "assistant").length;
+        return { assistantCount, turnId };
+      });
+
+      // Check if this turn already has a response (replay scenario)
+      const currentHistory = await loadConversationHistory();
+      const currentAssistantCount = currentHistory.filter(m => m.role === "assistant").length;
+
+      if (currentAssistantCount > turnInfo.assistantCount) {
+        // Response already exists in DB from a previous execution — skip streaming
+        // Parse the action from the last assistant message
+        const lastAssistant = currentHistory.filter(m => m.role === "assistant").pop();
+        if (lastAssistant) {
+          const actionMatch = lastAssistant.content.match(/<pipeline_action>([\s\S]*?)<\/pipeline_action>/);
+          if (actionMatch) {
+            const raw = actionMatch[1].trim();
+            if (raw === "continue") return { type: "continue" };
+            if (raw === "discussion_complete") return { type: "discussion_complete" };
+            if (raw.startsWith("feedback:")) return { type: "feedback", summary: raw.slice(9).trim() };
+          }
+        }
+        return { type: "wait" };
+      }
+
+      // No response yet — stream a new one
       const msgId = crypto.randomUUID();
       const result = await runConversationTurn(
         runId,
-        history,
-        { phase, stageOutput, completedStage, discussionTurns: history.filter(m => m.role === "user").length },
+        currentHistory,
+        { phase, stageOutput, completedStage, discussionTurns: currentHistory.filter(m => m.role === "user").length },
         msgId,
       );
       return result.action;
