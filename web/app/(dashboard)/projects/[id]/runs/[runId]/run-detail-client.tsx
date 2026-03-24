@@ -23,8 +23,7 @@ import { createClient } from "@/lib/supabase/client";
 import { retryPipeline } from "../../new-run/actions";
 import { ChatPanel } from "@/components/chat/chat-panel";
 import type { ChatMessage } from "@/lib/pipeline/chat-types";
-import { submitDiscussionResponse } from "@/lib/pipeline/discussion-action";
-import { submitReviewResponse } from "@/lib/pipeline/review";
+import { sendChatMessage } from "@/lib/pipeline/conversation-action";
 import { PIPELINE_STAGES } from "@/lib/pipeline/stages";
 import { StageProgressBar } from "@/components/chat/stage-progress-bar";
 
@@ -93,7 +92,6 @@ export function RunDetailClient({ run, projectId, chatMessages }: RunDetailClien
     }
     return null;
   });
-  const [discussionTurnIndex, setDiscussionTurnIndex] = useState(0);
   const [approvalMap, setApprovalMap] = useState<Record<string, PipelineStep["approvalData"]>>({});
   const [approvalHistory, setApprovalHistory] = useState<Array<{
     id: string;
@@ -316,27 +314,17 @@ export function RunDetailClient({ run, projectId, chatMessages }: RunDetailClien
   // Chat message handler -- dispatches to correct server action
   // ---------------------------------------------------------------------------
 
+  // Single handler for all user messages — the conversation agent handles intent
   const handleSendMessage = useCallback(async (message: string) => {
     const previousWaitingStage = waitingStage;
     try {
-      setWaitingStage(null); // Optimistic: disable input while sending
-      if (previousWaitingStage === "discussion") {
-        await submitDiscussionResponse(run.id, message, discussionTurnIndex);
-        setDiscussionTurnIndex((prev) => prev + 1);
-      } else if (previousWaitingStage) {
-        // Architect/spec review -- use review server action
-        const lower = message.toLowerCase().trim();
-        const isConfirm = lower.includes("confirm") || lower.includes("yes") || lower.includes("looks good") || lower.includes("ok") || lower.includes("proceed") || lower.includes("go ahead") || lower.includes("lgtm");
-        const decision = isConfirm ? "confirmed" as const : "feedback" as const;
-        const feedback = decision === "feedback" ? message : undefined;
-        await submitReviewResponse(run.id, previousWaitingStage, decision, feedback);
-      }
+      setWaitingStage(null); // Optimistic: disable input while AI processes
+      await sendChatMessage(run.id, message);
     } catch (error) {
       console.error("Failed to send message:", error);
-      // Restore waitingStage so the user can retry
       setWaitingStage(previousWaitingStage);
     }
-  }, [run.id, waitingStage, discussionTurnIndex]);
+  }, [run.id, waitingStage]);
 
   // ---------------------------------------------------------------------------
   // Retry handler

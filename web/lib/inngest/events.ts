@@ -35,6 +35,14 @@ export type Events = {
   };
 
   // Conversational pipeline events (Phase 37.1)
+  "pipeline/chat.message": {
+    data: {
+      runId: string;
+      message: string;
+      userId: string;
+    };
+  };
+  /** @deprecated Use pipeline/chat.message instead */
   "pipeline/discussion.responded": {
     data: {
       runId: string;

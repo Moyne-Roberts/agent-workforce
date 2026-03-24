@@ -21,8 +21,8 @@ import { toPlainEnglish } from "@/lib/pipeline/errors";
 import { broadcastStepUpdate, broadcastRunUpdate, broadcastChatMessage } from "@/lib/supabase/broadcast";
 import { detectAutomationNeeds } from "@/lib/pipeline/automation-detector";
 import { analyzeScreenshots } from "@/lib/pipeline/vision-adapter";
-import { runDiscussionTurn } from "@/lib/pipeline/discussion-agent";
-import { streamNarrator } from "@/lib/pipeline/streaming-narrator";
+import { runConversationTurn } from "@/lib/pipeline/conversation-agent";
+import type { PipelineAction } from "@/lib/pipeline/conversation-agent";
 import { saveChatMessage } from "@/lib/supabase/chat-messages";
 
 /**
@@ -137,62 +137,84 @@ export const executePipeline = inngest.createFunction(
     // These are loaded from DB on resume, not from Inngest state
     const stageResults: Record<string, string> = {};
 
-    // Discussion phase -- multi-turn conversation before architect
+    // =========================================================================
+    // Conversation agent — single AI that handles all user interaction
+    // Like Claude Code: one AI talks to user, orchestrates pipeline stages
+    // =========================================================================
+
     let enrichedUseCase = useCase;
 
+    // Persistent conversation history (survives across all phases)
+    const conversationHistory: Array<{ role: "user" | "assistant"; content: string }> = [];
+
+    // Helper: run one conversation turn (stream to user, get action)
+    async function converse(
+      phase: string,
+      stageOutput?: string,
+      completedStage?: string,
+    ): Promise<PipelineAction> {
+      const msgId = crypto.randomUUID();
+      const result = await runConversationTurn(
+        runId,
+        conversationHistory,
+        { phase, stageOutput, completedStage, discussionTurns: conversationHistory.filter(m => m.role === "user").length },
+        msgId,
+      );
+      conversationHistory.push({ role: "assistant", content: result.response });
+      return result.action;
+    }
+
+    // Helper: wait for user message, add to history
+    async function waitForUserMessage(waitStepId: string): Promise<string> {
+      await step.run(`${waitStepId}-mark-waiting`, async () => {
+        const admin = createAdminClient();
+        await admin.from("pipeline_runs").update({ status: "waiting" }).eq("id", runId);
+        await broadcastStepUpdate(runId, { stepName: "discussion", status: "waiting", displayName: "Waiting for your response", runStatus: "waiting" });
+      });
+
+      const userEvent = await step.waitForEvent(waitStepId, {
+        event: "pipeline/chat.message",
+        timeout: "1h",
+        if: `async.data.runId == "${runId}"`,
+      });
+
+      if (!userEvent) return ""; // Timeout
+
+      const msg = userEvent.data.message;
+      conversationHistory.push({ role: "user", content: msg });
+
+      await step.run(`${waitStepId}-mark-running`, async () => {
+        const admin = createAdminClient();
+        await admin.from("pipeline_runs").update({ status: "running" }).eq("id", runId);
+        await broadcastStepUpdate(runId, { stepName: "discussion", status: "running", displayName: "Discussing your use case", runStatus: "running" });
+      });
+
+      return msg;
+    }
+
+    // --- Discussion phase ---
     if (!event.data.resumeFromStep) {
-      const conversationMessages: Array<{ role: string; content: string }> = [];
+      // Seed conversation with use case
+      conversationHistory.push({ role: "user", content: useCase });
 
-      for (let turn = 0; turn < 5; turn++) {
-        const aiTurn = await step.run(`discussion-ask-${turn}`, async () => {
-          const response = await runDiscussionTurn(conversationMessages, useCase);
-          // Strip <discussion_complete> tag from visible text
-          const visibleText = response.replace(/<discussion_complete>/g, "").trim();
-          return { text: response, visibleText, done: response.includes("<discussion_complete>") };
-        });
+      for (let turn = 0; turn < 8; turn++) {
+        // Conversation agent streams response to user
+        const action = await converse("discussion");
 
-        // Save AI message to DB + broadcast
-        await step.run(`discussion-save-ai-${turn}`, async () => {
-          const msgId = await saveChatMessage(runId, "assistant", aiTurn.visibleText, "discussion", turn);
-          await broadcastChatMessage(runId, { id: msgId, role: "assistant", content: aiTurn.visibleText, stageName: "discussion" });
-        });
-
-        conversationMessages.push({ role: "assistant", content: aiTurn.text });
-
-        if (aiTurn.done) break;
-
-        // Dual-write: mark as waiting BEFORE waitForEvent
-        await step.run(`discussion-waiting-${turn}`, async () => {
-          const admin = createAdminClient();
-          await admin.from("pipeline_runs").update({ status: "waiting" }).eq("id", runId);
-          await broadcastStepUpdate(runId, { stepName: "discussion", status: "waiting", displayName: "Waiting for your response", runStatus: "waiting" });
-        });
+        if (action.type === "discussion_complete") break;
+        if (action.type !== "wait") break; // Unexpected action, proceed
 
         // Wait for user response
-        const userEvent = await step.waitForEvent(`discussion-wait-${turn}`, {
-          event: "pipeline/discussion.responded",
-          timeout: "1h",
-          if: `async.data.runId == "${runId}"`,
-        });
-
-        if (!userEvent) break; // Timeout -- proceed with what we have
-
-        conversationMessages.push({ role: "user", content: userEvent.data.message });
-
-        // Mark run as running again
-        await step.run(`discussion-resume-${turn}`, async () => {
-          const admin = createAdminClient();
-          await admin.from("pipeline_runs").update({ status: "running" }).eq("id", runId);
-          await broadcastStepUpdate(runId, { stepName: "discussion", status: "running", displayName: "Discussing your use case", runStatus: "running" });
-        });
+        const userMsg = await waitForUserMessage(`discussion-wait-${turn}`);
+        if (!userMsg) break; // Timeout
       }
 
-      // Build enriched use case from discussion
-      const userClarifications = conversationMessages
+      // Build enriched use case from full conversation
+      const userMessages = conversationHistory
         .filter((m) => m.role === "user")
-        .map((m) => m.content);
-      if (userClarifications.length > 0) {
-        enrichedUseCase = `${useCase}\n\nUser clarifications:\n${userClarifications.join("\n")}`;
+        .slice(1); // Skip the initial use case message
+      if (userMessages.length > 0) {
+        enrichedUseCase = `${useCase}\n\nUser clarifications:\n${userMessages.map(m => m.content).join("\n")}`;
       }
 
       // Mark discussion as complete
@@ -313,67 +335,55 @@ export const executePipeline = inngest.createFunction(
         });
       }
 
-      // Narrator interjection for stages with needsNarration (architect, spec-generator)
+      // Conversation agent review for stages that need it (architect, spec-generator)
       if (stage.needsNarration && stepRef.output && !stepRef.skipped) {
-        const narratorPrompt = stage.name === "architect"
-          ? "You are a friendly narrator explaining an AI agent swarm design to a non-technical user. List the agents with their names and roles in a compact format (bullet points, 1-2 lines each). Do NOT write long paragraphs or elaborate descriptions. End by asking if this looks right. Keep it under 15 lines total."
-          : "You are a friendly narrator explaining AI agent specifications to a non-technical user. For each agent, list 2-3 key highlights (model, main tools, key instruction). Use bullet points, keep it compact. Do NOT write long paragraphs. End by asking if these look good. Keep it under 20 lines total.";
+        const reviewPhase = stage.name === "architect" ? "architect-review" : "spec-review";
 
-        // OUTSIDE step.run() -- streaming is incompatible with Inngest memoization
-        const narratorMessageId = crypto.randomUUID();
-        await streamNarrator(runId, narratorPrompt, stepRef.output, narratorMessageId, `${stage.name}-summary`);
+        // Conversation agent streams summary + asks user (OUTSIDE step.run for streaming)
+        let action = await converse(reviewPhase, stepRef.output, stage.name);
 
-        // Mark as waiting for user confirmation (narrator message already ends with a question)
-        await step.run(`${stage.name}-confirm-prompt`, async () => {
-          const admin = createAdminClient();
-          await admin.from("pipeline_runs").update({ status: "waiting" }).eq("id", runId);
-          await broadcastStepUpdate(runId, { stepName: stage.name, status: "waiting", displayName: stage.displayName, runStatus: "waiting" });
-        });
+        // If agent asks user to confirm/give feedback → wait for response
+        // Loop allows multiple rounds of feedback
+        for (let reviewTurn = 0; reviewTurn < 3; reviewTurn++) {
+          if (action.type === "continue") break; // User confirmed
+          if (action.type !== "wait" && action.type !== "feedback") break; // Unexpected
 
-        // Wait for user confirmation/feedback via review event
-        const reviewEvent = await step.waitForEvent(`${stage.name}-narration-wait`, {
-          event: "pipeline/review.responded",
-          timeout: "7d",
-          if: `async.data.runId == "${runId}" && async.data.stepName == "${stage.name}"`,
-        });
+          if (action.type === "feedback") {
+            // Re-run stage with AI-extracted feedback
+            const rerunRef = await step.run(`${stage.name}-rerun-${reviewTurn}`, async () => {
+              const admin = createAdminClient();
+              const contextBuilder = STAGE_CONTEXT_MAP[stage.name];
+              const baseContext = contextBuilder
+                ? contextBuilder(stageResults, enrichedUseCase)
+                : { useCase: enrichedUseCase };
+              const result = await runPromptAdapter(stage.name, {
+                ...baseContext,
+                userFeedback: (action as { type: "feedback"; summary: string }).summary,
+              });
+              const { data: existingStep } = await admin
+                .from("pipeline_steps")
+                .select("id")
+                .eq("run_id", runId)
+                .eq("name", stage.name)
+                .single();
+              if (existingStep) {
+                await admin.from("pipeline_steps").update({ result: { output: result } }).eq("id", existingStep.id);
+              }
+              return { output: result };
+            });
+            stageResults[stage.name] = rerunRef.output;
 
-        if (reviewEvent?.data.decision === "feedback" && reviewEvent.data.feedback) {
-          // Save user feedback as chat message
-          await step.run(`${stage.name}-save-feedback`, async () => {
-            const msgId = await saveChatMessage(runId, "user", reviewEvent.data.feedback!, stage.name);
-            await broadcastChatMessage(runId, { id: msgId, role: "user", content: reviewEvent.data.feedback!, stageName: stage.name });
-          });
+            // Re-converse with updated output
+            action = await converse(reviewPhase, rerunRef.output, stage.name);
+            continue;
+          }
 
-          // Re-run stage with feedback appended to context
-          const rerunRef = await step.run(`${stage.name}-rerun`, async () => {
-            const admin = createAdminClient();
-            const contextBuilder = STAGE_CONTEXT_MAP[stage.name];
-            const baseContext = contextBuilder
-              ? contextBuilder(stageResults, enrichedUseCase)
-              : { useCase: enrichedUseCase };
-            const contextWithFeedback = {
-              ...baseContext,
-              userFeedback: reviewEvent.data.feedback!,
-            };
-            const result = await runPromptAdapter(stage.name, contextWithFeedback);
+          // action.type === "wait" — agent asked a question, wait for user
+          const userMsg = await waitForUserMessage(`${stage.name}-review-wait-${reviewTurn}`);
+          if (!userMsg) { action = { type: "continue" }; break; } // Timeout → proceed
 
-            // Update DB step with new result
-            const { data: existingStep } = await admin
-              .from("pipeline_steps")
-              .select("id")
-              .eq("run_id", runId)
-              .eq("name", stage.name)
-              .single();
-            if (existingStep) {
-              await admin.from("pipeline_steps").update({ result: { output: result } }).eq("id", existingStep.id);
-            }
-            return { output: result };
-          });
-          stageResults[stage.name] = rerunRef.output;
-
-          // Re-narrate with updated output
-          const renarrationId = crypto.randomUUID();
-          await streamNarrator(runId, narratorPrompt, rerunRef.output, renarrationId, `${stage.name}-summary`);
+          // Let conversation agent process the user's response
+          action = await converse(reviewPhase, stepRef.output, stage.name);
         }
 
         // Resume running
