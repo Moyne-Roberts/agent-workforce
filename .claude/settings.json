@@ -1,0 +1,10 @@
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "command": "node .claude/hooks/learning-nudge.js",
+        "matchToolNames": ["Bash"]
+      }
+    ]
+  }
+}
