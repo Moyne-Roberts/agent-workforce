@@ -16,6 +16,18 @@ interface DisplayMessage {
   stageName?: string;
 }
 
+/** Strip <pipeline_action> tags from displayed content so users never see them */
+function stripActionTag(text: string): string {
+  // Strip complete tags
+  let cleaned = text.replace(/<pipeline_action>[\s\S]*?<\/pipeline_action>/g, "");
+  // Strip partial opening tag at the end (mid-stream)
+  cleaned = cleaned.replace(/<pipeline_action>[^<]*$/, "");
+  // Strip partial tag start (e.g., "<pipeline_" or "<pipeline_a")
+  cleaned = cleaned.replace(/<pipeline_[a-z]*$/i, "");
+  // Strip lone "<" at the very end that could be the start of the tag
+  return cleaned.trimEnd();
+}
+
 interface ChatPanelProps {
   runId: string;
   initialMessages: ChatMessage[];
@@ -96,8 +108,8 @@ export function ChatPanel({
     }
 
     if (payload.isDone) {
-      // Flush final content
-      const finalContent = tokenBufferRef.current;
+      // Flush final content (strip action tag from display)
+      const finalContent = stripActionTag(tokenBufferRef.current);
       activeMessageIdRef.current = null;
       if (rafRef.current) {
         cancelAnimationFrame(rafRef.current);
@@ -116,7 +128,7 @@ export function ChatPanel({
 
     if (!rafRef.current) {
       rafRef.current = requestAnimationFrame(() => {
-        const accumulated = tokenBufferRef.current;
+        const accumulated = stripActionTag(tokenBufferRef.current);
         setMessages((prev) =>
           prev.map((m) =>
             m.id === payload.messageId ? { ...m, content: accumulated } : m

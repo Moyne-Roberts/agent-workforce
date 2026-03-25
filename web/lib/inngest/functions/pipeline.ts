@@ -184,10 +184,11 @@ export const executePipeline = inngest.createFunction(
       const currentAssistantCount = currentHistory.filter(m => m.role === "assistant").length;
 
       if (currentAssistantCount > turnInfo.assistantCount) {
-        // Response already exists in DB from a previous execution — skip streaming
-        // Parse the action from the last assistant message
+        // Response may exist in DB from a previous execution
+        // But only skip streaming if the message actually has content (not an interrupted save)
         const lastAssistant = currentHistory.filter(m => m.role === "assistant").pop();
-        if (lastAssistant) {
+        if (lastAssistant && lastAssistant.content.trim().length > 0) {
+          // Valid response exists — parse action and skip streaming
           const actionMatch = lastAssistant.content.match(/<pipeline_action>([\s\S]*?)<\/pipeline_action>/);
           if (actionMatch) {
             const raw = actionMatch[1].trim();
@@ -195,8 +196,9 @@ export const executePipeline = inngest.createFunction(
             if (raw === "discussion_complete") return { type: "discussion_complete" };
             if (raw.startsWith("feedback:")) return { type: "feedback", summary: raw.slice(9).trim() };
           }
+          return { type: "wait" };
         }
-        return { type: "wait" };
+        // Empty/partial message — fall through to re-stream
       }
 
       // No response yet — stream a new one
