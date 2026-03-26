@@ -1,6 +1,6 @@
 # MR Automations Toolkit
 
-Dit project is het centrale platform voor AI-driven automations bij Moyne Roberts. Het bevat de agent-workforce Next.js applicatie, alle automation code, en de MR Automations Toolkit — de verzamelde kennis en gereedschappen waarmee het team automations bouwt.
+Dit project is het centrale platform voor AI-driven automations bij Moyne Roberts. Het bevat de agent-workforce Next.js applicatie, alle automation code, en de verzamelde kennis waarmee het team automations bouwt.
 
 ## Stack — Niet-onderhandelbaar
 
@@ -9,10 +9,9 @@ Deze keuzes staan vast. Wijk hier NOOIT van af, ook al suggereer je als Claude e
 **ALTIJD gebruiken:**
 - **Vercel** voor hosting (Next.js app, serverless functions, cron)
 - **Supabase** voor database, auth, storage, realtime, edge functions
-- **Supabase MCP** voor database operaties (tabellen aanmaken, queries, migrations)
 - **Zapier** als eerste keuze voor automations (8000+ connectors, NXT SQL via whitelisted IP)
 - **Browserless.io** voor browser automation (cloud headless Chrome, Amsterdam region)
-- **Orq.ai** voor AI agents (via `/orq-agent` skill, MCP beschikbaar)
+- **Orq.ai** voor AI agents (via `/orq-agent` skill)
 - **Inngest** voor event-driven pipelines (durable functions, retries, HITL gates)
 - **Playwright** (via `playwright-core`) voor browser scripts op Browserless.io
 
@@ -21,10 +20,64 @@ Deze keuzes staan vast. Wijk hier NOOIT van af, ook al suggereer je als Claude e
 - Firebase, PlanetScale, Neon, MongoDB Atlas — wij gebruiken **Supabase**
 - Puppeteer — wij gebruiken **Playwright** (via playwright-core)
 - Eigen auth systeem — wij gebruiken **Supabase Auth**
-- Handmatig tabellen aanmaken in SQL — gebruik **Supabase MCP** `apply_migration`
 - API keys opslaan voor services die Zapier al beheert — **Zapier beheert auth**
 
 **Bij twijfel of een project apart moet:** Eenvoudige automations en API routes gaan in DIT project. Alleen bij complexe, losstaande applicaties (eigen UI, eigen auth, data-isolatie vereist) is een apart Vercel/Supabase project gerechtvaardigd. Bespreek dit altijd met de gebruiker.
+
+## Vercel Project
+
+Dit project draait in de **Moin Roberts** organisatie op Vercel:
+- **Organisatie:** Moin Roberts (`team_M6UAwxyU8jLEUGixW2MHyvzW`)
+- **Project:** agent-workforce (`prj_APDosWEbpdca53P5UxXst8tCJMVV`)
+
+Bij `vercel link` of `vercel env pull`: gebruik ALTIJD deze organisatie en dit project. Maak NOOIT een persoonlijk project aan.
+
+## Credentials vs Environment Variables
+
+**Systeem-credentials** (login gegevens voor NXT, iController, CRM, etc.):
+- ALTIJD opslaan in de `credentials` tabel in Supabase
+- NOOIT als environment variables
+- Reden: eindgebruikers hoeven geen env vars te begrijpen, credentials zijn centraal beheerd en encrypted
+
+**Infrastructure secrets** (alleen als env vars in Vercel):
+- SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY
+- NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
+- ORQ_API_KEY, BROWSERLESS_API_TOKEN
+- INNGEST_EVENT_KEY, INNGEST_SIGNING_KEY
+- Webhook secrets, encryption keys
+
+**Vuistregel:** Als het een gebruikersnaam+wachtwoord is voor een systeem → credentials tabel. Als het een API key of infra secret is → env var.
+
+## Supabase REST API
+
+Voor alle database operaties, gebruik directe REST API calls. Dit werkt altijd, ongeacht MCP status.
+
+**Basis URL en key:**
+```
+URL:  https://mvqjhlxfvtqqubqgdvhz.supabase.co
+Key:  eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im12cWpobHhmdnRxcXVicWdkdmh6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM1NzkzMzAsImV4cCI6MjA4OTE1NTMzMH0.8mKWUcA5o_0g0GKBc9OVBcA9MtHeo6I5kUOtbEfbK1U
+```
+
+Dit is de publieke (anon) key met beperkte rechten: kan alleen INSERT en SELECT op `learnings` en `automation_projects`. Veilig om te gebruiken.
+
+**Lezen:**
+```bash
+curl "https://mvqjhlxfvtqqubqgdvhz.supabase.co/rest/v1/{tabel}?select=*" \
+  -H "apikey: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im12cWpobHhmdnRxcXVicWdkdmh6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM1NzkzMzAsImV4cCI6MjA4OTE1NTMzMH0.8mKWUcA5o_0g0GKBc9OVBcA9MtHeo6I5kUOtbEfbK1U" \
+  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im12cWpobHhmdnRxcXVicWdkdmh6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM1NzkzMzAsImV4cCI6MjA4OTE1NTMzMH0.8mKWUcA5o_0g0GKBc9OVBcA9MtHeo6I5kUOtbEfbK1U"
+```
+
+**Schrijven:**
+```bash
+curl -X POST "https://mvqjhlxfvtqqubqgdvhz.supabase.co/rest/v1/{tabel}" \
+  -H "apikey: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im12cWpobHhmdnRxcXVicWdkdmh6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM1NzkzMzAsImV4cCI6MjA4OTE1NTMzMH0.8mKWUcA5o_0g0GKBc9OVBcA9MtHeo6I5kUOtbEfbK1U" \
+  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im12cWpobHhmdnRxcXVicWdkdmh6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM1NzkzMzAsImV4cCI6MjA4OTE1NTMzMH0.8mKWUcA5o_0g0GKBc9OVBcA9MtHeo6I5kUOtbEfbK1U" \
+  -H "Content-Type: application/json" \
+  -H "Prefer: return=representation" \
+  -d '{ ... }'
+```
+
+Voor operaties die meer rechten vereisen (DDL, deletes, credentials lezen), gebruik de service role key uit `web/.env.local`.
 
 ## Zapier-First Beslisboom
 
@@ -54,12 +107,72 @@ Kan Zapier de HELE flow afhandelen?
 
 **Zapier kan WEL:** multi-step AI pipelines (sequentieel via Cloudflare), bulk operaties, alles met trigger → actie patroon, SQL queries naar NXT.
 
+## Learnings — Gedeelde feedback loop
+
+Wanneer je iets niet-triviaals ontdekt tijdens debuggen of wanneer de gebruiker je corrigeert, leg het vast als learning:
+
+```bash
+curl -X POST "https://mvqjhlxfvtqqubqgdvhz.supabase.co/rest/v1/learnings" \
+  -H "apikey: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im12cWpobHhmdnRxcXVicWdkdmh6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM1NzkzMzAsImV4cCI6MjA4OTE1NTMzMH0.8mKWUcA5o_0g0GKBc9OVBcA9MtHeo6I5kUOtbEfbK1U" \
+  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im12cWpobHhmdnRxcXVicWdkdmh6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM1NzkzMzAsImV4cCI6MjA4OTE1NTMzMH0.8mKWUcA5o_0g0GKBc9OVBcA9MtHeo6I5kUOtbEfbK1U" \
+  -H "Content-Type: application/json" \
+  -H "Prefer: return=representation" \
+  -d '{
+    "system": "{systeem}",
+    "title": "{korte titel}",
+    "problem": "{wat ging er mis}",
+    "root_cause": "{waarom}",
+    "solution": "{hoe op te lossen}",
+    "discovered_by": "{naam}"
+  }'
+```
+
+**Bij elke sessiestart:** haal de bestaande learnings op zodat je niet dezelfde fouten herhaalt:
+
+```bash
+curl "https://mvqjhlxfvtqqubqgdvhz.supabase.co/rest/v1/learnings?select=system,title,solution&order=created_at.desc&limit=20" \
+  -H "apikey: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im12cWpobHhmdnRxcXVicWdkdmh6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM1NzkzMzAsImV4cCI6MjA4OTE1NTMzMH0.8mKWUcA5o_0g0GKBc9OVBcA9MtHeo6I5kUOtbEfbK1U" \
+  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im12cWpobHhmdnRxcXVicWdkdmh6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM1NzkzMzAsImV4cCI6MjA4OTE1NTMzMH0.8mKWUcA5o_0g0GKBc9OVBcA9MtHeo6I5kUOtbEfbK1U"
+```
+
+### Self-Improvement Loop (AUTOMATISCH)
+Wanneer de gebruiker je corrigeert:
+1. Erken de correctie
+2. Schrijf een learning naar Supabase (gebruik het curl commando hierboven)
+3. Als de correctie universeel is, stel een CLAUDE.md wijziging voor
+4. Commit en push zodat het team het krijgt
+
+## Project Tracking
+
+Wanneer een gebruiker vraagt om iets te automatiseren of een nieuw project start, **vraag altijd:** "Zal ik dit als nieuw project registreren?"
+
+Bij akkoord:
+```bash
+curl -X POST "https://mvqjhlxfvtqqubqgdvhz.supabase.co/rest/v1/automation_projects" \
+  -H "apikey: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im12cWpobHhmdnRxcXVicWdkdmh6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM1NzkzMzAsImV4cCI6MjA4OTE1NTMzMH0.8mKWUcA5o_0g0GKBc9OVBcA9MtHeo6I5kUOtbEfbK1U" \
+  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im12cWpobHhmdnRxcXVicWdkdmh6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM1NzkzMzAsImV4cCI6MjA4OTE1NTMzMH0.8mKWUcA5o_0g0GKBc9OVBcA9MtHeo6I5kUOtbEfbK1U" \
+  -H "Content-Type: application/json" \
+  -H "Prefer: return=representation" \
+  -d '{
+    "name": "{project naam}",
+    "type": "zapier|hybrid|standalone|agent",
+    "status": "idea",
+    "description": "{korte beschrijving}",
+    "systems": ["{systeem1}", "{systeem2}"],
+    "created_by": "{naam}"
+  }'
+```
+
+Status waarden: `idea` → `building` → `testing` → `live`
+
 ## Systemen
 
-Moyne Roberts core systemen staan in de `systems` tabel in Supabase. Raadpleeg deze via Supabase MCP:
+Moyne Roberts core systemen staan in de `systems` tabel in Supabase:
 
-```sql
-SELECT name, integration_method, url, notes FROM systems ORDER BY name;
+```bash
+curl "https://mvqjhlxfvtqqubqgdvhz.supabase.co/rest/v1/systems?select=name,integration_method,url,notes&order=name" \
+  -H "apikey: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im12cWpobHhmdnRxcXVicWdkdmh6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM1NzkzMzAsImV4cCI6MjA4OTE1NTMzMH0.8mKWUcA5o_0g0GKBc9OVBcA9MtHeo6I5kUOtbEfbK1U" \
+  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im12cWpobHhmdnRxcXVicWdkdmh6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM1NzkzMzAsImV4cCI6MjA4OTE1NTMzMH0.8mKWUcA5o_0g0GKBc9OVBcA9MtHeo6I5kUOtbEfbK1U"
 ```
 
 **Belangrijke systemen:**
@@ -74,16 +187,11 @@ SELECT name, integration_method, url, notes FROM systems ORDER BY name;
 
 ## Agent Swarm Design (orq-agent integratie)
 
-Voor het ontwerpen van AI agent swarms, gebruik de `/orq-agent` skill. De MR Automations Toolkit verrijkt die met MR-specifieke context:
+Voor het ontwerpen van AI agent swarms, gebruik de `/orq-agent` skill. Verrijk de use case met MR-specifieke context:
 
-1. **Toolkit bepaalt:** Welke systemen zijn betrokken? API beschikbaar? Zapier connector? Browser automation nodig?
-2. **Toolkit verrijkt:** De use case wordt aangevuld met kennis over jullie systemen, Zapier setup, Browserless patronen
-3. **orq-agent ontwerpt:** De swarm wordt ontworpen met kennis van de juiste tools en integraties
-
-Voorbeeld: "Ik wil een agent die facturen verwerkt" →
-- Toolkit weet: iController heeft geen API, Browserless automation beschikbaar als MCP tool
-- Toolkit weet: NXT data alleen via Zapier SQL (whitelisted IP)
-- orq-agent ontwerpt: agent swarm met browser-automation tool en Zapier data-integratie
+1. **Bepaal:** Welke systemen zijn betrokken? API beschikbaar? Zapier connector? Browser automation nodig?
+2. **Verrijk:** De use case aanvullen met kennis over onze systemen, Zapier setup, Browserless patronen
+3. **orq-agent ontwerpt:** De swarm met kennis van de juiste tools en integraties
 
 ## Workflow — Get Shit Done (GSD)
 
@@ -104,17 +212,83 @@ Enter plan mode voor elke niet-triviale taak (3+ stappen of architectuurbeslissi
 ### Verify Before Done
 Nooit een taak als compleet markeren zonder te bewijzen dat het werkt.
 
-### Self-Improvement Loop (AUTOMATISCH)
-Wanneer de gebruiker je corrigeert:
-1. Erken de correctie
-2. Schrijf een learning naar de `learnings` tabel in Supabase (via directe REST call)
-3. Als de correctie universeel is, stel een CLAUDE.md wijziging voor
-4. Commit en push zodat het team het krijgt
-
 ### Simplicity First
 - Minimale code, minimale impact
 - Geen tijdelijke fixes — zoek de root cause
 - Als het hacky voelt: implementeer de elegante oplossing
+
+## Standaard Automation Workflow
+
+**Elke automation — hoe klein ook — doorloopt dezelfde stappen:**
+
+1. Gebruiker beschrijft wat ze willen automatiseren
+2. Claude doet de **Zapier-first discussie** (kan Zapier dit? hybride? custom code?)
+3. Claude vraagt: **"Zal ik dit als project registreren?"** → registreer in Supabase `automation_projects`
+4. Claude maakt een map aan: `web/lib/automations/{naam}/`
+5. Claude runt **`/gsd:quick --full`** vanuit de agent-workforce root voor planning + verificatie
+6. Code en scripts komen in de automation-map
+7. README.md wordt aangemaakt met het vaste format (zie hieronder)
+
+### Automation README format
+
+Elke automation krijgt een `web/lib/automations/{naam}/README.md`:
+
+```markdown
+# {Naam}
+
+**Status:** idea | building | testing | live
+**Type:** zapier | hybrid | custom | agent
+**Eigenaar:** {naam}
+**Systemen:** {systeem1}, {systeem2}
+
+## Wat doet het
+{Korte beschrijving van de automation}
+
+## Waarom
+{De business need — waarom is dit nodig}
+
+## Trigger
+{Wat start het proces — email, schedule, handmatig, event}
+
+## Aanpak
+{Zapier / hybride / custom code — en WAAROM die keuze}
+
+## Aannames
+{Wat nemen we aan — bijv. "rapport staat altijd op dezelfde URL"}
+
+## Credentials
+{Welke credentials uit de Supabase credentials tabel worden gebruikt}
+
+## Zapier configuratie
+{Als Zapier betrokken is: Zap URL, trigger type, actions}
+```
+
+### Mapstructuur
+
+```
+web/lib/automations/
+  prolius-report/
+    README.md              # Altijd aanwezig — documentatie
+    browser.ts             # Code (als er code is)
+    screenshots/           # Test- en fout-screenshots
+```
+
+GSD quick artifacts leven in `.planning/quick/` (agent-workforce root). De automation README linkt daarheen.
+
+## Aparte Projecten
+
+Wanneer een automation een apart project vereist (eigen UI, eigen auth, data-isolatie):
+
+1. Maak een nieuwe map aan: `mkdir ~/developer/{project-naam} && cd ~/developer/{project-naam}`
+2. **Kopieer CLAUDE.md** vanuit agent-workforce naar het nieuwe project als startpunt:
+   `cp ~/developer/agent-workforce/CLAUDE.md ./CLAUDE.md`
+3. Voeg project-specifieke regels toe bovenaan de gekopieerde CLAUDE.md
+4. Initialiseer git: `git init` + maak een GitHub repo aan in de Moyne Roberts organisatie
+5. Start GSD: `/gsd:new-project` voor de volledige planning-structuur
+6. Registreer het project in Supabase `automation_projects` met de GitHub repo URL
+7. Het apart project krijgt zijn eigen Vercel en eventueel eigen Supabase project
+
+**De MR-basisregels** (stack, credentials, Zapier-first) blijven de fundering in elk project. De gekopieerde CLAUDE.md zorgt daarvoor.
 
 ## Kritieke Patronen
 
@@ -122,10 +296,11 @@ Wanneer de gebruiker je corrigeert:
 
 ```typescript
 import { chromium } from "playwright-core"; // NIET "playwright"
-const wsEndpoint = `wss://production-ams.browserless.io?token=${token}&timeout=60000`;
+const wsEndpoint = `wss://production-ams.browserless.io?token=${process.env.BROWSERLESS_API_TOKEN}&timeout=60000`;
 const browser = await chromium.connectOverCDP(wsEndpoint, { timeout: 30_000 });
 ```
 
+- **Environment variable:** `BROWSERLESS_API_TOKEN` (NIET `BROWSERLESS_TOKEN`)
 - **Session reuse:** `context.storageState()` opslaan in Supabase, laden bij volgende run
 - **Shadow DOM:** `state: 'attached'`, waarden zetten met `.evaluate()` NIET `.fill()`
 - **SPA navigatie:** `waitUntil: 'domcontentloaded'` — NOOIT `'networkidle'`
@@ -137,7 +312,7 @@ const browser = await chromium.connectOverCDP(wsEndpoint, { timeout: 30_000 });
 ### Orq.ai
 
 1. **ALTIJD `response_format` met `json_schema` instellen** — prompt-only JSON faalt 15-20%
-2. **ALTIJD agent updates verifiëren** — MCP `update_agent` kan stil falen. Lees terug met `get_agent`.
+2. **ALTIJD agent updates verifiëren** — `update_agent` kan stil falen. Lees terug met `get_agent`.
 3. **Experiments via REST API, NIET MCP** — MCP heeft dataset-mapping problemen
 4. **Alle LLM output valideren met Zod** — nooit LLM math vertrouwen
 5. **3-4 fallback models configureren** — `anthropic/claude-sonnet-4-6` primary
@@ -151,7 +326,7 @@ const browser = await chromium.connectOverCDP(wsEndpoint, { timeout: 30_000 });
 ### Supabase
 
 - Admin client (service role) voor automation writes — geen RLS nodig server-side
-- Supabase MCP voor schema exploratie en queries
+- Anon key (hierboven) voor learnings en project tracking — RLS beperkt tot INSERT/SELECT
 - Key-value store: `settings` tabel met JSONB
 - JSONB double-encoding: `while (typeof state === 'string') state = JSON.parse(state)`
 
@@ -169,18 +344,11 @@ const browser = await chromium.connectOverCDP(wsEndpoint, { timeout: 30_000 });
 
 ### Zapier
 
-- **Zapier MCP:** kan acties uitvoeren (Slack bericht sturen, spreadsheet updaten) — kan GEEN Zaps aanmaken
 - **NXT SQL:** alleen via Zapier (whitelisted IP) — nooit direct verbinden
 - **Zapier SDK:** `@zapier/zapier-sdk` voor programmatische automations
 - **Orq.ai long-running calls:** via Cloudflare Workers (Zapier timeout te kort)
 
 **Volledige referentie:** `docs/zapier-patterns.md`
-
-## Commands
-
-- `/mr-automations:automate` — Begeleid een nieuwe automation (Zapier-first)
-- `/mr-automations:learn` — Leg een debugging-inzicht vast voor het team
-- `/mr-automations:setup` — Controleer of alles goed is ingesteld
 
 ## API Documentatie
 
@@ -205,5 +373,4 @@ docs/                         # Referentie documenten (patronen, gotchas)
   supabase-patterns.md
   inngest-patterns.md
   zapier-patterns.md
-.claude/commands/mr-automations/  # Toolkit slash commands
 ```

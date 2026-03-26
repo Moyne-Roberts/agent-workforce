@@ -1,4 +1,4 @@
-# Agent Workforce
+# Agent Workforce — Moyne Roberts Automations
 
 ```
      ██████╗ ██████╗  █████╗ ██╗███╗   ██╗
@@ -11,110 +11,57 @@
      MR  A U T O M A T I O N S  T O O L K I T
 ```
 
-AI-driven automation platform voor Moyne Roberts. Bouw automations, ontwerp agent swarms, en automatiseer bedrijfsprocessen — met Claude Code als je co-pilot.
+Centraal platform voor AI-driven automations bij Moyne Roberts. Claude Code is je co-pilot — hij kent onze systemen, tools, en patronen.
 
-## Wat je hiermee kunt
+## Aan de slag
 
-- **Zapier automations** — 8000+ app connectors, NXT SQL queries, schedules, notificaties
-- **Browser automations** — iController, NXT, CRM, Intelly via Browserless.io + Playwright
-- **AI agent swarms** — Ontwerp en deploy op Orq.ai via `/orq-agent`
-- **Event-driven pipelines** — Multi-step workflows met Inngest (retries, HITL approval)
-- **Custom applicaties** — Interactieve interfaces, dashboards, portalen
+### 1. Accounts aanmaken
 
-## Wanneer gebruik je wat?
+Maak een account aan op deze drie platforms. **Gebruik overal je GitHub account om in te loggen:**
 
-| Use case | Tool |
-|----------|------|
-| Simpele trigger → actie → notificatie | **Zapier** (geen code) |
-| NXT data naar spreadsheet | **Zapier** (SQL via whitelisted IP) |
-| Factuur herverstuuren in iController | **Zapier + Browserless** (hybrid) |
-| AI agent voor klantenservice | **Orq.ai** via `/orq-agent` |
-| Automated testing Cura-portaal | **Playwright + Browserless** |
-| Dashboard of custom UI | **Next.js** (dit project) |
+1. **GitHub** — [github.com/signup](https://github.com/signup)
+2. **Vercel** — [vercel.com/signup](https://vercel.com/signup) — kies "Continue with GitHub"
+3. **Supabase** — [supabase.com/dashboard](https://supabase.com/dashboard) — kies "Continue with GitHub"
 
-## Quick Start — Team Setup
+### 2. Meld je bij Nick
 
-### Vereisten
+Nick voegt je toe aan de juiste organisaties (GitHub, Vercel, Supabase). Zonder deze stap kun je niet verder.
 
-- [Claude Code](https://claude.ai/claude-code) geinstalleerd
-- [Node.js](https://nodejs.org/) 18+
-- Git
-- Toegang tot de agent-workforce repo (vraag Nick)
+### 3. Setup
 
-### Installatie
+**Met Claude Code (aanbevolen):**
 
 ```bash
-# 1. Clone de repo
-git clone https://github.com/NCrutzen/agent-workforce.git
-cd agent-workforce
-
-# 2. Installeer dependencies
-cd web && npm install && cd ..
-
-# 3. Link Vercel (selecteer het bestaande agent-workforce project)
-npm i -g vercel
-vercel link
-
-# 4. Pull environment variables
-cd web && vercel env pull .env.local && cd ..
-
-# 5. Installeer GSD workflow
-npx get-shit-done-cc@latest
-
-# 6. Open Claude Code
+mkdir -p ~/developer && cd ~/developer
 claude
 ```
 
-### Eerste keer in Claude Code
+Zeg tegen Claude:
 
-```
-/mr-automations:setup
-```
+> Volg de setup-instructie in SETUP.md van de agent-workforce repo.
+> Git URL: https://github.com/Moyne-Roberts/agent-workforce.git
 
-Dit controleert of alles goed staat: environment variables, MCP servers, tools, systems registry. Volg de instructies als er iets mist.
+Claude begeleidt je stap voor stap.
 
-### Aan de slag
+**Liever handmatig?** Zie [SETUP.md](SETUP.md) voor alle stappen.
 
-```
-/mr-automations:automate    Bouw een nieuwe automation (Zapier-first)
-/mr-automations:learn       Leg een debugging-inzicht vast voor het team
-/orq-agent                  Ontwerp een AI agent swarm
-/gsd:new-project            Start een complex project met planning
-```
+## Wat kun je hiermee?
 
-## Architectuur
+| Wat je wilt | Wat je zegt tegen Claude |
+|-------------|------------------------|
+| Iets automatiseren | *"Ik wil X automatiseren"* — Claude bepaalt Zapier / browser automation / custom code |
+| Iets werkt niet | *"Dit werkt niet: [beschrijving]"* — Claude debugt en legt de oplossing vast |
+| Complex project | `/gsd:new-project` — gestructureerde aanpak met planning en fases |
+| AI agent bouwen | `/orq-agent` — ontwerp een agent swarm voor Orq.ai |
 
-```
-agent-workforce/
-  CLAUDE.md                           # Toolkit kennis (Claude leest dit automatisch)
-  .claude/commands/mr-automations/    # Toolkit slash commands
-  docs/                               # Referentie documenten
-    browserless-patterns.md
-    orqai-patterns.md
-    supabase-patterns.md
-    inngest-patterns.md
-    zapier-patterns.md
-  web/                                # Next.js app (Vercel)
-    app/api/automations/              # Automation API routes
-    lib/automations/                  # Automation logica
-```
+## Belangrijke regels
 
-## Infrastructure
-
-Alles draait op gedeelde infrastructure — maak GEEN nieuwe projecten aan.
-
-| Service | Doel |
-|---------|------|
-| **Vercel** | Hosting (Next.js, serverless functions) |
-| **Supabase** | Database, auth, storage, realtime |
-| **Zapier** | Primaire automation platform (8000+ connectors) |
-| **Browserless.io** | Cloud headless Chrome (Amsterdam) |
-| **Orq.ai** | AI agent platform |
-| **Inngest** | Event-driven durable functions |
+- **Zapier eerst** — Altijd eerst checken of Zapier het kan voordat we code schrijven
+- **Credentials in Supabase** — Wachtwoorden en logins gaan in de database, NOOIT in bestanden
+- **Alles in deze repo** — Tenzij het echt een apart project moet zijn (eigen UI, eigen auth)
+- **Learnings delen** — Debug-inzichten worden automatisch gedeeld met het hele team
 
 ## Systemen
-
-Core systemen van Moyne Roberts staan in de `systems` tabel in Supabase:
 
 | Systeem | Integratie | API? |
 |---------|-----------|------|
@@ -125,6 +72,25 @@ Core systemen van Moyne Roberts staan in de `systems` tabel in Supabase:
 | CRM | Browser automation | Nee |
 | Intelly | - | Nee |
 
-## Team Learnings
+## Architectuur
 
-Debugging-inzichten worden gedeeld via de `learnings` tabel in Supabase. Gebruik `/mr-automations:learn` om een inzicht vast te leggen. Het hele team profiteert automatisch.
+```
+agent-workforce/
+  CLAUDE.md                     # Alle kennis — Claude leest dit automatisch
+  SETUP.md                      # Setup instructie voor het team
+  docs/                         # Referentie documenten per tool
+  web/                          # Next.js app (Vercel)
+    app/api/automations/        # API routes voor automations
+    lib/automations/            # Automation scripts
+```
+
+## Infrastructure
+
+| Service | Doel |
+|---------|------|
+| **Vercel** | Hosting, serverless functions |
+| **Supabase** | Database, auth, storage |
+| **Zapier** | Primaire automation platform |
+| **Browserless.io** | Cloud headless Chrome |
+| **Orq.ai** | AI agent platform |
+| **Inngest** | Event-driven pipelines |

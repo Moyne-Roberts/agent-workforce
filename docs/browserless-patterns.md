@@ -11,7 +11,7 @@ Reference document for building browser automations using Browserless.io (cloud 
 ```typescript
 import { chromium } from "playwright-core";
 
-const wsEndpoint = `wss://production-ams.browserless.io?token=${process.env.BROWSERLESS_TOKEN}&timeout=60000`;
+const wsEndpoint = `wss://production-ams.browserless.io?token=${process.env.BROWSERLESS_API_TOKEN}&timeout=60000`;
 const browser = await chromium.connectOverCDP(wsEndpoint, { timeout: 30_000 });
 const context = await browser.newContext();
 const page = await context.newPage();
