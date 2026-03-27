@@ -50,11 +50,11 @@ Exceptions: none
 | Role | Size | Weight | Line Height |
 |------|------|--------|-------------|
 | Body | 14px (text-sm) | 400 (normal) | 1.5 |
-| Label | 12px (text-xs) | 500 (medium) | 1.5 |
+| Label | 12px (text-xs) | 400 (normal) | 1.5 |
 | Heading | 24px (text-2xl) | 600 (semibold) | 1.2 |
 | Card title | 16px (text-base) | 600 (semibold) | 1.4 |
 
-Note: Badge text uses Label role (12px, weight 500). Automation type tag uses Label role (12px, weight 500). These match the existing `Badge` component default (`text-xs font-medium`).
+Note: Badge text and AutomationTypeTag text both use the Label role (12px, weight 400). Label is differentiated from Body by size alone (12px vs 14px), not by weight. The shadcn `Badge` component default class `font-medium` should be overridden to `font-normal` to match this contract. Only 2 weights are used: 400 (normal) for body-level text and 600 (semibold) for headings and card titles.
 
 ---
 
@@ -109,7 +109,7 @@ interface ProjectStatusBadgeProps {
 }
 ```
 
-**Sizing:** Uses shadcn `Badge` defaults: height 20px (h-5), text 12px (text-xs), icon 12px (size-3), horizontal padding 8px (px-2), pill shape (rounded-4xl).
+**Sizing:** Uses shadcn `Badge` defaults: height 20px (h-5), text 12px (text-xs), icon 12px (size-3), horizontal padding 8px (px-2), pill shape (rounded-4xl). Font weight override: `font-normal` (400) instead of default `font-medium`.
 
 ### 2. AutomationTypeTag
 
@@ -133,7 +133,7 @@ interface AutomationTypeTagProps {
 }
 ```
 
-**Visual treatment:** Uses `variant="secondary"` to appear less prominent than the status badge. Same height (h-5) and text size (text-xs) as badges, but the muted secondary background creates visual hierarchy: status badge is the primary signal, type tag is supplementary.
+**Visual treatment:** Uses `variant="secondary"` to appear less prominent than the status badge. Same height (h-5) and text size (text-xs) as badges, but the muted secondary background creates visual hierarchy: status badge is the primary signal, type tag is supplementary. Font weight override: `font-normal` (400) instead of default `font-medium`.
 
 ### 3. ProjectCard (Modified)
 
