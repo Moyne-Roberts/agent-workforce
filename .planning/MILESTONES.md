@@ -1,5 +1,22 @@
 # Milestones
 
+## V6.0 Executive Dashboard & UI Revamp (Defined: 2026-03-27)
+
+**Phases:** 4 (phases 44-47)
+**Requirements:** 26 (UIDX-01-06, EDASH-01-06, DINT-01-06, PEXT-01-05, O365-01-03)
+
+**Planned deliverables:**
+1. Extended project model with status lifecycle (idea/building/testing/live) and automation type classification
+2. Zapier analytics browser scraper (Browserless.io) and Orq.ai analytics collector (MCP API) with Inngest cron scheduling
+3. Executive dashboard with KPI cards, trend charts, project status distribution, ROI estimates, and health indicators -- all from pre-computed snapshots
+4. Automated project status monitoring (auto-apply forward, suggest-only backward)
+5. O365 SSO via Azure AD OAuth alongside existing email/password auth
+6. Full UI redesign with Moyne Roberts branding, dark mode, responsive layout
+
+**Architecture:** Pre-computed snapshot pattern -- Inngest cron functions collect data from Zapier (browser scraper) and Orq.ai (MCP analytics API), write to intermediate Supabase tables; dashboard reads only from pre-computed snapshots for sub-100ms loads.
+
+---
+
 ## V2.1 Experiment Pipeline Restructure (Shipped: 2026-03-13)
 
 **Phases completed:** 8 phases, 9 plans
@@ -59,4 +76,3 @@
 **Archive:** `milestones/v0.3-ROADMAP.md`, `milestones/v0.3-REQUIREMENTS.md`
 
 ---
-
