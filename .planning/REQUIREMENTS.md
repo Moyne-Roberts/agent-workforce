@@ -153,9 +153,9 @@ Requirements for V6.0 Executive Dashboard & UI Revamp. Each maps to roadmap phas
 
 ### Project Model Extension
 
-- [ ] **PEXT-01**: Projects have status lifecycle: idea → building → testing → live
-- [ ] **PEXT-02**: Projects have automation type: zapier-only, hybrid, standalone-app, orqai-agent
-- [ ] **PEXT-03**: Status and type badges visible on project cards and dashboard
+- [x] **PEXT-01**: Projects have status lifecycle: idea → building → testing → live
+- [x] **PEXT-02**: Projects have automation type: zapier-only, hybrid, standalone-app, orqai-agent
+- [x] **PEXT-03**: Status and type badges visible on project cards and dashboard
 - [ ] **PEXT-04**: Automated monitor auto-transitions forward statuses (idea→building→testing→live) based on activity signals
 - [ ] **PEXT-05**: Backward status transitions are suggest-only via notification, user confirms
 
@@ -295,9 +295,9 @@ Requirements for V6.0 Executive Dashboard & UI Revamp. Each maps to roadmap phas
 | DINT-04 | Phase 44 | Pending |
 | DINT-05 | Phase 44 | Pending |
 | DINT-06 | Phase 45 | Pending |
-| PEXT-01 | Phase 44 | Pending |
-| PEXT-02 | Phase 44 | Pending |
-| PEXT-03 | Phase 44 | Pending |
+| PEXT-01 | Phase 44 | Complete |
+| PEXT-02 | Phase 44 | Complete |
+| PEXT-03 | Phase 44 | Complete |
 | PEXT-04 | Phase 46 | Pending |
 | PEXT-05 | Phase 46 | Pending |
 | O365-01 | Phase 46 | Pending |

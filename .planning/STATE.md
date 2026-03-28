@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v0.3
 milestone_name: milestone
-status: "Defined -- roadmap created, awaiting `/gsd:plan-phase 44`"
-stopped_at: Phase 44 UI-SPEC approved
-last_updated: "2026-03-27T18:17:34.451Z"
-last_activity: 2026-03-27 -- V6.0 roadmap created
+status: "Executing Phase 44 -- Plan 01 complete, Plan 02 next"
+stopped_at: Completed 44-01-PLAN.md
+last_updated: "2026-03-28T10:52:08.361Z"
+last_activity: 2026-03-28 -- Phase 44 Plan 01 complete
 progress:
   total_phases: 16
   completed_phases: 6
-  total_plans: 30
-  completed_plans: 26
-  percent: 83
+  total_plans: 33
+  completed_plans: 27
+  percent: 82
 ---
 
 # Project State
@@ -21,17 +21,17 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-27)
 
 **Core value:** Any colleague can go from a use case description to deployed, tested agents on Orq.ai -- through a browser UI with real-time visibility, visual agent graphs, and in-app approvals -- without touching a terminal or needing technical knowledge.
-**Current focus:** V6.0 Executive Dashboard & UI Revamp -- roadmap defined, ready for phase planning
+**Current focus:** V6.0 Executive Dashboard & UI Revamp -- Phase 44 Plan 01 complete (project model + badges)
 **Previous milestones:** v0.3 shipped 2026-03-01, V2.0 shipped 2026-03-02, V2.1 shipped 2026-03-13, V3.0 in progress (91%), V4.0 partially complete
 
 ## Current Position
 
-Phase: V6.0 roadmap defined (phases 44-47)
-Plan: Ready to plan Phase 44
-Status: Defined -- roadmap created, awaiting `/gsd:plan-phase 44`
-Last activity: 2026-03-27 -- V6.0 roadmap created
+Phase: 44-project-model-data-collection (Plan 01 complete)
+Plan: 44-01 complete, 44-02 next
+Status: Executing Phase 44 -- Plan 01 complete, Plan 02 next
+Last activity: 2026-03-28 -- Phase 44 Plan 01 complete
 
-Progress: [████████░░] 83%
+Progress: [████████░░] 82%
 
 ## Performance Metrics
 
@@ -48,6 +48,7 @@ Progress: [████████░░] 83%
 | 39-credential-foundation | 3/3 | 12min | 4min |
 | 40-detection-sop-vision | 5/5 | 22min | 4.4min |
 | 37.1-conversational-pipeline | 3/4 | 11min | 3.7min |
+| 44-project-model-data-collection | 1/3 | 2min | 2min |
 
 ## Accumulated Context
 
@@ -69,6 +70,8 @@ Recent decisions affecting current work:
 - O365 SSO via Azure OAuth (not SAML) -- automatic identity linking with existing accounts
 - UI redesign last (Phase 47) -- all pages must exist before full-surface visual redesign
 - Executive dashboard metrics require additional research/discussion during Phase 45 planning
+- Badge components are pure render (not client components) -- config-driven pattern with statusConfig Record
+- Existing page.tsx query uses SELECT * which auto-includes new columns after migration
 
 ### Blockers/Concerns
 
@@ -82,7 +85,7 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-27T18:17:34.446Z
-Stopped at: Phase 44 UI-SPEC approved
-Resume with: `/gsd:plan-phase 44`
-Resume file: .planning/phases/44-project-model-data-collection/44-UI-SPEC.md
+Last session: 2026-03-28T10:51:11Z
+Stopped at: Completed 44-01-PLAN.md
+Resume with: `/gsd:execute-phase 44` (continues with Plan 02)
+Resume file: .planning/phases/44-project-model-data-collection/44-02-PLAN.md
