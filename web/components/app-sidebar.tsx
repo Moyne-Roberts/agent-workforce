@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import {
   Home,
+  BarChart3,
   FolderOpen,
   Play,
   Settings,
@@ -31,6 +32,7 @@ import {
 
 const navItems = [
   { title: "Dashboard", href: "/", icon: Home },
+  { title: "Executive", href: "/executive", icon: BarChart3 },
   { title: "Projects", href: "/", icon: FolderOpen },
   { title: "Creations", href: "/runs", icon: Play },
   { title: "Settings", href: "/settings", icon: Settings },
