@@ -129,7 +129,7 @@ export async function computeDashboardMetrics(
       (r) => r.project_id === project.id
     );
     const completedRuns = projectRuns.filter(
-      (r) => r.status === "completed"
+      (r) => r.status === "complete" || r.status === "completed"
     ).length;
     const totalRuns = projectRuns.length;
     const successRate =
@@ -275,7 +275,7 @@ export async function computeDashboardMetrics(
   // ── Health score ─────────────────────────────────────────────────
   const allRuns = pipelineRuns.length;
   const allCompleted = pipelineRuns.filter(
-    (r) => r.status === "completed"
+    (r) => r.status === "complete" || r.status === "completed"
   ).length;
   const overallSuccessRate =
     allRuns > 0 ? (allCompleted / allRuns) * 100 : 100;
