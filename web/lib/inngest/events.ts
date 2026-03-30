@@ -98,4 +98,12 @@ export type Events = {
       scrapedAt: string;
     };
   };
+
+  // Dashboard aggregation events (Phase 45)
+  "dashboard/aggregate.completed": {
+    data: {
+      snapshotId: string;
+      healthScore: number;
+    };
+  };
 };

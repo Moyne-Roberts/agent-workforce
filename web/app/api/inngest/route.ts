@@ -5,8 +5,9 @@ import { runHealthCheck } from "@/lib/inngest/functions/health-check";
 import { collectOrqaiAnalytics } from "@/lib/inngest/functions/orqai-collector";
 import { scrapeZapierAnalytics } from "@/lib/inngest/functions/zapier-scraper";
 import { processProliusReport } from "@/lib/inngest/functions/prolius-report";
+import { aggregateDashboard } from "@/lib/inngest/functions/dashboard-aggregator";
 
 export const { GET, POST, PUT } = serve({
   client: inngest,
-  functions: [executePipeline, runHealthCheck, collectOrqaiAnalytics, scrapeZapierAnalytics, processProliusReport],
+  functions: [executePipeline, runHealthCheck, collectOrqaiAnalytics, scrapeZapierAnalytics, processProliusReport, aggregateDashboard],
 });
