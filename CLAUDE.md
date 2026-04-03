@@ -14,6 +14,8 @@ Deze keuzes staan vast. Wijk hier NOOIT van af, ook al suggereer je als Claude e
 - **Orq.ai** voor AI agents (via `/orq-agent` skill)
 - **Inngest** voor event-driven pipelines (durable functions, retries, HITL gates)
 - **Playwright** (via `playwright-core`) voor browser scripts op Browserless.io
+- **ElevenLabs** voor conversational AI voice agents (outbound calling, TTS)
+- **Twilio** voor telefonie (phone numbers voor ElevenLabs, SMS)
 
 **NOOIT gebruiken (ook niet als Claude het voorstelt):**
 - Netlify, Railway, Render, Fly.io, AWS, Google Cloud — wij gebruiken **Vercel**
@@ -43,6 +45,7 @@ Bij `vercel link` of `vercel env pull`: gebruik ALTIJD deze organisatie en dit p
 - SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY
 - NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
 - ORQ_API_KEY, BROWSERLESS_API_TOKEN
+- ELEVENLABS_API_KEY, TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN
 - INNGEST_EVENT_KEY, INNGEST_SIGNING_KEY
 - Webhook secrets, encryption keys
 
@@ -374,6 +377,19 @@ const browser = await chromium.connectOverCDP(wsEndpoint, { timeout: 30_000 });
 
 **Volledige referentie:** `docs/orqai-patterns.md`
 
+### ElevenLabs
+
+1. **SDK:** `@elevenlabs/elevenlabs-js` — NIET het oude `elevenlabs` package
+2. **Phone numbers via Twilio** — ElevenLabs levert GEEN eigen nummers
+3. **LLM keuze:** `gemini-2.5-flash` voor laagste latency (~350ms) op telefoongesprekken
+4. **Webhook tools:** Agent kan mid-gesprek Vercel API routes aanroepen (bijv. factuurdata ophalen)
+5. **Tool timeout:** max 15s — stilte op een telefoongesprek is dodelijk
+6. **Turn eagerness:** `patient` voor credit control — laat klant uitpraten
+7. **Concurrency:** Pro=10, Scale=15. Plan batch sizes hierop.
+8. **Post-call analysis:** Configureer evaluation criteria + data collection voor gestructureerde uitkomsten
+
+**Volledige referentie:** `docs/elevenlabs-patterns.md`
+
 ### Supabase
 
 - Admin client (service role) voor automation writes — geen RLS nodig server-side
@@ -411,6 +427,8 @@ const browser = await chromium.connectOverCDP(wsEndpoint, { timeout: 30_000 });
 - **Inngest:** https://www.inngest.com/docs
 - **Playwright:** https://playwright.dev/docs
 - **Vercel:** https://vercel.com/docs
+- **ElevenLabs:** https://elevenlabs.io/docs
+- **Twilio:** https://www.twilio.com/docs
 
 ## Project Structuur
 
@@ -420,6 +438,7 @@ web/                          # Next.js app (Vercel)
   lib/automations/            # Automation logica (Browserless scripts, etc.)
 docs/                         # Referentie documenten (patronen, gotchas)
   browserless-patterns.md
+  elevenlabs-patterns.md
   orqai-patterns.md
   supabase-patterns.md
   inngest-patterns.md
