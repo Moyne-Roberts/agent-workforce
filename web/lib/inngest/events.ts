@@ -106,4 +106,16 @@ export type Events = {
       healthScore: number;
     };
   };
+
+  // Uren controle automation
+  "automation/uren-controle.triggered": {
+    data: {
+      filename: string;
+      contentBase64: string;
+      environment: "production" | "acceptance" | "test";
+      triggeredBy: string;
+      triggeredAt: string;
+      sourceUrl?: string;
+    };
+  };
 };
