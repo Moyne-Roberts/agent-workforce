@@ -1,26 +1,18 @@
 import { inngest } from "../client";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { parseHourCalculationExcel } from "@/lib/automations/uren-controle/excel-parser";
-import {
-  loadKnownExceptions,
-  shouldSuppress,
-} from "@/lib/automations/uren-controle/known-exceptions";
-import { runAllRules } from "@/lib/automations/uren-controle/rules";
-import type { Environment } from "@/lib/automations/uren-controle/types";
+import { runAllRules, isSuppressed } from "@/lib/automations/uren-controle/rules";
+import { loadKnownExceptions } from "@/lib/automations/uren-controle/known-exceptions";
 
 const AUTOMATION_NAME = "uren-controle";
 const STORAGE_BUCKET = "automation-files";
 
 /**
- * Inngest function: process a Hour Calculation Excel uploaded via Zapier.
+ * Inngest function: Process Hour Calculation Excel uploaded via Zapier.
+ * Decodes base64 content, uploads to Supabase Storage, parses and runs rules.
  *
- * Pipeline:
- *   1. decode-upload     -- base64 → buffer → Supabase Storage
- *   2. create-run-record -- INSERT uren_controle_runs (environment-aware)
- *   3. parse-and-flag    -- parse Excel, run rules, insert flagged rows
- *   4. log-success       -- update run status, log automation_runs
- *
- * Environment default is 'acceptance' per CLAUDE.md test-first pattern.
+ * Flow: Zapier → webhook (base64 file) → Inngest → decode → upload → parse → flag → log
+ * No SharePoint auth needed — Zapier delivers file content directly.
  */
 export const processUrenControle = inngest.createFunction(
   {
@@ -28,35 +20,24 @@ export const processUrenControle = inngest.createFunction(
     retries: 2,
     onFailure: async ({ error, event }) => {
       const admin = createAdminClient();
-      const triggeredBy =
-        (event.data?.event as { data?: { triggeredBy?: string } } | undefined)
-          ?.data?.triggeredBy ?? "unknown";
       await admin.from("automation_runs").insert({
         automation: AUTOMATION_NAME,
         status: "failed",
         error_message: error.message,
-        triggered_by: triggeredBy,
+        triggered_by: event.data.event.data.triggeredBy,
         completed_at: new Date().toISOString(),
       });
     },
   },
   { event: "automation/uren-controle.triggered" },
   async ({ event, step }) => {
-    const environment: Environment = event.data.environment ?? "acceptance";
+    const environment = event.data.environment ?? "acceptance";
 
-    // Step 1: decode base64 → upload to Supabase Storage
+    // Step 1: Decode base64 and upload to Supabase Storage
     const fileRef = await step.run("decode-upload", async () => {
       const buffer = Buffer.from(event.data.contentBase64, "base64");
-      if (buffer.length < 100) {
-        throw new Error(
-          `Decoded file too small (${buffer.length} bytes) — likely invalid base64`,
-        );
-      }
-
-      // We don't know runId yet at this point; use a timestamp-scoped path.
-      // The run record (created next) will store this storage_path.
-      const scope = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-      const storagePath = `uren-controle/${scope}/${event.data.filename}`;
+      const runId = crypto.randomUUID();
+      const storagePath = `uren-controle/${runId}/${event.data.filename}`;
 
       const admin = createAdminClient();
       const { error } = await admin.storage
@@ -66,16 +47,18 @@ export const processUrenControle = inngest.createFunction(
             "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
           upsert: true,
         });
+
       if (error) throw new Error(`Storage upload failed: ${error.message}`);
 
-      return { storagePath, filename: event.data.filename };
+      return { storagePath, filename: event.data.filename, runId };
     });
 
-    // Step 2: insert the uren_controle_runs row
+    // Step 2: Create run record in database
     const runId = await step.run("create-run-record", async () => {
       const admin = createAdminClient();
-      // Extract period YYYY-MM from the filename if present
-      const periodMatch = event.data.filename.match(/(\d{4})[-_](\d{2})/);
+
+      // Extract period from filename (e.g., "Hour_Calculation_2025-08.xlsx" → "2025-08")
+      const periodMatch = event.data.filename.match(/(\d{4})-?(\d{2})/);
       const period = periodMatch
         ? `${periodMatch[1]}-${periodMatch[2]}`
         : null;
@@ -83,6 +66,7 @@ export const processUrenControle = inngest.createFunction(
       const { data, error } = await admin
         .from("uren_controle_runs")
         .insert({
+          id: fileRef.runId,
           filename: event.data.filename,
           period,
           source_url: event.data.sourceUrl ?? null,
@@ -93,36 +77,43 @@ export const processUrenControle = inngest.createFunction(
         })
         .select("id")
         .single();
-      if (error || !data)
-        throw new Error(`uren_controle_runs insert: ${error?.message}`);
+
+      if (error) throw new Error(`Run record insert failed: ${error.message}`);
       return data.id as string;
     });
 
-    // Step 3: parse Excel, run rules, insert flagged rows
+    // Step 3: Parse Excel and run detection rules
     const { flaggedCount } = await step.run("parse-and-flag", async () => {
       const admin = createAdminClient();
 
-      const { data: fileData, error: dlErr } = await admin.storage
+      // Download from Storage (file was already uploaded in decode-upload step)
+      const { data: fileData, error: dlError } = await admin.storage
         .from(STORAGE_BUCKET)
         .download(fileRef.storagePath);
-      if (dlErr || !fileData)
-        throw new Error(`Storage download failed: ${dlErr?.message}`);
+
+      if (dlError || !fileData) {
+        throw new Error(`Storage download failed: ${dlError?.message}`);
+      }
 
       const buffer = Buffer.from(await fileData.arrayBuffer());
-      const parsed = await parseHourCalculationExcel(buffer);
 
+      // Parse Excel
+      const parsed = await parseHourCalculationExcel(buffer);
       await admin
         .from("uren_controle_runs")
         .update({
           parsed_employee_count: parsed.employees.length,
           status: "rules_running",
-          period: parsed.period,
         })
         .eq("id", runId);
 
+      // Load known exceptions
       const exceptions = await loadKnownExceptions();
+
+      // Run detection rules
       const flags = runAllRules(parsed, exceptions);
 
+      // Insert flagged rows (include suppressed_by_exception boolean)
       const rows = flags.map((f) => ({
         run_id: runId,
         employee_name: f.employeeName,
@@ -133,19 +124,16 @@ export const processUrenControle = inngest.createFunction(
         week_number: f.weekNumber,
         raw_values: f.rawValues,
         description: f.description,
-        suppressed_by_exception: shouldSuppress(
-          exceptions,
-          f.employeeName,
-          f.ruleType,
-        ),
+        suppressed_by_exception: isSuppressed(f, exceptions),
       }));
 
       if (rows.length) {
-        const { error } = await admin
+        const { error: insertError } = await admin
           .from("uren_controle_flagged_rows")
           .insert(rows);
-        if (error)
-          throw new Error(`flagged_rows insert: ${error.message}`);
+        if (insertError) {
+          throw new Error(`Flagged rows insert failed: ${insertError.message}`);
+        }
       }
 
       await admin
@@ -156,33 +144,34 @@ export const processUrenControle = inngest.createFunction(
       return { flaggedCount: rows.length };
     });
 
-    // Step 4: log success
+    // Step 4: Log success
     await step.run("log-success", async () => {
       const admin = createAdminClient();
-      const completedAt = new Date().toISOString();
 
       await admin
         .from("uren_controle_runs")
-        .update({ status: "completed", completed_at: completedAt })
+        .update({
+          flagged_count: flaggedCount,
+          status: "completed",
+          completed_at: new Date().toISOString(),
+        })
         .eq("id", runId);
 
       await admin.from("automation_runs").insert({
         automation: AUTOMATION_NAME,
         status: "completed",
         result: {
-          runId,
           filename: fileRef.filename,
           storagePath: fileRef.storagePath,
           flaggedCount,
           environment,
-          triggeredAt: event.data.triggeredAt,
-          sourceUrl: event.data.sourceUrl ?? null,
+          triggeredBy: event.data.triggeredBy,
         },
         triggered_by: event.data.triggeredBy,
-        completed_at: completedAt,
+        completed_at: new Date().toISOString(),
       });
     });
 
-    return { success: true, runId, flaggedCount, environment };
+    return { success: true, filename: fileRef.filename, flaggedCount };
   },
 );

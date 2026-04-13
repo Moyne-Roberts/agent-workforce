@@ -1,137 +1,130 @@
 # Uren Controle
 
 **Status:** building
-**Type:** hybrid (Zapier trigger + Vercel/Inngest pipeline + Next.js review UI)
-**Eigenaar:** HR / Platform Team
-**Systemen:** SharePoint (via Zapier), Supabase, Inngest, Next.js dashboard
+**Type:** hybrid
+**Eigenaar:** HR / Automation team
+**Systemen:** SharePoint, Inngest, Supabase
 
 ## Wat doet het
-
-Elke maand levert het Hour Calculation proces een Excel bestand op in SharePoint. Deze automation:
-
-1. Detecteert het bestand (Zapier SharePoint connector)
-2. Stuurt de base64-gecodeerde inhoud naar een Vercel API route
-3. Laat Inngest het bestand naar Supabase Storage uploaden
-4. Parseert alle 4 tabbladen (`Uren`, `Mutaties`, `Storingsdienst`, `Bonus`)
-5. Draait 4 detectie-regels (zie hieronder)
-6. Toont de flagged rijen in een HR review dashboard (accept/reject met reason)
+Automatische maandelijkse controle van het Hour Calculation Excel bestand. Detecteert afwijkingen in uren-registratie via 4 regels (T&T mismatch, verschil outlier, weekend flip, verzuim BCS duplicate) en presenteert flagged rijen in een review dashboard waar HR accept/reject kan klikken.
 
 ## Waarom
-
-HR besteedt ongeveer 8 uur per maand aan handmatige controle van het Hour Calculation rapport. De 4 regels in de engine reproduceren die controle, zodat HR alleen nog hoeft te reviewen in plaats van scannen.
+HR besteedt ~8 uur/maand aan handmatige urencontrole. Deze automation reproduceert de controle-logica en reduceert dat tot een review van alleen de afwijkingen.
 
 ## Trigger
-
-Zapier detecteert een nieuw bestand in de Hour Calculation SharePoint folder en stuurt een webhook naar `/api/automations/uren-controle`.
+Zapier detecteert een nieuw Hour Calculation bestand in de SharePoint folder. Zapier downloadt het bestand, encodeert het als base64, en POST de content naar `/api/automations/uren-controle`.
 
 ## Aanpak
+**Hybrid: Zapier trigger + Vercel/Inngest processing + Next.js dashboard**
 
-**Hybrid** — Zapier handelt de SharePoint auth af, wij bouwen de parser/rules/review UI.
+Zapier is verantwoordelijk voor:
+- SharePoint monitoring (New File in Folder trigger)
+- File download + base64 encoding
+- Webhook POST naar onze API
 
-**Waarom hybrid:** SharePoint signed URLs zijn fragiel en auth-intensief. Door Zapier het bestand te laten downloaden en base64 encoderen in de Zap, krijgt onze pipeline de content binnen zonder enige SharePoint credential in onze stack.
+Onze stack handelt af:
+- Inngest pipeline: decode → upload → parse → rules → persist
+- Supabase: storage, run tracking, flagged rows, reviews
+- Next.js dashboard: review UI achter Supabase auth
 
 ## File delivery contract
+**Belangrijk:** Zapier levert de file content als base64 in de webhook body. Onze pipeline downloadt NIET opnieuw van SharePoint. Dit voorkomt SharePoint signed-URL auth walls en houdt credentials buiten onze stack.
 
-De Zap stuurt JSON:
-
+Webhook body:
 ```json
 {
-  "filename":      "Hour_Calculation_2026-02.xlsx",
-  "contentBase64": "UEsDBBQAB...",  // Zapier's Formatter "Utilities → Encode to base64"
-  "environment":   "acceptance",    // default — lock to acceptance until HR sign-off
-  "triggeredAt":   "2026-04-01T08:00:00Z",
-  "sourceUrl":     "https://mr.sharepoint.com/.../Hour_Calculation_2026-02.xlsx"
+  "filename": "Hour_Calculation_2025-08.xlsx",
+  "contentBase64": "<base64 encoded file content>",
+  "environment": "acceptance",
+  "triggeredBy": "zapier-sharepoint-webhook",
+  "triggeredAt": "2025-09-01T08:00:00Z",
+  "sourceUrl": "https://sharepoint.example.com/..."
 }
 ```
 
-Header: `x-automation-secret: <AUTOMATION_WEBHOOK_SECRET>` (zelfde secret als `prolius-report`).
-
-**Belangrijk:** Onze pipeline downloadt NOOIT opnieuw van SharePoint — `sourceUrl` is puur metadata. Dit voorkomt auth walls en houdt credentials uit onze stack.
-
 ## Environment pattern
+Default = `'acceptance'` conform CLAUDE.md test-first pattern. Productie vereist expliciete `"environment":"production"` in de Zap body — en een bevestigd HR sign-off moment.
 
-Conform CLAUDE.md test-first pattern:
-
-- **Default: `acceptance`.** De API normaliseert elke ontbrekende of onbekende `environment` waarde naar `acceptance`.
-- **Productie** vereist expliciet `"environment": "production"` in de Zap body — en een bevestigd HR sign-off moment.
-- De `uren_controle_runs.environment` kolom heeft DEFAULT `'acceptance'` in de migration.
-- Het dashboard toont een **environment banner** bovenaan die wisselt van kleur (amber = acceptance, rood = production).
+Het dashboard toont altijd een environment banner:
+- Acceptance/test: oranje/geel — `ENVIRONMENT: ACCEPTANCE -- uren-controle -- bron: {filename}`
+- Production: rood — `PRODUCTION -- uren-controle -- Actie: review flagged rows`
 
 ## Aannames
+- Het Hour Calculation bestand heeft altijd 4 tabbladen: `uren`, `storingsdient`, `mutaties`, `bonus`
+- De `uren` tab heeft vaste kolomnamen in rij 1 (jaar, periode, persnr, naam, datum, iar, iaw, iew, ier, uar, uaw, uew, uer, opmerking, ar, aw, ew, er, verzuim, vereist, etc.)
+- Tijdwaarden zijn Excel serial time objects (1899-12-30 base date)
+- Verzuim type-indicatoren staan in de `opmerking` kolom, niet in de numerieke `verzuim` kolom
+- Eén bestand per maand, filename bevat periode
 
-- Het Excel schema (sheet names, kolom layout) blijft stabiel binnen een maand. Wijzigingen worden via een v2 migration opgevangen.
-- Zapier levert altijd één bestand per webhook call (geen batching).
-- Het bestand is ≤ ~5 MB base64 — binnen Next.js default body limit.
+## Detectie-regels
+
+| Regel | Threshold | Beschrijving |
+|-------|-----------|-------------|
+| `tnt_mismatch` | >30 min | T&T (i*) vs urenbriefje (u*) tijden wijken af. Niet voor kantoor. |
+| `verschil_outlier` | >2 uur | Verschil kolom is meer dan 2 uur positief of negatief. Niet voor kantoor. |
+| `weekend_flip` | — | Vrijdag leeg + zaterdag gevuld = mogelijke registratiefout. |
+| `verzuim_bcs_duplicate` | — | Opmerking bevat zowel 'ziek' als 'verlof/vakantie' = BCS dual-registration. |
+
+Thresholds zijn hardcoded constants in `rules.ts` voor v1. Verplaats naar settings tabel als tuning nodig blijkt.
 
 ## Credentials
+Geen directe credentials nodig. Zapier beheert SharePoint auth. `AUTOMATION_WEBHOOK_SECRET` is een bestaande Vercel env var (gedeeld met prolius-report).
 
-- **Zapier SharePoint connector:** Zapier beheert de auth. Niet in onze `credentials` tabel.
-- **`AUTOMATION_WEBHOOK_SECRET`:** Vercel env var — al aanwezig (gedeeld met prolius-report).
-- Geen systeem-credentials nodig voor deze automation (geen direct systeemcontact vanuit onze kant).
+## Known Exceptions
+De `known_exceptions` tabel bevat medewerkers die niet geflagged worden voor specifieke regels (bv. structureel overwerk). Seed bevat placeholder `Medewerker_01` met `active=false`. HR vult echte namen in na go-live.
+
+Proces:
+1. HR identificeert medewerker + regel die gesuppressed moet worden
+2. INSERT in `known_exceptions` met `active=true`
+3. Volgende run suppressed automatisch
 
 ## Zapier configuratie
+- **Trigger:** SharePoint 'New File in Folder' op de Hour Calculation output folder
+- **Action 1:** (optioneel) SharePoint 'Get File Content'
+- **Action 2:** Formatter 'Utilities' → Encode to base64
+- **Action 3:** Webhooks POST naar `https://{vercel-app}/api/automations/uren-controle`
+  - Header: `x-automation-secret: <AUTOMATION_WEBHOOK_SECRET>`
+  - Body: zie "File delivery contract" hierboven
 
-1. **Trigger:** SharePoint "New File in Folder" op de Hour Calculation output folder.
-2. **Action 1 (optioneel):** SharePoint "Get File Content" → levert file binary.
-3. **Action 2:** Formatter "Utilities → Encode to base64".
-4. **Action 3:** Webhooks "POST" naar `https://<vercel-app>/api/automations/uren-controle`:
-   - Header: `x-automation-secret: <AUTOMATION_WEBHOOK_SECRET>`
-   - Body: zie _File delivery contract_ hierboven.
+## Technologie keuze: exceljs
+exceljs gekozen boven xlsx/sheetjs:
+- Betere Office 365 OOXML support
+- Streaming API voor grote bestanden
+- Actief onderhouden
+- Geen licensing complicaties (sheetjs CE heeft beperkingen)
 
-Laat de Zap in **OFF** staan tot HR de fixture-run heeft goedgekeurd. Bij productie go-live: flip de Zap body naar `"environment": "production"` en zet ON.
+## Dashboard
 
-## Detectie-regels (v1)
+**Route:** `/automations/uren-controle` (achter Supabase auth via `(dashboard)` layout)
 
-Alle regels leven in `rules.ts`. Elke regel is een pure functie met getest signature.
+De dashboard pagina toont:
+1. **Environment banner** bovenaan (oranje voor acceptance, rood voor production)
+2. **Run metadata** — filename, periode, aantal issues, aantal te beoordelen
+3. **Flagged rijen** gegroepeerd per medewerker, met:
+   - Rule type badge + severity
+   - Datum en weeknummer
+   - Beschrijving van het issue
+   - Expandeerbare ruwe waarden
+   - Accept/Reject actieknoppen (client component)
+4. **Suppressed rijen** (known exceptions) in grijs/doorgestreept
+5. **Reviewed rijen** met beslissing badge + reviewer + reden
 
-| Regel | Thresholds | Scope | Beschrijving |
-|---|---|---|---|
-| `detectTnTMismatch` | 30 min | monteur/detexie (niet kantoor) | Flagt afwijkingen > 30 min tussen T&T (`i*`) en urenbriefje (`u*`) times op dezelfde dag. |
-| `detectVerschilOutlier` | ±2 uur | monteur/detexie | Flagt `verschil` kolom > +2u of < -2u op dezelfde dag. |
-| `detectWeekendFlip` | n.v.t. | alle | Flagt weken waar vrijdag leeg is (`ar/aw/ew/er` alle leeg) én zaterdag wél gevuld. |
-| `detectVerzuimBcsDuplicate` | zie v1-contract | alle | v1 heuristiek: flagt dagen waar `day.verzuim` zowel "ziek" als ("verlof"/"vakantie"/"atv") bevat. |
+### Running the automation
 
-### v1 heuristiek voor `detectVerzuimBcsDuplicate`
-
-Als de echte BCS duplicate signature in productie afwijkt van de v1 heuristiek (ziekte+verlof zelfde dag), is dit een v2 refinement — documenteer in de flagged row comments en open een ticket. De heuristiek is bewust smal: valide data bevat één verzuim-oorzaak per dag.
-
-### Kantoor-suppressie
-
-Medewerkers met `category === 'kantoor'` hebben geen T&T registratie. De regels `tnt_mismatch` en `verschil_outlier` worden voor hen onderdrukt. `weekend_flip` en `verzuim_bcs_duplicate` gelden wel.
-
-## Known exceptions
-
-De `known_exceptions` tabel bevat medewerker+regel tuples waarvoor flags als `suppressed_by_exception=true` worden gemarkeerd (niet verwijderd — auditable).
-
-**Seed:** de migration zet één placeholder row `Medewerker_01 / verschil_outlier` met `active=false`. HR vervangt deze na go-live via een approved Supabase update met echte namen en `active=true`.
-
-## Rules tuning
-
-- Thresholds staan als `const` bovenaan `rules.ts`. Voor dynamische tuning zonder redeploy: verplaats later naar `settings` tabel key `uren_controle_thresholds`.
-- `exceljs` is gekozen boven `xlsx/sheetjs` vanwege betere OOXML support voor Office 365, streaming API voor grote files, en geen licensing-gedoe.
+1. **Test via fixture:**
+   ```bash
+   B64=$(base64 -i web/lib/automations/uren-controle/__fixtures__/sample.xlsx)
+   curl -X POST http://localhost:3000/api/automations/uren-controle \
+     -H "x-automation-secret: $AUTOMATION_WEBHOOK_SECRET" \
+     -H "Content-Type: application/json" \
+     -d "{\"filename\":\"sample.xlsx\",\"contentBase64\":\"$B64\"}"
+   ```
+2. **Check Inngest dashboard:** http://localhost:8288
+3. **View results:** http://localhost:3000/automations/uren-controle
 
 ## Known limitations (v1)
-
-- `detectVerzuimBcsDuplicate` is een heuristiek — v2 refinement op basis van echte BCS data mogelijk.
-- Dashboard: geen bulk-accept per medewerker, geen CSV export — staan op de backlog.
-- Geen learn-loop voor known_exceptions; HR onderhoudt hem handmatig in v1.
-- Geen terugschrijven van gecorrigeerde uren naar SharePoint.
-
-## Routes
-
-- **Trigger webhook:** `POST /api/automations/uren-controle`
-- **Review action:** `POST /api/automations/uren-controle/review` (Supabase session auth)
-- **Dashboard:** `/automations/uren-controle` (behind `(dashboard)` layout → Supabase auth gate)
-
-## Fixture
-
-`__fixtures__/sample.xlsx` — geanonimiseerd (226 namen → `Medewerker_NN`, IDs → 9000-range, emails → `medewerker_NN@example.test`, geboortedatum/in-dienst gestripped). Gebruik dit voor tests en lokale verificatie.
-
-## Running tests
-
-```bash
-cd web
-npm test -- rules
-```
-
-Verwacht: alle 8+ testcases pass tegen `sample.xlsx`.
+- `detectVerzuimBcsDuplicate` gebruikt een heuristiek: check `opmerking` tekst op trefwoorden (ziek + verlof/vakantie). Als de echte BCS duplicate signature in productie afwijkt, is dit een v2 refinement.
+- Geen weekend flips gedetecteerd in het huidige sample bestand (alle medewerkers werken niet op zaterdag). Regel is geimplementeerd maar ongetest op productie-data.
+- Geen filtering/sorteren in dashboard (v1 = simpele lijst)
+- Geen bulk accept/reject
+- Geen CSV export

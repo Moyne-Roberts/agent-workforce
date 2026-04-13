@@ -10,5 +10,13 @@ import { processUrenControle } from "@/lib/inngest/functions/uren-controle-proce
 
 export const { GET, POST, PUT } = serve({
   client: inngest,
-  functions: [executePipeline, runHealthCheck, collectOrqaiAnalytics, scrapeZapierAnalytics, processProliusReport, aggregateDashboard, processUrenControle],
+  functions: [
+    executePipeline,
+    runHealthCheck,
+    collectOrqaiAnalytics,
+    scrapeZapierAnalytics,
+    processProliusReport,
+    aggregateDashboard,
+    processUrenControle,
+  ],
 });

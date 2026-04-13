@@ -3,36 +3,17 @@ import { inngest } from "@/lib/inngest/client";
 
 const WEBHOOK_SECRET = process.env.AUTOMATION_WEBHOOK_SECRET!;
 
-/**
- * Zapier webhook: SharePoint "New File" -> (base64 body) -> this route -> Inngest.
- *
- * Body contract:
- *   {
- *     filename: string;           // Hour_Calculation_YYYY-MM.xlsx
- *     contentBase64: string;      // Base64-encoded file content (Zapier provides it)
- *     environment?: 'production'|'acceptance'|'test';  // default: 'acceptance'
- *     triggeredAt?: string;       // ISO timestamp (optional — default: now)
- *     sourceUrl?: string;         // SharePoint URL — metadata only, never downloaded
- *     triggeredBy?: string;       // default: "zapier-sharepoint-webhook"
- *   }
- *
- * Auth: shared secret header `x-automation-secret` (same as prolius-report).
- * The file is NOT re-downloaded from SharePoint — Zapier owns that auth boundary.
- */
+// Max payload: a typical Hour Calculation is <2 MB base64.
+// Next.js default body limit is sufficient; no custom config needed.
+
 export async function POST(request: NextRequest) {
+  // Authenticate via shared secret (same pattern as prolius-report)
   const secret = request.headers.get("x-automation-secret");
   if (secret !== WEBHOOK_SECRET) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const body = (await request.json().catch(() => ({}))) as {
-    filename?: string;
-    contentBase64?: string;
-    environment?: string;
-    triggeredAt?: string;
-    sourceUrl?: string;
-    triggeredBy?: string;
-  };
+  const body = await request.json().catch(() => ({}));
 
   if (!body.filename || !body.contentBase64) {
     return NextResponse.json(
@@ -41,6 +22,7 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  // Validate base64 roughly — reject impossibly small payloads
   if (
     typeof body.contentBase64 !== "string" ||
     body.contentBase64.length < 100
@@ -51,8 +33,7 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  // Environment default: 'acceptance' per CLAUDE.md test-first pattern.
-  // Production requires explicit "environment":"production" from the Zap body.
+  // Normalize environment — default to 'acceptance' per CLAUDE.md test-first pattern
   const environment: "production" | "acceptance" | "test" =
     body.environment === "production"
       ? "production"

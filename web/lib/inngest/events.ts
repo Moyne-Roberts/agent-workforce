@@ -107,15 +107,15 @@ export type Events = {
     };
   };
 
-  // Uren Controle automation (quick-260413-ea1)
+  // Uren controle automation
   "automation/uren-controle.triggered": {
     data: {
-      filename: string;         // Hour Calculation YYYY-MM.xlsx
-      contentBase64: string;    // Base64-encoded Excel file content (from Zapier)
+      filename: string;
+      contentBase64: string;
       environment: "production" | "acceptance" | "test";
-      triggeredBy: string;      // "zapier-sharepoint-webhook" | "manual-test" | ...
-      triggeredAt: string;      // ISO timestamp
-      sourceUrl?: string;       // SharePoint URL — metadata only, NOT used for download
+      triggeredBy: string;
+      triggeredAt: string;
+      sourceUrl?: string;
     };
   };
 };

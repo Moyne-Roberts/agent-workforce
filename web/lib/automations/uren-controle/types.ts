@@ -1,48 +1,43 @@
-/**
- * Shared types for the Uren Controle automation.
- *
- * The parser (excel-parser.ts) produces ParsedHourCalculation.
- * The rules engine (rules.ts) consumes it and emits FlaggedRow[].
- * The Inngest function persists those rows with suppressed_by_exception.
- */
-
 export type Environment = "production" | "acceptance" | "test";
 
-export type EmployeeCategory = "monteur" | "detexie" | "kantoor" | "onbekend";
-
 export type DayData = {
-  /** YYYY-MM-DD */
-  date: string;
-  // T&T (Track & Trace) times — prefix i
+  date: string; // YYYY-MM-DD
+  /** T&T times (from i* columns) — ISO time string or undefined */
   iar?: string;
   iaw?: string;
   iew?: string;
   ier?: string;
-  // Urenbriefje (timesheet) times — prefix u
+  /** Urenbriefje times (from u* columns) */
   uar?: string;
   uaw?: string;
   uew?: string;
   uer?: string;
-  // Daadwerkelijk (final) times — no prefix
+  /** Actual times (from ar/aw/ew/er columns) */
   ar?: string;
   aw?: string;
   ew?: string;
   er?: string;
-  /** Diff in hours between registered and actually worked */
+  /** Verschil in hours (positive = more than expected, negative = less) */
   verschil?: number;
-  /** Verzuim code: 'ziekte' | 'vakantie' | 'atv' | 'verlof' | ... (case-insensitive) */
-  verzuim?: string;
+  /** Verzuim hours (numeric) */
+  verzuimHours?: number;
+  /** Opmerking text — contains verzuim type indicators (Ziek, Vakantie, etc.) */
+  opmerking?: string;
+  /** Gewerkt hours */
+  gewerkt?: number;
+  /** TT gewerkt hours */
+  ttGewerkt?: number;
 };
 
 export type EmployeeData = {
   name: string;
-  category: EmployeeCategory;
+  persnr: string;
+  category: "monteur" | "detexie" | "kantoor" | "onbekend";
   days: DayData[];
 };
 
 export type ParsedHourCalculation = {
-  /** YYYY-MM — extracted from filename or sheet title */
-  period: string;
+  period: string; // YYYY-MM
   employees: EmployeeData[];
   mutaties: Record<string, unknown>[];
   storingsdienst: Record<string, unknown>[];
@@ -57,7 +52,7 @@ export type RuleType =
 
 export type FlaggedRow = {
   employeeName: string;
-  employeeCategory: EmployeeCategory;
+  employeeCategory: EmployeeData["category"];
   ruleType: RuleType;
   severity: "review" | "warning" | "info";
   dayDate: string | null;
