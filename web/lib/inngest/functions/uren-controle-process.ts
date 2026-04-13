@@ -1,5 +1,8 @@
 import { inngest } from "../client";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { parseHourCalculationExcel } from "@/lib/automations/uren-controle/excel-parser";
+import { runAllRules, isSuppressed } from "@/lib/automations/uren-controle/rules";
+import { loadKnownExceptions } from "@/lib/automations/uren-controle/known-exceptions";
 
 const AUTOMATION_NAME = "uren-controle";
 const STORAGE_BUCKET = "automation-files";
@@ -79,18 +82,66 @@ export const processUrenControle = inngest.createFunction(
       return data.id as string;
     });
 
-    // Step 3: Parse Excel and run rules
-    // TODO (Task 2): Wire parseHourCalculationExcel + runAllRules here.
-    // For now, placeholder that marks run as completed with 0 flags.
+    // Step 3: Parse Excel and run detection rules
     const { flaggedCount } = await step.run("parse-and-flag", async () => {
       const admin = createAdminClient();
+
+      // Download from Storage (file was already uploaded in decode-upload step)
+      const { data: fileData, error: dlError } = await admin.storage
+        .from(STORAGE_BUCKET)
+        .download(fileRef.storagePath);
+
+      if (dlError || !fileData) {
+        throw new Error(`Storage download failed: ${dlError?.message}`);
+      }
+
+      const buffer = Buffer.from(await fileData.arrayBuffer());
+
+      // Parse Excel
+      const parsed = await parseHourCalculationExcel(buffer);
       await admin
         .from("uren_controle_runs")
-        .update({ status: "rules_running" })
+        .update({
+          parsed_employee_count: parsed.employees.length,
+          status: "rules_running",
+        })
         .eq("id", runId);
 
-      // TODO: parse Excel, run rules, insert flagged rows
-      return { flaggedCount: 0 };
+      // Load known exceptions
+      const exceptions = await loadKnownExceptions();
+
+      // Run detection rules
+      const flags = runAllRules(parsed, exceptions);
+
+      // Insert flagged rows (include suppressed_by_exception boolean)
+      const rows = flags.map((f) => ({
+        run_id: runId,
+        employee_name: f.employeeName,
+        employee_category: f.employeeCategory,
+        rule_type: f.ruleType,
+        severity: f.severity,
+        day_date: f.dayDate,
+        week_number: f.weekNumber,
+        raw_values: f.rawValues,
+        description: f.description,
+        suppressed_by_exception: isSuppressed(f, exceptions),
+      }));
+
+      if (rows.length) {
+        const { error: insertError } = await admin
+          .from("uren_controle_flagged_rows")
+          .insert(rows);
+        if (insertError) {
+          throw new Error(`Flagged rows insert failed: ${insertError.message}`);
+        }
+      }
+
+      await admin
+        .from("uren_controle_runs")
+        .update({ flagged_count: rows.length })
+        .eq("id", runId);
+
+      return { flaggedCount: rows.length };
     });
 
     // Step 4: Log success
