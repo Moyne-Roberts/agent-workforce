@@ -93,6 +93,35 @@ exceljs gekozen boven xlsx/sheetjs:
 - Actief onderhouden
 - Geen licensing complicaties (sheetjs CE heeft beperkingen)
 
+## Dashboard
+
+**Route:** `/automations/uren-controle` (achter Supabase auth via `(dashboard)` layout)
+
+De dashboard pagina toont:
+1. **Environment banner** bovenaan (oranje voor acceptance, rood voor production)
+2. **Run metadata** — filename, periode, aantal issues, aantal te beoordelen
+3. **Flagged rijen** gegroepeerd per medewerker, met:
+   - Rule type badge + severity
+   - Datum en weeknummer
+   - Beschrijving van het issue
+   - Expandeerbare ruwe waarden
+   - Accept/Reject actieknoppen (client component)
+4. **Suppressed rijen** (known exceptions) in grijs/doorgestreept
+5. **Reviewed rijen** met beslissing badge + reviewer + reden
+
+### Running the automation
+
+1. **Test via fixture:**
+   ```bash
+   B64=$(base64 -i web/lib/automations/uren-controle/__fixtures__/sample.xlsx)
+   curl -X POST http://localhost:3000/api/automations/uren-controle \
+     -H "x-automation-secret: $AUTOMATION_WEBHOOK_SECRET" \
+     -H "Content-Type: application/json" \
+     -d "{\"filename\":\"sample.xlsx\",\"contentBase64\":\"$B64\"}"
+   ```
+2. **Check Inngest dashboard:** http://localhost:8288
+3. **View results:** http://localhost:3000/automations/uren-controle
+
 ## Known limitations (v1)
 - `detectVerzuimBcsDuplicate` gebruikt een heuristiek: check `opmerking` tekst op trefwoorden (ziek + verlof/vakantie). Als de echte BCS duplicate signature in productie afwijkt, is dit een v2 refinement.
 - Geen weekend flips gedetecteerd in het huidige sample bestand (alle medewerkers werken niet op zaterdag). Regel is geimplementeerd maar ongetest op productie-data.
