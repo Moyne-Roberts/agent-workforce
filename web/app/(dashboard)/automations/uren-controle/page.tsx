@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { FlaggedRow } from "./flagged-row";
+import { UploadForm } from "./upload-form";
 
 export default async function UrenControlePage() {
   const supabase = await createClient();
@@ -15,12 +16,13 @@ export default async function UrenControlePage() {
 
   if (!latestRun) {
     return (
-      <div className="p-8">
+      <div className="p-8 space-y-6">
         <h1 className="text-2xl font-bold">Uren Controle</h1>
-        <p className="mt-4 text-muted-foreground">
-          Nog geen runs voltooid. Upload een Hour Calculation Excel via de Zapier
-          webhook of test handmatig via de API.
+        <p className="text-muted-foreground">
+          Nog geen runs voltooid. Upload een Hour Calculation Excel hieronder om
+          te starten.
         </p>
+        <UploadForm />
       </div>
     );
   }
@@ -64,6 +66,8 @@ export default async function UrenControlePage() {
 
   return (
     <div className="p-8 space-y-6">
+      <UploadForm />
+
       <div
         className={`border-l-4 p-3 rounded ${bannerClasses}`}
         role="status"
