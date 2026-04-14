@@ -99,7 +99,7 @@ None yet.
 | # | Description | Date | Commit | Status | Directory |
 |---|-------------|------|--------|--------|-----------|
 | 260330-j8a | Test environment credential management pattern for automations | 2026-03-30 | bdd23da | Verified | [260330-j8a-test-environment-credential-management-p](./quick/260330-j8a-test-environment-credential-management-p/) |
-| 260413-ea1 | Uren controle: Zapier trigger + Inngest pipeline + 4 rules + review dashboard | 2026-04-13 | 3870b45, ae28f29, 8d70bd3 | Complete | [260413-ea1-uren-controle-maandelijkse-automatische-](./quick/260413-ea1-uren-controle-maandelijkse-automatische-/) |
+| 260413-ea1 | Uren controle: Zapier trigger + Inngest pipeline + 4 rules + review dashboard | 2026-04-13 | 3870b45, ae28f29, 8d70bd3 | Verified | [260413-ea1-uren-controle-maandelijkse-automatische-](./quick/260413-ea1-uren-controle-maandelijkse-automatische-/) |
 
 ### Additional Decisions (Plan 45-02)
 
