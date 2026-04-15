@@ -1,2 +1,2 @@
-export { categorizeEmail, archiveEmail, deleteEmail } from "./client";
+export { categorizeEmail, archiveEmail } from "./client";
 export type { OutlookActionResult } from "./client";

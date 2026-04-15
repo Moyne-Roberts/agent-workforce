@@ -8,19 +8,14 @@ const OUTLOOK_CONNECTION_ID = "56014785";
 /**
  * Create Zapier SDK instance.
  * Locally: uses keychain auth (via `npx zapier-sdk login`)
- * Server: uses client credentials from env vars
+ * Server (Vercel): auto-detects ZAPIER_CREDENTIALS_CLIENT_ID and
+ * ZAPIER_CREDENTIALS_CLIENT_SECRET env vars.
+ * Generate with: npx zapier-sdk create-client-credentials "agent-workforce-vercel"
  */
 function getZapierClient() {
-  return createZapierSdk(
-    process.env.ZAPIER_CLIENT_ID
-      ? {
-          credentials: {
-            clientId: process.env.ZAPIER_CLIENT_ID,
-            clientSecret: process.env.ZAPIER_CLIENT_SECRET!,
-          },
-        }
-      : undefined
-  );
+  // SDK auto-detects env vars: ZAPIER_CREDENTIALS_CLIENT_ID, ZAPIER_CREDENTIALS_CLIENT_SECRET
+  // Falls back to keychain auth when env vars are not set
+  return createZapierSdk();
 }
 
 /**
@@ -108,26 +103,6 @@ export async function archiveEmail(
   if (!res.ok) {
     const err = await res.text();
     return { success: false, error: `Failed to archive: ${res.status} ${err}` };
-  }
-
-  return { success: true };
-}
-
-/**
- * Delete an email by moving it to Deleted Items.
- * Uses soft delete (move to trash), not hard delete.
- */
-export async function deleteEmail(
-  mailbox: string,
-  messageId: string,
-): Promise<OutlookActionResult> {
-  const res = await graphFetch(`/users/${mailbox}/messages/${messageId}`, {
-    method: "DELETE",
-  });
-
-  if (!res.ok) {
-    const err = await res.text();
-    return { success: false, error: `Failed to delete: ${res.status} ${err}` };
   }
 
   return { success: true };
