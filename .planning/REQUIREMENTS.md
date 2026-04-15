@@ -15,10 +15,10 @@ Requirements for V7.0 Agent OS milestone. Each maps to roadmap phases.
 
 ### Design System
 
-- [ ] **DS-01**: App uses Satoshi Variable (body) and Cabinet Grotesk Variable (headings) fonts loaded via next/font/local
-- [ ] **DS-02**: User can toggle between dark and light theme with persistent preference (no flash on page load)
-- [ ] **DS-03**: New design tokens use parallel namespace (--v7-*) that coexists with existing shadcn tokens
-- [ ] **DS-04**: Glassmorphism styling (backdrop-blur, semi-transparent panels, subtle borders) applied to all V7 components
+- [x] **DS-01**: App uses Satoshi Variable (body) and Cabinet Grotesk Variable (headings) fonts loaded via next/font/local
+- [x] **DS-02**: User can toggle between dark and light theme with persistent preference (no flash on page load)
+- [x] **DS-03**: New design tokens use parallel namespace (--v7-*) that coexists with existing shadcn tokens
+- [x] **DS-04**: Glassmorphism styling (backdrop-blur, semi-transparent panels, subtle borders) applied to all V7 components
 
 ### Navigation
 
@@ -123,10 +123,10 @@ Which phases cover which requirements. Updated during roadmap creation.
 | AUTH-01 | Phase 48 | Pending |
 | AUTH-02 | Phase 48 | Pending |
 | AUTH-03 | Phase 48 | Pending |
-| DS-01 | Phase 48 | Pending |
-| DS-02 | Phase 48 | Pending |
-| DS-03 | Phase 48 | Pending |
-| DS-04 | Phase 48 | Pending |
+| DS-01 | Phase 48 | Complete |
+| DS-02 | Phase 48 | Complete |
+| DS-03 | Phase 48 | Complete |
+| DS-04 | Phase 48 | Complete |
 | RT-02 | Phase 48 | Complete |
 | RT-03 | Phase 48 | Complete |
 | RT-04 | Phase 48 | Complete |
