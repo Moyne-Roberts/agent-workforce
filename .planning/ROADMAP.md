@@ -424,7 +424,7 @@ Plans:
 
 Plans:
 - [ ] 48-01-PLAN.md — V7 design system (fonts, theme toggle, tokens, GlassCard)
-- [ ] 48-02-PLAN.md — Database migrations (agent_events, swarm_jobs, swarm_agents, swarm_briefings)
+- [x] 48-02-PLAN.md — Database migrations (agent_events, swarm_jobs, swarm_agents, swarm_briefings)
 - [ ] 48-03-PLAN.md — Azure AD OAuth SSO with access-pending gate
 
 ### Phase 49: Navigation & Realtime
@@ -544,7 +544,7 @@ V7.0: 48 -> 49 -> 50 -> 51 -> 52 -> 53 -> 54
 | 45. Executive Dashboard | V6.0 | 3/3 | Complete | 2026-03-30 |
 | 46. Status Monitoring & O365 SSO | V6.0 | 0/TBD | Not started | - |
 | 47. UI Redesign & Polish | V6.0 | 0/TBD | Not started | - |
-| 48. Foundation | V7.0 | 0/TBD | Not started | - |
+| 48. Foundation | V7.0 | 1/3 | In Progress|  |
 | 49. Navigation & Realtime | V7.0 | 0/TBD | Not started | - |
 | 50. Data Pipeline | V7.0 | 0/TBD | Not started | - |
 | 51. Hero Components | V7.0 | 0/TBD | Not started | - |

@@ -30,9 +30,9 @@ Requirements for V7.0 Agent OS milestone. Each maps to roadmap phases.
 ### Real-Time Infrastructure
 
 - [ ] **RT-01**: Swarm view maintains a single Supabase Realtime subscription per swarm that distributes events to all child components
-- [ ] **RT-02**: New agent_events Supabase table captures all agent execution events (thinking, tool_call, waiting, done)
-- [ ] **RT-03**: New swarm_jobs table tracks job lifecycle across Kanban stages (backlog, ready, progress, review, done)
-- [ ] **RT-04**: New swarm_agents table registers agents per swarm with status, metrics, and skills
+- [x] **RT-02**: New agent_events Supabase table captures all agent execution events (thinking, tool_call, waiting, done)
+- [x] **RT-03**: New swarm_jobs table tracks job lifecycle across Kanban stages (backlog, ready, progress, review, done)
+- [x] **RT-04**: New swarm_agents table registers agents per swarm with status, metrics, and skills
 
 ### Data Pipeline
 
@@ -127,9 +127,9 @@ Which phases cover which requirements. Updated during roadmap creation.
 | DS-02 | Phase 48 | Pending |
 | DS-03 | Phase 48 | Pending |
 | DS-04 | Phase 48 | Pending |
-| RT-02 | Phase 48 | Pending |
-| RT-03 | Phase 48 | Pending |
-| RT-04 | Phase 48 | Pending |
+| RT-02 | Phase 48 | Complete |
+| RT-03 | Phase 48 | Complete |
+| RT-04 | Phase 48 | Complete |
 | NAV-01 | Phase 49 | Pending |
 | NAV-02 | Phase 49 | Pending |
 | NAV-03 | Phase 49 | Pending |
