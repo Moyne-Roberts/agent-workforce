@@ -1,9 +1,9 @@
-import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { FlaggedRow } from "./flagged-row";
 import { UploadForm } from "./upload-form";
 
 export default async function UrenControlePage() {
-  const supabase = await createClient();
+  const supabase = createAdminClient();
 
   // Latest completed run — include environment
   const { data: latestRun } = await supabase

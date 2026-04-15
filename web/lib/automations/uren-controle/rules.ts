@@ -23,8 +23,9 @@ function timeToMinutes(time: string | undefined): number | null {
 
 /**
  * Detect T&T vs urenbriefje mismatch.
- * Compares i* (T&T) columns with u* (urenbriefje) columns.
- * Flags if any pair differs by more than the threshold.
+ * T&T is the leading source. When T&T shows an error, the urenbriefje can
+ * be used to resolve it. Only flag when BOTH have values but diverge significantly.
+ * If urenbriefje is empty (all 00:00 or missing), skip — nothing to compare against.
  * Kantoor employees are excluded (no T&T).
  */
 export function detectTnTMismatch(
@@ -43,6 +44,14 @@ export function detectTnTMismatch(
     { iKey: "iew", uKey: "uew", label: "einde werk" },
     { iKey: "ier", uKey: "uer", label: "einde rit" },
   ];
+
+  // Skip if urenbriefje is entirely empty — can't use for correction
+  const uVals = [day.uar, day.uaw, day.uew, day.uer];
+  const uAllEmpty = uVals.every((v) => {
+    const m = timeToMinutes(v);
+    return m === null || m === 0;
+  });
+  if (uAllEmpty) return null;
 
   let maxDiff = 0;
   const diffs: Record<string, number> = {};
@@ -90,32 +99,39 @@ export function detectTnTMismatch(
 }
 
 /**
- * Detect verschil column outliers.
- * Flags if the absolute verschil exceeds the threshold.
- * Kantoor employees are excluded.
+ * Detect dagelijks positief verschil-overschrijding.
+ * Flaggt alleen als het verschil op een dag > +2 uur is (positief = meer dan verwacht).
+ * Negatief verschil wordt niet geflagd.
+ * Kantoor employees zijn uitgesloten.
  */
 export function detectVerschilOutlier(
-  day: DayData,
   employee: EmployeeData,
-): FlaggedRow | null {
-  if (employee.category === "kantoor") return null;
-  if (day.verschil === undefined || day.verschil === null) return null;
-  if (Math.abs(day.verschil) <= VERSCHIL_OUTLIER_HOURS_THRESHOLD) return null;
+): FlaggedRow[] {
+  if (employee.category === "kantoor") return [];
 
-  return {
-    employeeName: employee.name,
-    employeeCategory: employee.category,
-    ruleType: "verschil_outlier",
-    severity: day.verschil > 0 ? "review" : "warning",
-    dayDate: day.date,
-    weekNumber: getWeekNumber(day.date),
-    rawValues: {
-      verschil: day.verschil,
-      gewerkt: day.gewerkt,
-      ttGewerkt: day.ttGewerkt,
-    },
-    description: `Verschil van ${day.verschil} uur op ${day.date} (drempel: ±${VERSCHIL_OUTLIER_HOURS_THRESHOLD} uur).`,
-  };
+  const flags: FlaggedRow[] = [];
+
+  for (const day of employee.days) {
+    if (day.verschil === undefined || day.verschil === null) continue;
+    if (day.verschil <= VERSCHIL_OUTLIER_HOURS_THRESHOLD) continue;
+
+    flags.push({
+      employeeName: employee.name,
+      employeeCategory: employee.category,
+      ruleType: "verschil_outlier",
+      severity: "review",
+      dayDate: day.date,
+      weekNumber: getWeekNumber(day.date),
+      rawValues: {
+        verschil: day.verschil,
+        gewerkt: day.gewerkt,
+        ttGewerkt: day.ttGewerkt,
+      },
+      description: `Verschil van +${day.verschil} uur op ${day.date} (drempel: +${VERSCHIL_OUTLIER_HOURS_THRESHOLD} uur).`,
+    });
+  }
+
+  return flags;
 }
 
 /**
@@ -230,11 +246,9 @@ export function runAllRules(
     for (const day of emp.days) {
       const tnt = detectTnTMismatch(day, emp);
       if (tnt) flags.push(tnt);
-
-      const outlier = detectVerschilOutlier(day, emp);
-      if (outlier) flags.push(outlier);
     }
 
+    flags.push(...detectVerschilOutlier(emp));
     flags.push(...detectWeekendFlip(emp));
     flags.push(...detectVerzuimBcsDuplicate(emp));
   }
