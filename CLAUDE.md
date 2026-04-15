@@ -394,10 +394,36 @@ const browser = await chromium.connectOverCDP(wsEndpoint, { timeout: 30_000 });
 5. **3-4 fallback models configureren** — `anthropic/claude-sonnet-4-6` primary
 6. **XML-tagged prompts** — `<role>`, `<task>`, `<constraints>`, `<output_format>`
 7. **45 seconden client timeout** — Orq.ai retry is 31s intern
-8. **Knowledge bases apart vullen** — aanmaken ≠ vullen
+8. **Knowledge bases in Supabase, NIET in Orq.ai** — zie "Knowledge Base Patroon" hieronder
 9. **`user_id` in metadata** — voor cost tracking
 
 **Volledige referentie:** `docs/orqai-patterns.md`
+
+### Knowledge Base Patroon
+
+**Regel: Knowledge bases ALTIJD in Supabase bouwen, NOOIT in Orq.ai of andere externe AI platforms.**
+
+Orq.ai (en andere AI platforms) bieden ingebouwde KB features, maar data zit dan opgesloten in een extern systeem — moeilijk te queryen, inspecteren en onderhouden. Supabase is onze single source of truth.
+
+**Architectuur:**
+```
+Supabase Storage        → PDF/Word/documenten opslag
+Supabase tabel          → Geëxtraheerde tekst + metadata
+pgvector extensie       → Embeddings voor semantic search
+Supabase API            → Tool voor Orq.ai agents om KB te raadplegen
+```
+
+**Voordelen:**
+- Volledige controle over data — geen vendor lock-in
+- SQL queryable — makkelijk te inspecteren en debuggen
+- Makkelijk te onderhouden — nieuwe bronnen = nieuwe rijen/bestanden
+- Schaalbaar met organisatie-documenten (productcatalogi, procedures, tarieven)
+- Orq.ai agents raadplegen Supabase als tool via API call
+
+**Wanneer een KB nodig is:**
+- Agent swarms die domeinkennis nodig hebben (sales emails beantwoorden, klantvragen, etc.)
+- Eerst trainingsdata verzamelen (emails, analyses), dan KB vullen
+- Aanvullen met organisatie-documenten (PDF/Word) via Supabase Storage
 
 ### ElevenLabs
 
