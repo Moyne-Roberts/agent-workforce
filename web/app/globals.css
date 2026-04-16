@@ -343,13 +343,18 @@
   border-radius: var(--v7-radius-sm);
   background: linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0.01));
   border: 1px solid var(--v7-line);
-  overflow: hidden;
+  /* Tooltips above bars need to escape the grid vertically. */
+  overflow: visible;
 }
 .v7-swimlane-grid::before {
   content: '';
   position: absolute;
   inset: 0;
   left: 92px;
+  /* Clip the stripe pattern to the grid's rounded rect so it doesn't
+     spill past the corners now that the parent is overflow: visible. */
+  border-radius: 0 var(--v7-radius-sm) var(--v7-radius-sm) 0;
+  overflow: hidden;
   background: linear-gradient(
     90deg,
     transparent 0 16.6%,

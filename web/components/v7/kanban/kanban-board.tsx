@@ -37,6 +37,7 @@ import { toast } from "sonner";
 import { GlassCard } from "@/components/ui/glass-card";
 import { KanbanColumn } from "@/components/v7/kanban/kanban-column";
 import { KanbanJobCard } from "@/components/v7/kanban/kanban-job-card";
+import { KanbanFilterBar } from "@/components/v7/kanban/kanban-filter-bar";
 import { moveJob } from "@/lib/v7/kanban/actions";
 import { KANBAN_STAGES, isKanbanStage } from "@/lib/v7/kanban/stages";
 import { getFilterPredicate } from "@/lib/v7/kanban/filters";
@@ -193,7 +194,7 @@ export function KanbanBoard({ swarmId: _swarmId }: KanbanBoardProps) {
 
   return (
     <GlassCard className="p-[18px] flex flex-col gap-[14px] min-h-[280px]">
-      <header className="flex justify-between items-start gap-3">
+      <header className="flex justify-between items-start gap-3 flex-wrap">
         <div className="flex flex-col gap-2">
           <span className="inline-flex items-center gap-2 text-[12px] leading-[1.3] tracking-[0.1em] uppercase text-[var(--v7-faint)]">
             Job board
@@ -207,6 +208,7 @@ export function KanbanBoard({ swarmId: _swarmId }: KanbanBoardProps) {
           {filter ? " (filtered)" : " total"}
         </span>
       </header>
+      <KanbanFilterBar />
 
       <DndContext
         sensors={sensors}

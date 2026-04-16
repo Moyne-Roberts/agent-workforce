@@ -20,7 +20,6 @@ import type {
 } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/client";
 import { SwarmListItem } from "@/components/v7/swarm-list-item";
-import { SidebarSmartFilters } from "@/components/v7/sidebar-smart-filters";
 import {
   ACTIVE_JOB_STAGES,
   type SwarmAgentRow,
@@ -192,8 +191,6 @@ export function SwarmSidebar({
           </nav>
         )}
       </div>
-
-      <SidebarSmartFilters />
 
       <div className="flex flex-col gap-1 text-[12px] leading-[1.3] text-[var(--v7-faint)]">
         <span>{activeSwarmCount} active swarms</span>
