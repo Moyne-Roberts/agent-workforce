@@ -7,6 +7,7 @@ import { scrapeZapierAnalytics } from "@/lib/inngest/functions/zapier-scraper";
 import { processProliusReport } from "@/lib/inngest/functions/prolius-report";
 import { aggregateDashboard } from "@/lib/inngest/functions/dashboard-aggregator";
 import { syncOrqaiTraces } from "@/lib/inngest/functions/orqai-trace-sync";
+import { refreshBriefings } from "@/lib/inngest/functions/briefing-refresh";
 
 export const { GET, POST, PUT } = serve({
   client: inngest,
@@ -18,5 +19,6 @@ export const { GET, POST, PUT } = serve({
     processProliusReport,
     aggregateDashboard,
     syncOrqaiTraces,
+    refreshBriefings,
   ],
 });
