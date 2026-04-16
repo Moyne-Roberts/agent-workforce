@@ -289,14 +289,36 @@ async function main() {
     process.exit(1);
   }
 
-  // 4. Embed in batches
+  // 3b. Welke source_keys staan al in de DB? Die hoeven niet opnieuw geëmbedt.
+  console.log("\n  Checking existing chunks in DB...");
+  const existingKeys = new Set<string>();
+  let ekOffset = 0;
+  while (true) {
+    const { data } = await sales
+      .from("kb_chunks")
+      .select("source_key")
+      .range(ekOffset, ekOffset + 999);
+    if (!data || data.length === 0) break;
+    data.forEach((r: { source_key: string }) => existingKeys.add(r.source_key));
+    if (data.length < 1000) break;
+    ekOffset += 1000;
+  }
+  const todo = chunks.filter((c) => !existingKeys.has(c.source_key));
+  console.log(`  Al in DB: ${existingKeys.size} — Nog te embedden: ${todo.length}`);
+
+  if (todo.length === 0) {
+    console.log("\n✓ Alles al in DB. Niets te doen.");
+    return;
+  }
+
+  // 4. Embed in batches (alleen nieuwe chunks)
   console.log("\n[4/5] Generating embeddings via OpenAI...");
 
   const embedded: (Chunk & { embedding: number[] })[] = [];
   let done = 0;
 
-  for (let i = 0; i < chunks.length; i += EMBED_BATCH_SIZE) {
-    const batch = chunks.slice(i, i + EMBED_BATCH_SIZE);
+  for (let i = 0; i < todo.length; i += EMBED_BATCH_SIZE) {
+    const batch = todo.slice(i, i + EMBED_BATCH_SIZE);
     let embeddings: number[][];
 
     try {
@@ -313,14 +335,14 @@ async function main() {
     }
 
     done += batch.length;
-    process.stdout.write(`\r  ${done}/${chunks.length} embedded...`);
+    process.stdout.write(`\r  ${done}/${todo.length} embedded...`);
 
     // Gentle rate-limit pause (text-embedding-3-small: 3000 RPM on Tier 1)
-    if (i + EMBED_BATCH_SIZE < chunks.length) {
+    if (i + EMBED_BATCH_SIZE < todo.length) {
       await new Promise((r) => setTimeout(r, 100));
     }
   }
-  console.log(`\r  ${done}/${chunks.length} embedded ✓`);
+  console.log(`\r  ${done}/${todo.length} embedded ✓`);
 
   // 5. Upsert to Supabase
   console.log("\n[5/5] Upserting to sales.kb_chunks...");
