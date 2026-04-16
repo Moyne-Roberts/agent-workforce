@@ -169,15 +169,25 @@ async function invokeBriefingAgent(
   const apiKey = process.env.ORQ_API_KEY;
   if (!apiKey) return null;
 
+  // Agents are invoked via the A2A-style /responses endpoint.
+  // Agent instructions + system prompt are configured server-side on the agent;
+  // we only send the user message here (the agent's own instructions take care
+  // of role, constraints, and output format).
   const body = {
-    messages: [
-      { role: "system", content: BRIEFING_SYSTEM_PROMPT },
-      { role: "user", content: buildBriefingUserMessage(input) },
-    ],
+    message: {
+      role: "user",
+      parts: [
+        {
+          kind: "text",
+          text: buildBriefingUserMessage(input),
+        },
+      ],
+    },
+    configuration: { blocking: true },
   };
 
   const res = await fetch(
-    `${ORQAI_INVOKE_ENDPOINT}/swarm-briefing-agent/invoke`,
+    `${ORQAI_INVOKE_ENDPOINT}/swarm-briefing-agent/responses`,
     {
       method: "POST",
       headers: {
@@ -190,33 +200,41 @@ async function invokeBriefingAgent(
   );
 
   if (!res.ok) {
-    throw new Error(`Orq.ai invoke failed: ${res.status} ${res.statusText}`);
+    const errText = await res.text().catch(() => "");
+    throw new Error(
+      `Orq.ai invoke failed: ${res.status} ${res.statusText}${errText ? ` -- ${errText.slice(0, 200)}` : ""}`
+    );
   }
 
   const json = (await res.json()) as {
-    output?: string;
-    message?: { content?: string };
-    choices?: Array<{ message?: { content?: string } }>;
+    output?: Array<{
+      role?: string;
+      parts?: Array<{ kind?: string; text?: string }>;
+    }>;
   };
 
-  const raw =
-    json.output ??
-    json.message?.content ??
-    json.choices?.[0]?.message?.content ??
-    "";
+  // Response shape: output[0].parts[0].text is the agent's reply (A2A format)
+  const raw = json.output?.[0]?.parts?.[0]?.text ?? "";
 
   if (!raw) {
     throw new Error("Orq.ai invoke returned empty output");
   }
 
-  const validated = briefingOutputSchema.safeParse(JSON.parse(raw));
+  // Strip optional markdown code fences (```json ... ```) that the agent
+  // sometimes wraps output in, then parse.
+  const stripped = raw
+    .trim()
+    .replace(/^```(?:json)?\s*/i, "")
+    .replace(/\s*```$/i, "");
+
+  const validated = briefingOutputSchema.safeParse(JSON.parse(stripped));
   if (!validated.success) {
     const err = new Error(`Zod validation failed: ${validated.error.message}`);
     (err as { raw?: string }).raw = raw;
     throw err;
   }
 
-  return { raw, validated: validated.data };
+  return { raw: stripped, validated: validated.data };
 }
 
 /**

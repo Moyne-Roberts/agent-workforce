@@ -7,14 +7,26 @@
 
 import { z } from "zod";
 
-export const briefingAlertSchema = z.object({
-  severity: z.enum(["info", "warn", "critical"]),
-  message: z.string().min(1),
-});
+// Accepts either `severity` or `level` from the model (some generations use
+// the OpenAI-ish "level" terminology). Always exposes `severity` downstream.
+export const briefingAlertSchema = z
+  .object({
+    severity: z.enum(["info", "warn", "critical"]).optional(),
+    level: z.enum(["info", "warn", "critical"]).optional(),
+    message: z.string().min(1),
+  })
+  .transform((raw) => ({
+    severity: (raw.severity ?? raw.level ?? "info") as
+      | "info"
+      | "warn"
+      | "critical",
+    message: raw.message,
+  }));
 
+// `rationale` is frequently omitted by the model; treat as optional.
 export const briefingActionSchema = z.object({
   action: z.string().min(1),
-  rationale: z.string().min(1),
+  rationale: z.string().min(1).optional(),
 });
 
 export const briefingOutputSchema = z.object({
