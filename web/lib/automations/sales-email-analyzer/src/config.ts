@@ -5,8 +5,9 @@ dotenv();
 
 export const config = {
   supabase: {
-    url: process.env.SUPABASE_URL!,
-    serviceKey: process.env.SUPABASE_SERVICE_KEY!,
+    // Vercel CLI pulls as NEXT_PUBLIC_SUPABASE_URL; support both naming conventions
+    url: (process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL)!,
+    serviceKey: (process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY)!,
   },
   orq: {
     apiKey: process.env.ORQ_API_KEY!,
