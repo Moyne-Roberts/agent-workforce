@@ -14,6 +14,7 @@ import { BriefingPanel } from "@/components/v7/briefing/briefing-panel";
 import { SubagentFleet } from "@/components/v7/fleet/subagent-fleet";
 import { AgentDetailDrawer } from "@/components/v7/drawer/agent-detail-drawer";
 import { TerminalStream } from "@/components/v7/terminal/terminal-stream";
+import { KanbanBoard } from "@/components/v7/kanban/kanban-board";
 import {
   DrawerProvider,
   useDrawer,
@@ -103,11 +104,7 @@ function ShellBody({
         </section>
 
         <section className="grid grid-cols-1 gap-5 lg:grid-cols-[1.2fr_0.8fr]">
-          <PlaceholderRegion
-            heading="Kanban"
-            caption="Job board \u2014 Phase 52"
-            className="min-h-[280px]"
-          />
+          <KanbanBoard swarmId={swarmId} />
           <TerminalStream swarmId={swarmId} />
         </section>
       </div>
