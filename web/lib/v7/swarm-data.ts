@@ -8,33 +8,24 @@
  */
 
 import { createClient } from "@/lib/supabase/server";
+import {
+  ACTIVE_JOB_STAGES,
+  type SwarmAgentRow,
+  type SwarmJobRow,
+  type SwarmSidebarData,
+  type SwarmWithCounts,
+} from "@/lib/v7/sidebar-types";
 
-export const ACTIVE_JOB_STAGES = ["ready", "progress", "review"] as const;
-
-export interface SwarmWithCounts {
-  id: string;
-  name: string;
-  description: string | null;
-  activeJobs: number;
-  agentCount: number;
-}
-
-export interface SwarmJobRow {
-  id: string;
-  swarm_id: string;
-  stage: string;
-}
-
-export interface SwarmAgentRow {
-  id: string;
-  swarm_id: string;
-}
-
-export interface SwarmSidebarData {
-  swarms: SwarmWithCounts[];
-  initialJobs: SwarmJobRow[];
-  initialAgents: SwarmAgentRow[];
-}
+// Re-export so existing imports from "@/lib/v7/swarm-data" keep working
+// from server-only call sites. New client code should import from
+// "@/lib/v7/sidebar-types" directly.
+export {
+  ACTIVE_JOB_STAGES,
+  type SwarmAgentRow,
+  type SwarmJobRow,
+  type SwarmSidebarData,
+  type SwarmWithCounts,
+};
 
 /**
  * Fetches the user's swarms (via RLS on projects + project_members) and
