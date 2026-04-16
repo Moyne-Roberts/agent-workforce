@@ -130,10 +130,10 @@ Which phases cover which requirements. Updated during roadmap creation.
 | RT-02 | Phase 48 | Complete |
 | RT-03 | Phase 48 | Complete |
 | RT-04 | Phase 48 | Complete |
-| NAV-01 | Phase 49 | Pending |
-| NAV-02 | Phase 49 | Pending |
-| NAV-03 | Phase 49 | Pending |
-| RT-01 | Phase 49 | Pending |
+| NAV-01 | Phase 49 | Complete |
+| NAV-02 | Phase 49 | Complete |
+| NAV-03 | Phase 49 | Complete |
+| RT-01 | Phase 49 | Complete |
 | DATA-01 | Phase 50 | Pending |
 | DATA-02 | Phase 50 | Pending |
 | DATA-03 | Phase 50 | Pending |
