@@ -153,7 +153,7 @@ Plans:
 - [x] **Phase 48: Foundation** - Design system (Satoshi + Cabinet Grotesk, glassmorphism tokens, dark/light toggle), new Supabase tables (agent_events, swarm_jobs, swarm_agents), Azure AD OAuth SSO with account linking (code-complete 2026-04-16; SSO human-verify deferred pending Azure AD tenant)
 - [x] **Phase 49: Navigation & Realtime** - Sidebar with dynamic swarm list, /swarm/[swarmId] routing, single Realtime subscription per swarm view, useRealtimeTable hook (code-complete 2026-04-16; browser-based navigation + channel teardown verification deferred)
 - [x] **Phase 50: Data Pipeline** - Inngest orqai-trace-sync cron, Orq.ai trace-to-agent_events mapping, Supabase caching layer, rate limit handling (code-complete 2026-04-16; migration apply + end-to-end verify deferred pending Management API token)
-- [ ] **Phase 51: Hero Components** - Subagent fleet cards with state badges and metrics, AI narrative briefing panel with Orq.ai Briefing Agent, agent detail drawer with communication timeline
+- [x] **Phase 51: Hero Components** - Subagent fleet cards with state badges and metrics, AI narrative briefing panel with Orq.ai Briefing Agent, agent detail drawer with communication timeline (code-complete 2026-04-16; browser verification deferred pending fixture apply + ORQ_API_KEY runtime)
 - [ ] **Phase 52: Live Interactivity** - Claude-style terminal event stream with ring buffer, 5-column Kanban board with dnd-kit drag-and-drop, smart sidebar filters
 - [ ] **Phase 53: Advanced Observability** - Live delegation graph with CSS-animated particles, Gantt-style swimlane timeline per agent
 - [ ] **Phase 54: Polish** - Migrate executive dashboard, projects page, and settings page to V7 design tokens
@@ -468,9 +468,9 @@ Plans:
 **Plans**: TBD
 
 Plans:
-- [ ] 51-01: TBD
-- [ ] 51-02: TBD
-- [ ] 51-03: TBD
+- [x] 51-01: Fleet cards (SubagentFleet + SubagentFleetCard + AgentStateBadge)
+- [x] 51-02: AI briefing panel (Orq.ai Briefing Agent + server action + panel + 30-min cron)
+- [x] 51-03: Agent detail drawer (DrawerContext + AgentDetailDrawer via shadcn Sheet + timeline/cycle utils)
 
 ### Phase 52: Live Interactivity
 **Goal**: Users have a live scrolling event stream for real-time monitoring and a Kanban board for tracking where jobs stand in the business process, with smart filters to surface exceptions

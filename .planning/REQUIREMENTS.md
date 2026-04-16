@@ -137,17 +137,17 @@ Which phases cover which requirements. Updated during roadmap creation.
 | DATA-01 | Phase 50 | Complete (code); verify pending migration apply |
 | DATA-02 | Phase 50 | Complete (inherits Phase 48 Realtime publication) |
 | DATA-03 | Phase 50 | Complete (orqai_sync_state watermark + per-swarm isolation) |
-| FLEET-01 | Phase 51 | Pending |
-| FLEET-02 | Phase 51 | Pending |
-| FLEET-03 | Phase 51 | Pending |
-| FLEET-04 | Phase 51 | Pending |
-| BRIEF-01 | Phase 51 | Pending |
-| BRIEF-02 | Phase 51 | Pending |
-| BRIEF-03 | Phase 51 | Pending |
-| DRAW-01 | Phase 51 | Pending |
-| DRAW-02 | Phase 51 | Pending |
-| DRAW-03 | Phase 51 | Pending |
-| DRAW-04 | Phase 51 | Pending |
+| FLEET-01 | Phase 51 | Complete (code); browser verify pending fixture apply |
+| FLEET-02 | Phase 51 | Complete (code); browser verify pending fixture apply |
+| FLEET-03 | Phase 51 | Complete (code); browser verify pending fixture apply |
+| FLEET-04 | Phase 51 | Complete (code); browser verify pending fixture apply |
+| BRIEF-01 | Phase 51 | Complete (code + Orq.ai agent deployed); live invoke verify pending |
+| BRIEF-02 | Phase 51 | Complete (Inngest cron registered) |
+| BRIEF-03 | Phase 51 | Complete (code); browser verify pending fixture apply |
+| DRAW-01 | Phase 51 | Complete (code); browser verify pending fixture apply |
+| DRAW-02 | Phase 51 | Complete (code); browser verify pending fixture apply |
+| DRAW-03 | Phase 51 | Complete (code); browser verify pending fixture apply |
+| DRAW-04 | Phase 51 | Complete (code); browser verify pending fixture apply |
 | OBS-03 | Phase 52 | Pending |
 | OBS-04 | Phase 52 | Pending |
 | OBS-05 | Phase 52 | Pending |
