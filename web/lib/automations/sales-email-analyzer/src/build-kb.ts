@@ -67,8 +67,15 @@ interface Chunk {
 }
 
 // ---- Helpers ----
+// Postgres JSONB weigert null bytes (\x00) en andere control chars
+function sanitize(text: string | null): string {
+  if (!text) return "";
+  // eslint-disable-next-line no-control-regex
+  return text.replace(/\x00/g, "").replace(/[\x01-\x08\x0B\x0C\x0E-\x1F]/g, " ");
+}
+
 function extractBody(email: EmailRow): string {
-  const body = email.body_text || "";
+  const body = sanitize(email.body_text);
   return body.replace(/\s+/g, " ").trim().slice(0, MAX_BODY_CHARS);
 }
 
@@ -78,14 +85,14 @@ function formatQAPair(inbound: EmailRow, outbound: EmailRow): string {
   if (!q && !a) return "";
   return [
     `KLANT:`,
-    inbound.subject || "",
+    sanitize(inbound.subject),
     "",
     q,
     "",
     "---",
     "",
     `SMEBA:`,
-    outbound.subject || "",
+    sanitize(outbound.subject),
     "",
     a,
   ]
@@ -96,7 +103,7 @@ function formatQAPair(inbound: EmailRow, outbound: EmailRow): string {
 function formatOutbound(email: EmailRow): string {
   const body = extractBody(email);
   if (!body) return "";
-  return [`SMEBA REACTIE:`, email.subject || "", "", body].join("\n").trim();
+  return [`SMEBA REACTIE:`, sanitize(email.subject), "", body].join("\n").trim();
 }
 
 // ---- OpenAI embeddings ----
