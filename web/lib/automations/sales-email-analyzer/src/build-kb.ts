@@ -230,12 +230,12 @@ async function main() {
           metadata: {
             intent: inboundAnalysis?.email_intent ?? null,
             category: inboundAnalysis?.category ?? null,
-            customer_name: inboundAnalysis?.customer_name ?? null,
+            customer_name: sanitize(inboundAnalysis?.customer_name ?? null),
             case_number: inboundAnalysis?.case_number ?? null,
             inbound_id: inbound.id,
             outbound_id: reply.id,
             date: inbound.received_at,
-            summary: inboundAnalysis?.ai_summary ?? null,
+            summary: sanitize(inboundAnalysis?.ai_summary ?? null),
           },
         });
         pairCount++;
@@ -256,7 +256,7 @@ async function main() {
           metadata: {
             intent: analysis?.email_intent ?? null,
             category: analysis?.category ?? null,
-            customer_name: analysis?.customer_name ?? null,
+            customer_name: sanitize(analysis?.customer_name ?? null),
             outbound_id: out.id,
             date: out.received_at,
           },
@@ -371,11 +371,22 @@ async function main() {
       .upsert(batch, { onConflict: "source_key" });
 
     if (error) {
-      console.error(`\n  Upsert error at offset ${i}: ${error.message}`);
-      throw error;
+      // Batch failed — try row by row, skip problematic ones
+      let batchOk = 0;
+      for (const row of batch) {
+        const { error: rowErr } = await sales
+          .from("kb_chunks")
+          .upsert(row, { onConflict: "source_key" });
+        if (rowErr) {
+          console.error(`\n  Skipping ${row.source_key}: ${rowErr.message}`);
+        } else {
+          batchOk++;
+        }
+      }
+      upserted += batchOk;
+    } else {
+      upserted += batch.length;
     }
-
-    upserted += batch.length;
     process.stdout.write(`\r  ${upserted}/${embedded.length} upserted...`);
   }
 
