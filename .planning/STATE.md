@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v0.3
 milestone_name: milestone
 status: completed
-stopped_at: Phase 49 Navigation & Realtime complete (code-complete; browser verification deferred)
-last_updated: "2026-04-16T04:16:07.635Z"
+stopped_at: Phase 50 Data Pipeline complete (code-complete; migration apply + end-to-end verification deferred)
+last_updated: "2026-04-16T06:30:00.000Z"
 last_activity: 2026-04-16
 progress:
   total_phases: 23
@@ -21,17 +21,17 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-15)
 
 **Core value:** Any colleague can go from a use case description to deployed, tested agents on Orq.ai -- through a browser UI with real-time visibility, visual agent graphs, and in-app approvals -- without touching a terminal or needing technical knowledge.
-**Current focus:** V7.0 Agent OS -- Phase 49 Navigation & Realtime (Phase 48 code-complete, SSO human-verify deferred pending Azure AD tenant)
+**Current focus:** V7.0 Agent OS -- Phase 51 Hero Components (Phase 50 code-complete, migration apply deferred pending Management API token)
 **Previous milestones:** v0.3 shipped 2026-03-01, V2.0 shipped 2026-03-02, V2.1 shipped 2026-03-13, V3.0 in progress (91%), V4.0 partially complete, V6.0 phases 44-45 complete
 
 ## Current Position
 
-Phase: 49 of 54 (Navigation & Realtime)
-Plan: next up
-Status: Phase 48 code-complete, resuming autonomous from Phase 49
+Phase: 50 of 54 (Data Pipeline)
+Plan: 50-02 complete, Phase 51 next
+Status: Phase 50 code-complete, migration apply + end-to-end verify deferred
 Last activity: 2026-04-16
 
-Progress: [██░░░░░░░░] 14% (1 of 7 V7.0 phases)
+Progress: [████░░░░░░] 43% (3 of 7 V7.0 phases code-complete)
 
 ## Performance Metrics
 
@@ -66,12 +66,13 @@ Progress: [██░░░░░░░░] 14% (1 of 7 V7.0 phases)
 ### Blockers/Concerns
 
 - Azure AD tenant setup has organizational dependencies (IT admin access)
-- Orq.ai trace/span MCP tool names unverified -- must validate before Phase 50
-- Supabase Realtime plan limits need verification before Phase 49
+- Supabase Management API token expired -- Phase 50 migration apply blocked (seed update also needs this or Studio access)
+- Supabase Realtime plan limits need verification (carry forward from Phase 49)
 
 ### Outstanding Verification (Deferred)
 
 - **Phase 48-03 Azure AD SSO end-to-end** -- Code is in place (SSO button, access-pending page, project_members gate, middleware exemption) but human verification blocked on Azure AD tenant provisioning + Supabase Azure provider config. Full 8-step verification protocol in `.planning/phases/48-foundation/48-03-SUMMARY.md` under "Deferred: Human Verification (Task 3)". Resume signal: "SSO verified".
+- **Phase 50 Data Pipeline migration apply + end-to-end** -- Migration file written and committed (`supabase/migrations/20260416_trace_sync.sql`) but Supabase Management API token in repo is expired. User must apply via Studio SQL editor OR provide a current `sbp_*` token so the next session can run it. Then seed one `projects.orqai_project_id` on a real swarm to kick off the cron. Full protocol in `.planning/phases/50-data-pipeline/50-VERIFICATION.md` under "Deferred: Human Verification". Resume signal: "Phase 50 sync verified".
 
 ### Pending Todos
 

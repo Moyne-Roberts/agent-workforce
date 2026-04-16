@@ -134,9 +134,9 @@ Which phases cover which requirements. Updated during roadmap creation.
 | NAV-02 | Phase 49 | Complete |
 | NAV-03 | Phase 49 | Complete |
 | RT-01 | Phase 49 | Complete |
-| DATA-01 | Phase 50 | Pending |
-| DATA-02 | Phase 50 | Pending |
-| DATA-03 | Phase 50 | Pending |
+| DATA-01 | Phase 50 | Complete (code); verify pending migration apply |
+| DATA-02 | Phase 50 | Complete (inherits Phase 48 Realtime publication) |
+| DATA-03 | Phase 50 | Complete (orqai_sync_state watermark + per-swarm isolation) |
 | FLEET-01 | Phase 51 | Pending |
 | FLEET-02 | Phase 51 | Pending |
 | FLEET-03 | Phase 51 | Pending |
