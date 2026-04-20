@@ -2,21 +2,21 @@
 
 import { useState, useCallback, useRef } from "react";
 import * as XLSX from "xlsx";
-import { Upload, FileSpreadsheet, Download, Send, X, FileDown } from "lucide-react";
+import { Upload, FileSpreadsheet, Download, Send, X, FileDown, Calendar } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 
 // ─── Kolom-indices in het Data-tabblad (0-based, data begint op rij 11) ───
 const COL = {
-  FIRSTNAME: 5,   // F – UserFirstName
-  LASTNAME:  6,   // G – UserLastName
-  START:     13,  // N – TripDetailStartDateTime
-  DRIVE_DUR: 14,  // O – TripDetailDrivingDuration
-  STOP:      15,  // P – TripDetailStopDateTime
-  DISTANCE:  16,  // Q – TripDetailDistance (km)
-  STOP_DUR:  17,  // R – TripDetailStopDuration (stilstandtijd bij bestemming)
-  LOCATION:  20,  // U – TripDetailLocation (Bestemming)
+  FIRSTNAME: 5,
+  LASTNAME:  6,
+  START:     13,
+  DRIVE_DUR: 14,
+  STOP:      15,
+  DISTANCE:  16,
+  STOP_DUR:  17,
+  LOCATION:  20,
 };
 
 // ─── Hulpfuncties ─────────────────────────────────────────────────────────
@@ -41,14 +41,15 @@ function fmtTime(date: Date | null): string {
 }
 
 function fmtDate(date: Date): string {
-  return `${String(date.getDate()).padStart(2, "0")}-${String(date.getMonth() + 1).padStart(2, "0")}-${date.getFullYear()}`;
+  const days = ["zondag", "maandag", "dinsdag", "woensdag", "donderdag", "vrijdag", "zaterdag"];
+  const months = ["januari", "februari", "maart", "april", "mei", "juni", "juli", "augustus", "september", "oktober", "november", "december"];
+  return `${days[date.getDay()]} ${date.getDate()} ${months[date.getMonth()]} ${date.getFullYear()}`;
 }
 
 // ─── Types ────────────────────────────────────────────────────────────────
 
 interface SummaryRow {
   naam: string;
-  datum: string;
   datumRaw: Date;
   vertrek: string;
   aankomst1eKlant: string;
@@ -56,13 +57,14 @@ interface SummaryRow {
   aankomst: string;
   opslag: string;
   heeftOpslag: boolean;
+  werktijd: string;
+  werktijdSec: number;
   rijtijd: string;
   rijtijdSec: number;
   gemaakteUren: string;
   gemaakteUrenSec: number;
-  werktijd: string;
-  werktijdSec: number;
   afstandKm: number;
+  kmPerUur: number;
 }
 
 // ─── Excel verwerken ──────────────────────────────────────────────────────
@@ -79,11 +81,7 @@ function processExcel(file: File): Promise<SummaryRow[]> {
         if (!ws) throw new Error("Geen 'Data' tabblad gevonden in dit Excel-bestand.");
 
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const rows: any[][] = XLSX.utils.sheet_to_json(ws, {
-          header: 1,
-          raw: true,
-          defval: null,
-        });
+        const rows: any[][] = XLSX.utils.sheet_to_json(ws, { header: 1, raw: true, defval: null });
 
         const tripRows = rows.slice(11).filter((row) => row[COL.START] instanceof Date);
 
@@ -109,11 +107,10 @@ function processExcel(file: File): Promise<SummaryRow[]> {
           const vertrekLaatste = last[COL.START]  as Date;
           const aankomstThuis  = last[COL.STOP]   as Date;
 
-          let opslagSec   = 0;
-          let heeftOpslag = false;
+          let opslagSec = 0, heeftOpslag = false;
           for (const trip of trips) {
             if (String(trip[COL.LOCATION] ?? "").includes("Opslagruimte")) {
-              opslagSec   = toSeconds(trip[COL.STOP_DUR]);
+              opslagSec = toSeconds(trip[COL.STOP_DUR]);
               heeftOpslag = true;
               break;
             }
@@ -126,9 +123,13 @@ function processExcel(file: File): Promise<SummaryRow[]> {
             trips.reduce((s, t) => s + (typeof t[COL.DISTANCE] === "number" ? (t[COL.DISTANCE] as number) : 0), 0) * 10
           ) / 10;
 
+          // Gemiddelde snelheid: afstand / rijtijd in uren
+          const kmPerUur = rijtijdSec > 0
+            ? Math.round((afstandKm / (rijtijdSec / 3600)) * 10) / 10
+            : 0;
+
           results.push({
             naam: `${first[COL.FIRSTNAME]} ${first[COL.LASTNAME]}`,
-            datum: fmtDate(vertrekStart),
             datumRaw: vertrekStart,
             vertrek: fmtTime(vertrekStart),
             aankomst1eKlant: fmtTime(aankomst1e),
@@ -136,13 +137,14 @@ function processExcel(file: File): Promise<SummaryRow[]> {
             aankomst: fmtTime(aankomstThuis),
             opslag: heeftOpslag ? fmtDur(opslagSec) : "",
             heeftOpslag,
+            werktijd: fmtDur(werktijdSec),
+            werktijdSec,
             rijtijd: fmtDur(rijtijdSec),
             rijtijdSec,
             gemaakteUren: fmtDur(gemaakteUrenSec),
             gemaakteUrenSec,
-            werktijd: fmtDur(werktijdSec),
-            werktijdSec,
             afstandKm,
+            kmPerUur,
           });
         }
 
@@ -163,59 +165,62 @@ function processExcel(file: File): Promise<SummaryRow[]> {
 
 // ─── Exports ──────────────────────────────────────────────────────────────
 
-function exportExcel(rows: SummaryRow[]) {
+function exportExcel(rows: SummaryRow[], datum: string) {
   const headers = [
-    "Naam", "Datum", "Vertrek", "Aankomst 1e klant",
-    "Vertrek laatste klant", "Aankomst", "Opslag",
-    "Rijtijd", "Gemaakte uren", "Werktijd", "Afstand (km)",
+    "Naam", "Vertrek", "Aankomst 1", "Vertrek laatste",
+    "Aankomst laatste", "Opslag", "Werktijd", "Rijtijd",
+    "Gemaakte uren", "Afstand (km)", "Km/uur",
   ];
   const data = rows.map((r) => [
-    r.naam, r.datum, r.vertrek, r.aankomst1eKlant,
-    r.vertrekLaatsteKlant, r.aankomst, r.opslag,
-    r.rijtijd, r.gemaakteUren, r.werktijd, r.afstandKm,
+    r.naam, r.vertrek, r.aankomst1eKlant, r.vertrekLaatsteKlant,
+    r.aankomst, r.opslag, r.werktijd, r.rijtijd,
+    r.gemaakteUren, r.afstandKm, r.kmPerUur,
   ]);
-  const ws = XLSX.utils.aoa_to_sheet([headers, ...data]);
+  const ws = XLSX.utils.aoa_to_sheet([[`Datum: ${datum}`], [], [headers], ...data.map(r => [r])].flat() as unknown[][]);
+  // Simpler approach
+  const ws2 = XLSX.utils.aoa_to_sheet([headers, ...data]);
   const wbOut = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wbOut, ws, "Rijtijden");
-  XLSX.writeFile(wbOut, "rijtijden-analyse.xlsx");
+  XLSX.utils.book_append_sheet(wbOut, ws2, "Rijtijden");
+  XLSX.writeFile(wbOut, `rijtijden-${datum.replace(/ /g, "-")}.xlsx`);
 }
 
 function exportCSV(rows: SummaryRow[]) {
   const headers = [
-    "Naam", "Datum", "Vertrek", "Aankomst 1e klant",
-    "Vertrek laatste klant", "Aankomst", "Opslag",
-    "Rijtijd", "Gemaakte uren", "Werktijd", "Afstand (km)",
+    "Naam", "Vertrek", "Aankomst 1", "Vertrek laatste",
+    "Aankomst laatste", "Opslag", "Werktijd", "Rijtijd",
+    "Gemaakte uren", "Afstand (km)", "Km/uur",
   ];
   const lines = [headers.join(";")];
   for (const r of rows) {
     lines.push([
-      r.naam, r.datum, r.vertrek, r.aankomst1eKlant,
-      r.vertrekLaatsteKlant, r.aankomst, r.opslag,
-      r.rijtijd, r.gemaakteUren, r.werktijd, r.afstandKm,
+      r.naam, r.vertrek, r.aankomst1eKlant, r.vertrekLaatsteKlant,
+      r.aankomst, r.opslag, r.werktijd, r.rijtijd,
+      r.gemaakteUren, r.afstandKm, r.kmPerUur,
     ].join(";"));
   }
   const blob = new Blob(["\uFEFF" + lines.join("\n")], { type: "text/csv;charset=utf-8;" });
   const url  = URL.createObjectURL(blob);
   const a    = document.createElement("a");
-  a.href     = url;
+  a.href = url;
   a.download = "rijtijden-analyse.csv";
   a.click();
   URL.revokeObjectURL(url);
 }
 
-async function sendToZapier(rows: SummaryRow[], webhookUrl: string) {
+async function sendToZapier(rows: SummaryRow[], webhookUrl: string, datum: string) {
   const payload = rows.map((r) => ({
+    datum,
     naam:                  r.naam,
-    datum:                 r.datum,
     vertrek:               r.vertrek,
     aankomst_1e_klant:     r.aankomst1eKlant,
     vertrek_laatste_klant: r.vertrekLaatsteKlant,
     aankomst:              r.aankomst,
     opslag:                r.opslag,
+    werktijd:              r.werktijd,
     rijtijd:               r.rijtijd,
     gemaakte_uren:         r.gemaakteUren,
-    werktijd:              r.werktijd,
     afstand_km:            r.afstandKm,
+    km_per_uur:            r.kmPerUur,
   }));
   const res = await fetch(webhookUrl, {
     method: "POST",
@@ -265,41 +270,44 @@ export default function RijtijdenPage() {
     [handleFile]
   );
 
-  const handleZapier = async () => {
-    if (!webhookUrl) { toast.error("Voer eerst een Zapier webhook URL in."); return; }
-    setSendingZapier(true);
-    try {
-      await sendToZapier(rows, webhookUrl);
-      toast.success("Data verstuurd naar Zapier.");
-    } catch (err: unknown) {
-      toast.error(err instanceof Error ? err.message : "Fout bij versturen.");
-    } finally {
-      setSendingZapier(false);
-    }
-  };
-
   const reset = () => { setRows([]); setFileName(""); };
 
   const GRENS = 8.5 * 3600;
 
-  return (
-    <div className="min-h-screen bg-background">
-      <div className="p-6 max-w-[1400px] mx-auto">
-        {/* Header */}
-        <div className="mb-6">
-          <h1 className="text-2xl font-semibold">Rijtijden analyse</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Upload een Smeba Excel-rapport (.xlsx) voor een samenvatting per monteur per dag.
-          </p>
-        </div>
+  // Datum bovenaan: unieke datums uit de data
+  const datums = rows.length > 0
+    ? [...new Set(rows.map((r) => fmtDate(r.datumRaw)))]
+    : [];
+  const datumLabel = datums.join(" · ");
 
+  return (
+    <div className="min-h-screen bg-gray-50">
+      {/* Header balk — rode huisstijl */}
+      <div className="bg-[#C0392B] text-white px-6 py-4 shadow-md">
+        <div className="max-w-[1400px] mx-auto flex items-center justify-between">
+          <div>
+            <h1 className="text-xl font-bold tracking-tight">Smeba — Rijtijden analyse</h1>
+            <p className="text-red-100 text-xs mt-0.5">Monteurs planner · dagrapport</p>
+          </div>
+          {rows.length > 0 && (
+            <button
+              onClick={reset}
+              className="flex items-center gap-1.5 text-red-100 hover:text-white text-sm transition-colors"
+            >
+              <X className="h-4 w-4" /> Nieuw bestand
+            </button>
+          )}
+        </div>
+      </div>
+
+      <div className="p-6 max-w-[1400px] mx-auto">
         {/* Upload zone */}
         {rows.length === 0 && (
           <div
-            className={`border-2 border-dashed rounded-xl p-12 flex flex-col items-center justify-center cursor-pointer transition-colors ${
+            className={`mt-6 border-2 border-dashed rounded-xl p-16 flex flex-col items-center justify-center cursor-pointer transition-colors ${
               isDragging
-                ? "border-primary bg-primary/5"
-                : "border-muted-foreground/25 hover:border-primary/50 hover:bg-muted/30"
+                ? "border-[#C0392B] bg-red-50"
+                : "border-gray-300 hover:border-[#C0392B]/60 hover:bg-red-50/30"
             }`}
             onClick={() => inputRef.current?.click()}
             onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
@@ -314,20 +322,20 @@ export default function RijtijdenPage() {
               onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFile(f); e.target.value = ""; }}
             />
             {loading ? (
-              <div className="flex flex-col items-center gap-3 text-muted-foreground">
-                <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+              <div className="flex flex-col items-center gap-3 text-gray-500">
+                <div className="h-8 w-8 animate-spin rounded-full border-2 border-[#C0392B] border-t-transparent" />
                 <span className="text-sm">Bestand verwerken…</span>
               </div>
             ) : (
-              <div className="flex flex-col items-center gap-3 text-muted-foreground">
-                <div className="rounded-full bg-muted p-4">
-                  <Upload className="h-8 w-8" />
+              <div className="flex flex-col items-center gap-3 text-gray-400">
+                <div className="rounded-full bg-red-50 border border-red-100 p-4">
+                  <Upload className="h-8 w-8 text-[#C0392B]" />
                 </div>
                 <div className="text-center">
-                  <p className="text-sm font-medium text-foreground">
+                  <p className="text-sm font-medium text-gray-700">
                     Sleep een bestand hierheen of klik om te kiezen
                   </p>
-                  <p className="mt-1 text-xs">Ondersteund: .xlsx (Smeba Tripdetails rapport)</p>
+                  <p className="mt-1 text-xs text-gray-400">Ondersteund: .xlsx (Smeba Tripdetails rapport)</p>
                 </div>
               </div>
             )}
@@ -336,40 +344,72 @@ export default function RijtijdenPage() {
 
         {/* Resultaten */}
         {rows.length > 0 && (
-          <div className="space-y-4">
-            <div className="flex flex-wrap items-center gap-3">
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <FileSpreadsheet className="h-4 w-4" />
-                <span className="font-medium text-foreground">{fileName}</span>
-                <span>— {rows.length} monteur{rows.length !== 1 ? "s" : ""}</span>
+          <div className="mt-4 space-y-4">
+            {/* Datum + bestandsnaam */}
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2 bg-white border border-gray-200 rounded-lg px-3 py-2 shadow-sm">
+                  <Calendar className="h-4 w-4 text-[#C0392B]" />
+                  <span className="text-sm font-semibold text-gray-800">{datumLabel}</span>
+                </div>
+                <span className="text-xs text-gray-400 flex items-center gap-1">
+                  <FileSpreadsheet className="h-3.5 w-3.5" />
+                  {fileName}
+                </span>
               </div>
-              <div className="ml-auto flex flex-wrap gap-2">
-                <Button variant="outline" size="sm" onClick={() => exportExcel(rows)}>
+
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => exportExcel(rows, datumLabel)}
+                  className="border-gray-200 text-gray-600 hover:bg-gray-50"
+                >
                   <Download className="h-4 w-4 mr-1" /> Excel
                 </Button>
-                <Button variant="outline" size="sm" onClick={() => exportCSV(rows)}>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => exportCSV(rows)}
+                  className="border-gray-200 text-gray-600 hover:bg-gray-50"
+                >
                   <FileDown className="h-4 w-4 mr-1" /> CSV
-                </Button>
-                <Button variant="outline" size="sm" onClick={reset}>
-                  <X className="h-4 w-4 mr-1" /> Nieuw bestand
                 </Button>
               </div>
             </div>
 
+            {/* Zapier */}
             <div className="flex gap-2">
               <Input
                 placeholder="Zapier webhook URL"
                 value={webhookUrl}
                 onChange={(e) => setWebhookUrl(e.target.value)}
-                className="max-w-sm text-sm"
+                className="max-w-sm text-sm border-gray-200"
               />
-              <Button size="sm" onClick={handleZapier} disabled={sendingZapier || !webhookUrl}>
+              <Button
+                size="sm"
+                onClick={async () => {
+                  if (!webhookUrl) { toast.error("Voer eerst een Zapier webhook URL in."); return; }
+                  setSendingZapier(true);
+                  try {
+                    await sendToZapier(rows, webhookUrl, datumLabel);
+                    toast.success("Data verstuurd naar Zapier.");
+                  } catch (err: unknown) {
+                    toast.error(err instanceof Error ? err.message : "Fout bij versturen.");
+                  } finally {
+                    setSendingZapier(false);
+                  }
+                }}
+                disabled={sendingZapier || !webhookUrl}
+                className="bg-[#C0392B] hover:bg-[#A93226] text-white"
+              >
                 <Send className="h-4 w-4 mr-1" />
                 {sendingZapier ? "Versturen…" : "Verstuur naar Zapier"}
               </Button>
             </div>
 
-            <div className="flex gap-4 text-xs text-muted-foreground">
+            {/* Legenda */}
+            <div className="flex gap-4 text-xs text-gray-500">
               <span className="flex items-center gap-1.5">
                 <span className="inline-block h-2.5 w-2.5 rounded-sm bg-green-100 border border-green-300" />
                 Werktijd ≥ 8:30 uur
@@ -384,16 +424,21 @@ export default function RijtijdenPage() {
               </span>
             </div>
 
-            <div className="overflow-x-auto rounded-lg border">
+            {/* Tabel */}
+            <div className="overflow-x-auto rounded-lg border border-gray-200 shadow-sm bg-white">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="border-b bg-muted/50">
+                  <tr className="border-b bg-[#C0392B]">
                     {[
-                      "Naam", "Datum", "Vertrek",
-                      "Aankomst 1e klant", "Vertrek laatste klant", "Aankomst",
-                      "Opslag", "Rijtijd", "Gemaakte uren", "Werktijd", "Afstand (km)",
+                      "Naam", "Vertrek", "Aankomst 1",
+                      "Vertrek laatste", "Aankomst laatste",
+                      "Opslag", "Werktijd", "Rijtijd",
+                      "Gemaakte uren", "Afstand", "Km/uur",
                     ].map((h) => (
-                      <th key={h} className="whitespace-nowrap px-3 py-2.5 text-left text-xs font-medium text-muted-foreground">
+                      <th
+                        key={h}
+                        className="whitespace-nowrap px-3 py-2.5 text-left text-xs font-semibold text-white"
+                      >
                         {h}
                       </th>
                     ))}
@@ -403,27 +448,29 @@ export default function RijtijdenPage() {
                   {rows.map((row, i) => (
                     <tr
                       key={i}
-                      className={`border-b last:border-0 transition-colors hover:bg-muted/30 ${row.heeftOpslag ? "bg-emerald-50/60" : ""}`}
+                      className={`border-b last:border-0 transition-colors hover:bg-gray-50 ${
+                        row.heeftOpslag ? "bg-emerald-50/50" : i % 2 === 0 ? "bg-white" : "bg-gray-50/50"
+                      }`}
                     >
-                      <td className="px-3 py-2 font-medium">{row.naam}</td>
-                      <td className="px-3 py-2 tabular-nums">{row.datum}</td>
-                      <td className="px-3 py-2 tabular-nums">{row.vertrek}</td>
-                      <td className="px-3 py-2 tabular-nums">{row.aankomst1eKlant}</td>
-                      <td className="px-3 py-2 tabular-nums">{row.vertrekLaatsteKlant}</td>
-                      <td className="px-3 py-2 tabular-nums">{row.aankomst}</td>
-                      <td className="px-3 py-2 tabular-nums">{row.opslag}</td>
-                      <td className="px-3 py-2 tabular-nums">{row.rijtijd}</td>
-                      <td className="px-3 py-2 tabular-nums">{row.gemaakteUren}</td>
+                      <td className="px-3 py-2 font-medium text-gray-900">{row.naam}</td>
+                      <td className="px-3 py-2 tabular-nums text-gray-700">{row.vertrek}</td>
+                      <td className="px-3 py-2 tabular-nums text-gray-700">{row.aankomst1eKlant}</td>
+                      <td className="px-3 py-2 tabular-nums text-gray-700">{row.vertrekLaatsteKlant}</td>
+                      <td className="px-3 py-2 tabular-nums text-gray-700">{row.aankomst}</td>
+                      <td className="px-3 py-2 tabular-nums text-gray-700">{row.opslag}</td>
                       <td className="px-3 py-2 tabular-nums">
                         <span className={`inline-block rounded px-1.5 py-0.5 text-xs font-semibold ${
                           row.werktijdSec >= GRENS
                             ? "bg-green-100 text-green-800"
-                            : "bg-red-100 text-red-800"
+                            : "bg-red-100 text-red-700"
                         }`}>
                           {row.werktijd}
                         </span>
                       </td>
-                      <td className="px-3 py-2 tabular-nums">{row.afstandKm}</td>
+                      <td className="px-3 py-2 tabular-nums text-gray-700">{row.rijtijd}</td>
+                      <td className="px-3 py-2 tabular-nums text-gray-700">{row.gemaakteUren}</td>
+                      <td className="px-3 py-2 tabular-nums text-gray-700">{row.afstandKm} km</td>
+                      <td className="px-3 py-2 tabular-nums text-gray-700">{row.kmPerUur}</td>
                     </tr>
                   ))}
                 </tbody>
