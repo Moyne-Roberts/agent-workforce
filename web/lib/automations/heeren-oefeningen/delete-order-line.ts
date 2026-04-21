@@ -17,13 +17,20 @@
 import { chromium, Browser, BrowserContext, Page } from "playwright-core";
 import { createClient } from "@supabase/supabase-js";
 
+// Laad .env.local voor CLI en tsx-scripts. In Vercel zijn env vars al
+// geïnjecteerd; dotenv overschrijft die niet. No-op als de file niet bestaat.
+try {
+  require("dotenv").config({ path: require("path").join(__dirname, "../../../.env.local") });
+} catch {}
+
 const STORAGE_BUCKET = "automation-files";
 const WS_ENDPOINT = `wss://production-ams.browserless.io?token=${process.env.BROWSERLESS_API_TOKEN}&timeout=60000`;
-const NXT_URL = "https://acc.sb.n-xt.org/#/home";
 
-// Credentials worden in productie uit Supabase geladen
-const USERNAME = process.env.NXT_USERNAME ?? "nick.crutzen.cb@moyneroberts.com";
-const PASSWORD = process.env.NXT_PASSWORD ?? "aBPY#mi00HwbsZ3?DKv2B2rWp3xNs5lVtGZmo3qI";
+interface NxtAuth {
+  baseUrl: string;
+  username: string;
+  password: string;
+}
 
 function createAdminClient() {
   return createClient(
@@ -44,28 +51,35 @@ async function saveScreenshot(page: Page, label: string, orderCode: string): Pro
 
   if (error) {
     console.warn(`[screenshot] Upload mislukt: ${error.message}`);
-    return filename; // pad als fallback
+    return filename;
   }
 
-  const { data } = admin.storage.from(STORAGE_BUCKET).getPublicUrl(filename);
-  console.log(`[screenshot] Opgeslagen: ${data.publicUrl}`);
-  return data.publicUrl;
+  // Bucket is privaat — signed URL met 1 jaar expiry
+  const { data: signed, error: signErr } = await admin.storage
+    .from(STORAGE_BUCKET)
+    .createSignedUrl(filename, 60 * 60 * 24 * 365);
+  if (signErr || !signed) {
+    console.warn(`[screenshot] Signed URL fout: ${signErr?.message}`);
+    return filename;
+  }
+  console.log(`[screenshot] Opgeslagen: ${signed.signedUrl}`);
+  return signed.signedUrl;
 }
 
-async function login(page: Page): Promise<void> {
-  await page.goto(NXT_URL, { waitUntil: "domcontentloaded", timeout: 30_000 });
+async function login(page: Page, auth: NxtAuth): Promise<void> {
+  await page.goto(`${auth.baseUrl}/#/home`, { waitUntil: "domcontentloaded", timeout: 30_000 });
   await page.waitForSelector('input[type="email"], input[name="username"]', { timeout: 15_000 });
-  await page.locator('input[type="email"], input[name="username"]').first().fill(USERNAME);
-  await page.locator('input[type="password"]').first().fill(PASSWORD);
+  await page.locator('input[type="email"], input[name="username"]').first().fill(auth.username);
+  await page.locator('input[type="password"]').first().fill(auth.password);
   await page.locator('button[type="submit"]').first().click();
   await page.waitForURL(/\/#\/(home|dashboard)/, { timeout: 20_000 });
   await page.waitForTimeout(1000);
-  console.log("[nxt] Logged in");
+  console.log(`[nxt] Logged in (${auth.baseUrl} as ${auth.username})`);
 }
 
-async function openOrder(page: Page, orderCode: string): Promise<string> {
+async function openOrder(page: Page, orderCode: string, auth: NxtAuth): Promise<string> {
   // Navigeer naar orders filter
-  await page.goto("https://acc.sb.n-xt.org/#/orders/filter", { waitUntil: "domcontentloaded", timeout: 15_000 });
+  await page.goto(`${auth.baseUrl}/#/orders/filter`, { waitUntil: "domcontentloaded", timeout: 15_000 });
   await page.waitForTimeout(1500);
 
   // Vul Order ID in
@@ -115,26 +129,25 @@ async function deleteOrderLine(page: Page, orderCode: string, articleId: string)
   const articleCount = await articleEl.count();
 
   if (articleCount === 0) {
-    // Als artikelnummer niet gevonden: verwijder de eerste beschikbare regel
-    console.warn(`[nxt] Artikel #${articleId} niet gevonden, probeer eerste beschikbare regel`);
-    const anyDeleteBtn = page.locator('md-icon[ng-click*="onRemove"]').first();
-    if (await anyDeleteBtn.count() === 0) {
-      throw new Error(`Geen verwijderbare orderregels gevonden op order ${orderCode}. Is de order in draft-status?`);
-    }
-    await anyDeleteBtn.click();
-  } else {
-    // Vind de delete knop die bij dit artikel hoort
-    // De delete knop staat in dezelfde "row" div als het artikelnummer
-    const orderLineRow = page.locator(`div.row:has(small:has-text("#${articleId}"))`);
-    const deleteBtn = orderLineRow.locator('md-icon[ng-click*="onRemove"]');
-
-    if (await deleteBtn.count() === 0) {
-      throw new Error(`Verwijderknop niet gevonden voor artikel #${articleId} op order ${orderCode}. Is de order in draft-status?`);
-    }
-
-    console.log(`[nxt] Verwijder orderregel #${articleId} van order ${orderCode}`);
-    await deleteBtn.click();
+    throw new Error(`Artikel #${articleId} niet gevonden op order ${orderCode}`);
   }
+
+  // Pak de dichtstbijzijnde .row-voorouder van de small met het artikelnummer.
+  // Dit voorkomt dat geneste Bootstrap-rows allebei matchen (strict-mode hazard).
+  const articleSmall = page.locator(`small:has-text("#${articleId}")`).first();
+  const orderLineRow = articleSmall.locator(
+    'xpath=ancestor::div[contains(concat(" ", normalize-space(@class), " "), " row ")][1]',
+  );
+  const deleteBtn = orderLineRow.locator('md-icon[ng-click*="onRemove"]').first();
+
+  if ((await deleteBtn.count()) === 0) {
+    throw new Error(
+      `Verwijderknop niet gevonden voor artikel #${articleId} op order ${orderCode}. Is de order in draft-status?`,
+    );
+  }
+
+  console.log(`[nxt] Verwijder orderregel #${articleId} van order ${orderCode}`);
+  await deleteBtn.click();
 
   await page.waitForTimeout(1500);
 
@@ -179,6 +192,7 @@ export async function deleteOrderLines(params: {
   billingOrderLineId: string;
   billingItemId: string;   // Artikel-ID uit Zapier — gebruikt voor lijn-matching én Fase 2 (nieuwe order)
   courseId: string;        // Opslaan voor staging
+  auth: NxtAuth;           // NXT base URL + credentials (per environment)
 }): Promise<{
   success: boolean;
   orderCode: string;
@@ -186,18 +200,18 @@ export async function deleteOrderLines(params: {
   screenshots: { before: string; after: string } | null;
   error?: string;
 }> {
-  const { billingOrderCode, billingOrderId, billingOrderLineId, billingItemId, courseId } = params;
+  const { billingOrderCode, billingItemId, auth } = params;
 
   let browser: Browser | null = null;
   try {
-    console.log(`[heeren-oefeningen] Start verwijdering: order ${billingOrderCode}, artikel #${billingItemId}`);
+    console.log(`[heeren-oefeningen] Start verwijdering: order ${billingOrderCode}, artikel #${billingItemId} (env=${auth.baseUrl})`);
 
     browser = await chromium.connectOverCDP(WS_ENDPOINT, { timeout: 30_000 });
     const context: BrowserContext = await browser.newContext({ viewport: { width: 1400, height: 900 } });
     const page: Page = await context.newPage();
 
-    await login(page);
-    await openOrder(page, billingOrderCode);
+    await login(page, auth);
+    await openOrder(page, billingOrderCode, auth);
     const { before, after } = await deleteOrderLine(page, billingOrderCode, billingItemId);
 
     console.log(`[heeren-oefeningen] Klaar. Screenshots: before=${before}, after=${after}`);
@@ -223,19 +237,26 @@ export async function deleteOrderLines(params: {
 }
 
 // --- Directe uitvoering voor testen ---
+// Usage: npx tsx delete-order-line.ts <orderCode> <billingItemId> [environment]
+// environment default = "acceptance" (safety). Gebruik "production" met expliciete opt-in.
 if (require.main === module) {
-  require("dotenv").config({ path: require("path").join(__dirname, "../../../.env.local") });
-
   const TEST_ORDER_CODE = process.argv[2] ?? "370147";
   const TEST_BILLING_ITEM_ID = process.argv[3] ?? "6410005107";
+  const ENV = (process.argv[4] ?? "acceptance") as "production" | "acceptance";
 
-  deleteOrderLines({
-    billingOrderCode: TEST_ORDER_CODE,
-    billingOrderId: "test-order-id",
-    billingOrderLineId: "test-line-id",
-    billingItemId: TEST_BILLING_ITEM_ID,
-    courseId: "test-course-id",
-  }).then(result => {
+  (async () => {
+    const { resolveNxtEnvironment } = await import("./nxt-environment");
+    const cfg = await resolveNxtEnvironment(ENV);
+    console.log(`\nENVIRONMENT: ${ENV.toUpperCase()} (${cfg.baseUrl}) -- Credentials: "${ENV === "production" ? "NXT Production Login" : "NXT Acceptance Login"}"\n`);
+
+    const result = await deleteOrderLines({
+      billingOrderCode: TEST_ORDER_CODE,
+      billingOrderId: "test-order-id",
+      billingOrderLineId: "test-line-id",
+      billingItemId: TEST_BILLING_ITEM_ID,
+      courseId: "test-course-id",
+      auth: cfg,
+    });
     console.log("\nResultaat:", JSON.stringify(result, null, 2));
-  }).catch(console.error);
+  })().catch(console.error);
 }

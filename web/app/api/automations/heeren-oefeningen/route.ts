@@ -9,12 +9,22 @@ const WEBHOOK_SECRET = process.env.AUTOMATION_WEBHOOK_SECRET!;
  * Zapier stuurt een POST zodra het een oefening-orderregel detecteert
  * die verwijderd moet worden uit NXT.
  *
- * Verwacht body:
+ * Verwacht body (Fase 1 velden — vereist):
  *   billingOrderCode:    string  — NXT order referentie (bijv. "370147")
  *   billingOrderId:      string  — interne billing order ID
  *   billingOrderLineId:  string  — interne line ID (uniek — gebruikt voor idempotency)
  *   billingItemId:       string  — artikel-ID (bijv. "6410005107")
  *   courseId:            string  — cursus-ID voor referentie
+ *
+ * Verwacht body (Fase 2 velden — optioneel maar vereist voor het maandelijks
+ * aanmaken van nieuwe orders; records zonder deze data worden in Fase 2 gesplipt):
+ *   customerId:          string  — NXT customer ID (bijv. "200007")
+ *   siteId:              string  — NXT site ID (bijv. "318887")
+ *   brandId:             string  — NXT brand/company ID (bijv. "SB")
+ *   orderTypeId:         string  — NXT order type (bijv. "DO" voor Directe Order)
+ *   quantity:            number  — hoeveelheid
+ *   unitPrice:           number  — stuksprijs
+ *   description:         string  — regel-beschrijving
  */
 function isAuthorized(request: NextRequest): boolean {
   // Optie 1: x-automation-secret header
@@ -43,7 +53,22 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const { billingOrderCode, billingOrderId, billingOrderLineId, billingItemId, courseId } = body;
+  const {
+    billingOrderCode,
+    billingOrderId,
+    billingOrderLineId,
+    billingItemId,
+    courseId,
+    // Fase 2 velden (optioneel)
+    customerId,
+    siteId,
+    brandId,
+    orderTypeId,
+    quantity,
+    unitPrice,
+    description,
+    environment,
+  } = body;
 
   if (!billingOrderCode || !billingOrderLineId || !billingItemId) {
     return NextResponse.json(
@@ -51,6 +76,10 @@ export async function POST(request: NextRequest) {
       { status: 400 },
     );
   }
+
+  // Parse numerieke velden veilig — Zapier kan ze als string sturen
+  const parsedQuantity = quantity != null && quantity !== "" ? Number(quantity) : undefined;
+  const parsedUnitPrice = unitPrice != null && unitPrice !== "" ? Number(unitPrice) : undefined;
 
   await inngest.send({
     name: "automation/heeren-oefeningen.triggered",
@@ -61,6 +90,14 @@ export async function POST(request: NextRequest) {
       billingOrderLineId,
       billingItemId,
       courseId: courseId ?? "",
+      ...(customerId ? { customerId: String(customerId) } : {}),
+      ...(siteId ? { siteId: String(siteId) } : {}),
+      ...(brandId ? { brandId: String(brandId) } : {}),
+      ...(orderTypeId ? { orderTypeId: String(orderTypeId) } : {}),
+      ...(Number.isFinite(parsedQuantity) ? { quantity: parsedQuantity } : {}),
+      ...(Number.isFinite(parsedUnitPrice) ? { unitPrice: parsedUnitPrice } : {}),
+      ...(description ? { description: String(description) } : {}),
+      ...(environment === "acceptance" || environment === "production" ? { environment } : {}),
     },
   });
 

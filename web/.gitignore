@@ -40,3 +40,6 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 .env*.local
+
+# Automation local screenshots (dev artifacts)
+lib/automations/**/screenshots/

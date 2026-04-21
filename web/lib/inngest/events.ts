@@ -108,6 +108,25 @@ export type Events = {
       billingOrderLineId: string;
       billingItemId: string;
       courseId: string;
+      // Fase 2 — vereist voor het aanmaken van nieuwe NXT order. Optioneel zodat
+      // legacy Zapier payloads Fase 1 niet breken; Fase 2 skipt records zonder deze data.
+      customerId?: string;
+      siteId?: string;
+      brandId?: string;
+      quantity?: number;
+      unitPrice?: number;
+      orderTypeId?: string;
+      description?: string;
+      /** NXT environment — default "production" */
+      environment?: "production" | "acceptance";
+    };
+  };
+  // Heeren Oefeningen — maandelijkse facturatie cron (Fase 2)
+  "automation/heeren-oefeningen.create-invoices": {
+    data: {
+      triggeredBy: string;
+      forceRun?: boolean; // skip last-workday check
+      environment?: "production" | "acceptance";
     };
   };
 
