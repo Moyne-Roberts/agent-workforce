@@ -38,7 +38,23 @@ async function graphFetch(
     fetchOptions.body = JSON.stringify(options.body);
   }
 
-  return zapier.fetch(url, fetchOptions);
+  // Retry socket-level failures (UND_ERR_SOCKET, ECONNRESET, fetch failed).
+  // Sequential Graph calls over a warm undici pool occasionally get a dropped
+  // connection mid-pagination; Graph itself is fine on retry.
+  let lastErr: unknown;
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try {
+      return await zapier.fetch(url, fetchOptions);
+    } catch (err) {
+      lastErr = err;
+      const msg = String(err);
+      const retriable =
+        /UND_ERR_SOCKET|ECONNRESET|fetch failed|socket hang up|ETIMEDOUT/i.test(msg);
+      if (!retriable || attempt === 2) break;
+      await new Promise((r) => setTimeout(r, 250 * (attempt + 1)));
+    }
+  }
+  throw lastErr;
 }
 
 export interface OutlookActionResult {
@@ -76,7 +92,9 @@ export async function listInboxMessages(
     "internetMessageId",
     "categories",
   ].join(",");
-  const pageSize = Math.min(100, max);
+  // Graph allows $top up to 999 for /messages. Bigger pages = fewer sequential
+  // round-trips → fewer socket drops over the Zapier→Graph chain.
+  const pageSize = Math.min(500, max);
   let url: string | null = `${GRAPH_BASE}/users/${mailbox}/mailFolders/inbox/messages?$top=${pageSize}&$orderby=receivedDateTime desc&$select=${fields}`;
 
   const out: OutlookMessage[] = [];

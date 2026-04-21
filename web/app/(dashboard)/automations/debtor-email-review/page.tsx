@@ -3,7 +3,7 @@ import { classify, type Category } from "@/lib/debtor-email/classify";
 import { BulkReview } from "./bulk-review";
 
 const MAILBOX = "debiteuren@smeba.nl";
-const FETCH_LIMIT = 500;
+const FETCH_LIMIT = 300;
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 120;
