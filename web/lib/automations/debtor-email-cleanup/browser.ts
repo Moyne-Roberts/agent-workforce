@@ -110,43 +110,61 @@ async function selectCompanyMailbox(page: Page, cfg: EnvConfig, company: string)
 }
 
 /**
- * Find a specific email in the messages table (#messages-list).
- * Uses the "Search in mails..." box first, then matches on from + subject.
- * Returns the row index (0-based) or -1 if not found.
+ * Find a specific email in the messages table, paginating forward.
+ * Primary match: timestamp (HH:MM + date parts from receivedAt).
+ * Fallback: from + subject substring. Walks up to maxPages (default 10).
+ * Returns row index within the page it was found on, or -1.
+ * (The caller stays on that page so selectAndDelete's nth-child works.)
  */
-async function findEmail(page: Page, email: EmailIdentifiers): Promise<number> {
-  // Wait for table to be present
-  await page.waitForSelector('#messages-list', { timeout: 5000 }).catch(() => null);
+async function findEmail(page: Page, email: EmailIdentifiers, maxPages = 10): Promise<number> {
+  for (let pg = 0; pg < maxPages; pg++) {
+    await page.waitForSelector('#messages-list', { timeout: 5000 }).catch(() => null);
+    const isEmpty = await page.locator('.dataTables_empty').isVisible({ timeout: 1500 }).catch(() => false);
+    if (isEmpty) return -1;
 
-  // Check if table has data
-  const isEmpty = await page.locator('.dataTables_empty').isVisible({ timeout: 2000 }).catch(() => false);
-  if (isEmpty) return -1;
+    const rowIndex = await page.evaluate(({ from, subject, receivedAt }) => {
+      const tsParts = receivedAt.match(/(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2})/);
+      const [, year, month, day, hh, mm] = tsParts ?? [];
+      const hm = hh && mm ? `${hh}:${mm}` : "";
 
-  // Use the "Search in mails..." input if available
-  const searchBox = page.locator('input[placeholder*="Search in mails"]').first();
-  const hasSearch = await searchBox.isVisible({ timeout: 2000 }).catch(() => false);
+      const rows = document.querySelectorAll('#messages-list tbody tr');
+      for (let i = 0; i < rows.length; i++) {
+        const text = rows[i].textContent || "";
+        if (text.includes("No data available")) continue;
 
-  if (hasSearch) {
-    await searchBox.fill(email.subject.substring(0, 50));
-    await page.waitForTimeout(2000);
+        const timeMatch = hm !== "" && text.includes(hm);
+        const dateMatch =
+          tsParts !== null && (
+            text.includes(`${year}-${month}-${day}`) ||
+            text.includes(`${day}-${month}-${year}`) ||
+            text.includes(`${day}/${month}/${year}`) ||
+            text.includes(`${day}.${month}.${year}`)
+          );
+
+        if (timeMatch && dateMatch) return i;
+
+        const fromMatch = from && text.toLowerCase().includes(from.toLowerCase());
+        const subjectMatch =
+          subject && text.toLowerCase().includes(subject.substring(0, 30).toLowerCase());
+        if (fromMatch && subjectMatch) return i;
+      }
+      return -1;
+    }, email);
+
+    if (rowIndex !== -1) return rowIndex;
+
+    const advanced = await page.evaluate(() => {
+      const btn = document.querySelector<HTMLElement>(
+        '#messages-list_paginate .paginate_button.next:not(.disabled), .dataTables_paginate .paginate_button.next:not(.disabled)',
+      );
+      if (!btn) return false;
+      btn.click();
+      return true;
+    });
+    if (!advanced) return -1;
+    await page.waitForTimeout(1500);
   }
-
-  // Find the matching row in #messages-list tbody
-  const rowIndex = await page.evaluate(({ from, subject }) => {
-    const rows = document.querySelectorAll('#messages-list tbody tr');
-    for (let i = 0; i < rows.length; i++) {
-      const rowText = rows[i].textContent || '';
-      if (rowText.includes('No data available')) continue;
-
-      const fromMatch = rowText.toLowerCase().includes(from.toLowerCase());
-      const subjectMatch = rowText.toLowerCase().includes(subject.substring(0, 30).toLowerCase());
-
-      if (fromMatch && subjectMatch) return i;
-    }
-    return -1;
-  }, { from: email.from, subject: email.subject });
-
-  return rowIndex;
+  return -1;
 }
 
 /**

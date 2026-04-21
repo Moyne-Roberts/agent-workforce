@@ -19,7 +19,7 @@ const EMAIL: EmailIdentifiers = {
   company: "smebabrandbeveiliging",
   from: "Detuinen Accounts",
   subject: "Automatic reply: Documenten n.a.v. uitgevoerde werkzaamheden",
-  receivedAt: new Date().toISOString(),
+  receivedAt: "2026-04-20T13:18:56",
 };
 
 async function main() {
