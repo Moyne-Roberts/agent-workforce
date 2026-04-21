@@ -1,3 +1,10 @@
 .DS_Store
 .vercel
 .env*.local
+
+# Supabase CLI local state (project link, cached versions, access-token backups)
+supabase/.temp/
+supabase/.temp.local-backup/
+
+# Claude Code local state
+.claude/scheduled_tasks.lock
