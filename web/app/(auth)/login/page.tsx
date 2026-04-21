@@ -105,7 +105,10 @@ function LoginForm() {
             />
           </svg>
         </div>
-        <h1 className="text-3xl font-bold tracking-tight text-[var(--v7-text)]">
+        <div className="text-xs font-semibold uppercase tracking-[0.2em] text-[#dc4c19]">
+          Moyne Roberts
+        </div>
+        <h1 className="mt-1 text-3xl font-bold tracking-tight text-[var(--v7-text)]">
           Agent Workforce
         </h1>
         <p className="mt-2 text-sm text-[var(--v7-muted)]">
