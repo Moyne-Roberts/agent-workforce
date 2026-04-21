@@ -143,6 +143,13 @@
   --v7-amber: #b66a11;
   --v7-pink: #b93e8a;
   --v7-red: #b5454e;
+  /* Moyne Roberts brand tokens — chrome/primary-action only, not category */
+  --v7-brand-primary: #dc4c19;
+  --v7-brand-secondary: #4a90e2;
+  --v7-brand-surface: #071c2e;
+  --v7-brand-surface-soft: #e9eff8;
+  --v7-brand-primary-soft: rgba(220,76,25,0.12);
+  --v7-brand-secondary-soft: rgba(74,144,226,0.12);
   /* Soft accent backgrounds */
   --v7-teal-soft: rgba(1,105,111,0.12);
   --v7-blue-soft: rgba(12,106,167,0.12);
@@ -184,6 +191,13 @@
   --v7-amber: #ffb547;
   --v7-pink: #ff78cf;
   --v7-red: #ff6b7a;
+  /* Moyne Roberts brand tokens — dark-mode tuned */
+  --v7-brand-primary: #ff6a34;
+  --v7-brand-secondary: #69a8ff;
+  --v7-brand-surface: #071c2e;
+  --v7-brand-surface-soft: #0f2a43;
+  --v7-brand-primary-soft: rgba(220,76,25,0.18);
+  --v7-brand-secondary-soft: rgba(105,168,255,0.16);
   /* Soft accent backgrounds */
   --v7-teal-soft: rgba(58,199,201,0.13);
   --v7-blue-soft: rgba(105,168,255,0.13);
