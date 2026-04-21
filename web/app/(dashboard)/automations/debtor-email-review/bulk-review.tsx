@@ -3,7 +3,7 @@
 import { useMemo, useState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Card } from "@/components/ui/card";
+import { GlassCard } from "@/components/ui/glass-card";
 import {
   Dialog,
   DialogContent,
@@ -161,10 +161,10 @@ export function BulkReview(props: Props) {
       </header>
 
       {props.fetchError && (
-        <Card className="p-4 border-rose-500/40 bg-rose-500/5">
+        <GlassCard className="p-4 border-rose-500/40 bg-rose-500/5">
           <strong className="text-rose-700 dark:text-rose-300">Fout bij ophalen:</strong>
           <pre className="text-xs mt-2 whitespace-pre-wrap">{props.fetchError}</pre>
-        </Card>
+        </GlassCard>
       )}
 
       {!props.fetchError && (
@@ -172,15 +172,15 @@ export function BulkReview(props: Props) {
           <section className="space-y-3">
             <h2 className="text-lg font-semibold">Groepen klaar voor batch-actie</h2>
             {props.groups.length === 0 && (
-              <Card className="p-4 text-sm text-muted-foreground">
+              <GlassCard className="p-4 text-sm text-muted-foreground">
                 Geen matches in deze batch. Alles viel in <em>Onbekend</em> — gaat naar de mens.
-              </Card>
+              </GlassCard>
             )}
             <div className="space-y-2">
               {props.groups.map((g) => {
                 const done = executedGroups.has(g.key);
                 return (
-                  <Card key={g.key} className="p-4 flex items-center gap-4">
+                  <GlassCard key={g.key} className="p-4 flex items-center gap-4">
                     <div className="flex-1">
                       <div className="flex items-center gap-2 flex-wrap">
                         <span className="font-semibold">{CATEGORY_NL[g.category]}</span>
@@ -202,23 +202,23 @@ export function BulkReview(props: Props) {
                         Beoordeel & goedkeuren
                       </Button>
                     )}
-                  </Card>
+                  </GlassCard>
                 );
               })}
             </div>
           </section>
 
           {props.unknownCount > 0 && (
-            <Card className="p-4 text-sm">
+            <GlassCard className="p-4 text-sm">
               <div className="font-semibold mb-1">Onbekend: {props.unknownCount}</div>
               <div className="text-muted-foreground">
                 Vallen buiten de huidige regels — handmatige triage (Fase C). Geen batch-actie hier.
               </div>
-            </Card>
+            </GlassCard>
           )}
 
           {executionResult && (
-            <Card className="p-4 border-emerald-500/40 bg-emerald-500/5">
+            <GlassCard className="p-4 border-emerald-500/40 bg-emerald-500/5">
               <div className="font-semibold">Laatste batch</div>
               <div className="text-sm mt-1 space-y-0.5">
                 <div>✓ Uitgevoerd: {executionResult.succeeded} / {executionResult.executed}</div>
@@ -246,7 +246,7 @@ export function BulkReview(props: Props) {
                   </details>
                 )}
               </div>
-            </Card>
+            </GlassCard>
           )}
         </>
       )}
@@ -300,62 +300,78 @@ export function BulkReview(props: Props) {
               {sample.map((item) => {
                 const s = getRow(item.id);
                 const isRecat = !!s.override && s.override !== item.category;
+                const showNotes = !s.include || isRecat;
                 return (
                   <div
                     key={item.id}
-                    className={`rounded-md border p-3 flex gap-3 ${
+                    className={`rounded-md border p-3 space-y-2 ${
                       !s.include
-                        ? "opacity-50 border-rose-500/30 bg-rose-500/5"
+                        ? "opacity-60 border-rose-500/30 bg-rose-500/5"
                         : isRecat
                           ? "border-amber-500/30 bg-amber-500/5"
                           : "border-border"
                     }`}
                   >
-                    <input
-                      type="checkbox"
-                      checked={s.include}
-                      onChange={(e) => patchRow(item.id, { include: e.target.checked })}
-                      className="mt-1 h-4 w-4"
-                      aria-label="Opnemen in batch"
-                    />
-                    <div className="flex-1 min-w-0 space-y-1">
-                      <div className="font-semibold text-sm break-words">
-                        {item.subject || "(geen onderwerp)"}
+                    <div className="flex gap-3">
+                      <input
+                        type="checkbox"
+                        checked={s.include}
+                        onChange={(e) => patchRow(item.id, { include: e.target.checked })}
+                        className="mt-1 h-4 w-4"
+                        aria-label="Opnemen in batch"
+                      />
+                      <div className="flex-1 min-w-0 space-y-1">
+                        <div className="font-semibold text-sm break-words">
+                          {item.subject || "(geen onderwerp)"}
+                        </div>
+                        <div className="text-xs text-muted-foreground break-all">
+                          {item.fromName ? `${item.fromName} <${item.from}>` : item.from} ·{" "}
+                          {new Date(item.receivedAt).toLocaleString("nl-NL")}
+                        </div>
+                        <p className="text-xs text-muted-foreground break-words line-clamp-3">
+                          {item.bodyPreview}
+                        </p>
+                        <div className="flex items-center gap-2 flex-wrap text-[11px] text-muted-foreground font-mono">
+                          <span>rule: {item.matchedRule}</span>
+                          <span>·</span>
+                          <span>conf {item.confidence.toFixed(2)}</span>
+                        </div>
                       </div>
-                      <div className="text-xs text-muted-foreground break-all">
-                        {item.fromName ? `${item.fromName} <${item.from}>` : item.from} ·{" "}
-                        {new Date(item.receivedAt).toLocaleString("nl-NL")}
-                      </div>
-                      <p className="text-xs text-muted-foreground break-words line-clamp-3">
-                        {item.bodyPreview}
-                      </p>
-                      <div className="flex items-center gap-2 flex-wrap text-[11px] text-muted-foreground font-mono">
-                        <span>rule: {item.matchedRule}</span>
-                        <span>·</span>
-                        <span>conf {item.confidence.toFixed(2)}</span>
-                      </div>
-                    </div>
-                    <div className="w-48 shrink-0">
-                      <Select
-                        value={s.override || item.category}
-                        onValueChange={(v) => patchRow(item.id, { override: v as Category })}
-                        disabled={!s.include}
-                      >
-                        <SelectTrigger className="h-9 text-xs">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {ACTIONABLE_CATEGORIES.map((c) => (
-                            <SelectItem key={c} value={c} className="text-xs">
-                              {CATEGORY_NL[c]}
+                      <div className="w-48 shrink-0">
+                        <Select
+                          value={s.override || item.category}
+                          onValueChange={(v) => patchRow(item.id, { override: v as Category })}
+                          disabled={!s.include}
+                        >
+                          <SelectTrigger className="h-9 text-xs">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {ACTIONABLE_CATEGORIES.map((c) => (
+                              <SelectItem key={c} value={c} className="text-xs">
+                                {CATEGORY_NL[c]}
+                              </SelectItem>
+                            ))}
+                            <SelectItem value="unknown" className="text-xs">
+                              {CATEGORY_NL.unknown} (overslaan)
                             </SelectItem>
-                          ))}
-                          <SelectItem value="unknown" className="text-xs">
-                            {CATEGORY_NL.unknown} (overslaan)
-                          </SelectItem>
-                        </SelectContent>
-                      </Select>
+                          </SelectContent>
+                        </Select>
+                      </div>
                     </div>
+                    {showNotes && (
+                      <textarea
+                        value={s.notes}
+                        onChange={(e) => patchRow(item.id, { notes: e.target.value })}
+                        placeholder={
+                          !s.include
+                            ? "Waarom uitsluiten? (optioneel — helpt de classifier leren)"
+                            : "Waarom hercategoriseren? (optioneel — helpt de classifier leren)"
+                        }
+                        rows={2}
+                        className="w-full text-xs rounded-md border border-border bg-background/60 px-2 py-1.5 resize-y focus:outline-none focus:ring-1 focus:ring-ring"
+                      />
+                    )}
                   </div>
                 );
               })}

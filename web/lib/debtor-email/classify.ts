@@ -94,6 +94,23 @@ const BODY_OOO_PERMANENT =
 const BODY_OOO_GENERIC =
   /\b(afwezig|ik\s+ben\s+afwezig|uit\s+kantoor|out\s+of\s+office|i\s+am\s+(?:away|out)|currently\s+out|absent\s+du|je\s+suis\s+absent|en\s+congé|in\s+vergadering|in\s+meeting)\b/i;
 
+/**
+ * Broader subject hint for payment — matches "betaling", "betaal", "payment",
+ * "factuur", "remittance" as standalone words, *not* tied to a specific
+ * confirmation phrase. Used ONLY together with other payment signals (sender
+ * is noreply/payment-role, AND body looks like a payment confirmation).
+ */
+const SUBJECT_PAYMENT_HINT =
+  /\b(betaling(?:en|s)?|betaal|betaalspecificatie|payment|remittance|zahlung|paiement|creditnota\s+(?:voor|van))\b/i;
+
+/**
+ * Body signals that confirm a payment notification (vs request or dispute).
+ * "betaalspecificatie", "bankafschrift", "overgemaakt", "remitted" — these
+ * are near-definitive of an incoming payment.
+ */
+const BODY_PAYMENT_CONFIRMATION =
+  /\b(betaalspecificatie|betalingsspecificatie|bankafschrift|(?:hebben|zijn)\s+overgemaakt|betaling(?:en)?\s+(?:van|voor|overgemaakt|gedaan)|betaalbewijs|(?:payment|remittance)\s+(?:advice|details|notification|specification|has\s+been\s+made|was\s+made|remitted|enclosed)|amount\s+(?:credited|paid|remitted)|avis\s+de\s+paiement|betaalinstructie)\b/i;
+
 // ─────────────────────────────────────────────────────────────── classify ──
 
 export function classify(input: ClassifyInput): ClassifyResult {
@@ -108,24 +125,55 @@ export function classify(input: ClassifyInput): ClassifyResult {
   const isHumanSender = SENDER_HUMAN_SHAPE.test(from);
   const subjectIsAutoReply = SUBJECT_AUTO_REPLY.test(normSubject);
   const subjectIsPayment = SUBJECT_PAYMENT.test(normSubject);
+  const subjectIsPaymentHint = SUBJECT_PAYMENT_HINT.test(normSubject);
   const senderIsPaymentRole = SENDER_PAYMENT_ROLE.test(from);
   const bodyDispute = BODY_DISPUTE.test(body);
+  const bodyIsPaymentConfirmation = BODY_PAYMENT_CONFIRMATION.test(body);
   const subjectIsPaymentRequest = SUBJECT_PAYMENT_REQUEST_BLOCK.test(normSubject);
   const subjectIsRefund = SUBJECT_REFUND_BLOCK.test(normSubject);
   const subjectIsDispute = SUBJECT_DISPUTE.test(normSubject);
 
-  // ── AUTO-REPLY / OoO family ────────────────────────────────────────────
-  //
-  // Promotion order: system sender is always `auto_reply` (never OoO — a
-  // noreply@ address isn't a human on leave). Otherwise if the subject looks
-  // like an auto-reply, we peek at the body to decide OoO temporary/permanent.
+  // ── Hard blocks (anything payment-like but clearly NOT payment_admittance) ──
 
-  if (isSystemSender) {
-    return { category: "auto_reply", confidence: 0.98, matchedRule: "sender_system" };
+  if (subjectIsPaymentRequest) {
+    return { category: "unknown", confidence: 0, matchedRule: "payment_blocked_request_template" };
+  }
+  if (subjectIsRefund) {
+    return { category: "unknown", confidence: 0, matchedRule: "payment_blocked_refund" };
+  }
+  if (subjectIsDispute || bodyDispute) {
+    if (senderIsPaymentRole || subjectIsPayment || subjectIsPaymentHint) {
+      return { category: "unknown", confidence: 0, matchedRule: "payment_blocked_by_dispute" };
+    }
   }
 
+  // ── PAYMENT_ADMITTANCE (checked BEFORE auto-reply/sender_system) ──────────
+  //
+  // Historical bug: sender_system was matched first and short-circuited to
+  // auto_reply, so payment advices from noreply@jumbo.com (and similar) were
+  // mislabeled. Payment signals are stronger evidence and now win.
+
+  if (senderIsPaymentRole && subjectIsPayment) {
+    return { category: "payment_admittance", confidence: 0.94, matchedRule: "payment_sender+subject" };
+  }
+  if (subjectIsPayment) {
+    return { category: "payment_admittance", confidence: 0.9, matchedRule: "payment_subject" };
+  }
+  // noreply / payment-role sender + broader payment hint in subject AND body
+  // confirms payment → strong match. This catches "Betaling BAM Bedrijf …"
+  // kind of subjects that lack the specific confirmation phrase but come
+  // bundled with a "betaalspecificatie" body from a system address.
+  if ((isSystemSender || senderIsPaymentRole) && subjectIsPaymentHint && bodyIsPaymentConfirmation) {
+    return { category: "payment_admittance", confidence: 0.9, matchedRule: "payment_sender+hint+body" };
+  }
+  // Body-only confirmation from a payment-role sender (no payment subject).
+  if (senderIsPaymentRole && bodyIsPaymentConfirmation) {
+    return { category: "payment_admittance", confidence: 0.85, matchedRule: "payment_sender+body" };
+  }
+
+  // ── AUTO-REPLY / OoO family ───────────────────────────────────────────────
+
   if (subjectIsAutoReply) {
-    // Try to promote to a more specific OoO label.
     if (BODY_OOO_PERMANENT.test(body)) {
       return { category: "ooo_permanent", confidence: 0.9, matchedRule: "subject_autoreply+body_permanent" };
     }
@@ -133,12 +181,8 @@ export function classify(input: ClassifyInput): ClassifyResult {
       return { category: "ooo_temporary", confidence: 0.9, matchedRule: "subject_autoreply+body_temporary" };
     }
     if (BODY_OOO_GENERIC.test(body) && isHumanSender) {
-      // Generic OoO phrasing + human-shape sender but no clear return-vs-permanent
-      // signal → conservative: treat as temporary (the more common case).
-      // Lower confidence reflects the ambiguity.
       return { category: "ooo_temporary", confidence: 0.75, matchedRule: "subject_autoreply+body_ooo_generic+human_sender" };
     }
-    // Subject says auto-reply but body gives no OoO signal → plain auto_reply.
     return { category: "auto_reply", confidence: 0.86, matchedRule: "subject_autoreply" };
   }
 
@@ -152,36 +196,13 @@ export function classify(input: ClassifyInput): ClassifyResult {
     }
   }
 
-  // ── PAYMENT_ADMITTANCE family ──────────────────────────────────────────
-  //
-  // Order matters: block subjects that LOOK payment-related but are actually
-  // MR's own outbound dunning template coming back (verzoek tot betaling),
-  // refunds/credit notes, or explicit disputes. Then apply positive rules.
-  //
-  // Sender-role alone is insufficient — `accounting@lidl.nl` + random subject
-  // is not a payment confirmation. We require sender + confirming subject, or
-  // a confirming subject on its own.
-
-  if (subjectIsPaymentRequest) {
-    return { category: "unknown", confidence: 0, matchedRule: "payment_blocked_request_template" };
+  // System sender as a LAST-resort auto_reply fallback. Payment/dispute/
+  // OoO checks already ran; if we're still here, a noreply address is
+  // almost always a transactional notification (receipt, error, bounce).
+  // Lower confidence (0.8) — human review below this threshold is fine.
+  if (isSystemSender) {
+    return { category: "auto_reply", confidence: 0.8, matchedRule: "sender_system_fallback" };
   }
-  if (subjectIsRefund) {
-    return { category: "unknown", confidence: 0, matchedRule: "payment_blocked_refund" };
-  }
-  if (subjectIsDispute || bodyDispute) {
-    if (senderIsPaymentRole || subjectIsPayment) {
-      return { category: "unknown", confidence: 0, matchedRule: "payment_blocked_by_dispute" };
-    }
-  }
-
-  if (senderIsPaymentRole && subjectIsPayment) {
-    return { category: "payment_admittance", confidence: 0.94, matchedRule: "payment_sender+subject" };
-  }
-  if (subjectIsPayment) {
-    return { category: "payment_admittance", confidence: 0.88, matchedRule: "payment_subject" };
-  }
-  // NOTE: sender-only (no matching subject) is intentionally NOT a match —
-  // too many legitimate non-payment emails come from `accounting@…` / `facturen@…`.
 
   return { category: "unknown", confidence: 0, matchedRule: "no_match" };
 }
