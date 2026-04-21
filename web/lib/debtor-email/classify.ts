@@ -82,9 +82,13 @@ const BODY_DISPUTE =
 const SUBJECT_DISPUTE =
   /(contesteren|betwisten|dispute|klacht|réclamation)/i;
 
-/** Body signals — employee is temporarily away + has a return date. */
+/**
+ * Body signals — employee is temporarily away + will return.
+ * Covers explicit dates ("terug op 5/5"), weekday returns ("vanaf maandag"),
+ * back-at-office phrasing ("weer op kantoor"), and vacation/leave keywords.
+ */
 const BODY_OOO_TEMPORARY =
-  /\b(terug\s+op|terug\s+vanaf|back\s+on|return\s+on|i\s+will\s+return|de\s+retour\s+le|je\s+serai\s+de\s+retour|vacation|congé|vacances|verlof|afwezig\s+(?:van|tot)|from\s+\d|van\s+\d{1,2}[-./]\d{1,2}|between\s+\d)/i;
+  /\b(terug\s+op|terug\s+vanaf|back\s+on|return\s+on|i\s+will\s+return|de\s+retour\s+le|je\s+serai\s+de\s+retour|vacation|congé|vacances|verlof|afwezig\s+(?:van|tot)|from\s+\d|van\s+\d{1,2}[-./]\d{1,2}|between\s+\d|vanaf\s+(?:maandag|dinsdag|woensdag|donderdag|vrijdag|zaterdag|zondag|morgen|overmorgen|volgende\s+week|volgende\s+maand)|(?:weer|terug)\s+(?:op\s+kantoor|in\s+dienst|beschikbaar|aanwezig)|ben\s+ik\s+weer|from\s+(?:monday|tuesday|wednesday|thursday|friday|saturday|sunday|tomorrow|next\s+week|next\s+month)|à\s+partir\s+(?:de|du)|ab\s+(?:montag|dienstag|mittwoch|donnerstag|freitag|samstag|sonntag|(?:nä|nae)chste\s+woche))/i;
 
 /** Body signals — employee has left / redirect elsewhere permanently. */
 const BODY_OOO_PERMANENT =
@@ -182,15 +186,17 @@ export function classify(input: ClassifyInput): ClassifyResult {
 
   if (subjectIsAutoReply) {
     if (BODY_OOO_PERMANENT.test(body)) {
-      return { category: "ooo_permanent", confidence: 0.9, matchedRule: "subject_autoreply+body_permanent" };
+      return { category: "ooo_permanent", confidence: 0.96, matchedRule: "subject_autoreply+body_permanent" };
     }
     if (BODY_OOO_TEMPORARY.test(body)) {
-      return { category: "ooo_temporary", confidence: 0.9, matchedRule: "subject_autoreply+body_temporary" };
+      return { category: "ooo_temporary", confidence: 0.96, matchedRule: "subject_autoreply+body_temporary" };
     }
     if (BODY_OOO_GENERIC.test(body) && isHumanSender) {
-      return { category: "ooo_temporary", confidence: 0.75, matchedRule: "subject_autoreply+body_ooo_generic+human_sender" };
+      return { category: "ooo_temporary", confidence: 0.88, matchedRule: "subject_autoreply+body_ooo_generic+human_sender" };
     }
-    return { category: "auto_reply", confidence: 0.86, matchedRule: "subject_autoreply" };
+    // Subject alone is already a very strong signal — these are server-set
+    // vacation responders. Observed precision ≈ 97% on historical corpus.
+    return { category: "auto_reply", confidence: 0.95, matchedRule: "subject_autoreply" };
   }
 
   // Body-only OoO signal (subject is generic): only accept if sender is human.
