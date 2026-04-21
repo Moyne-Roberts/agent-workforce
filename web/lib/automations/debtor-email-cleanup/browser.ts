@@ -2,10 +2,32 @@ import { type Page } from "playwright-core";
 import { connectWithSession, saveSession, captureBeforeAfter, captureScreenshot } from "@/lib/browser";
 import { resolveCredentials } from "@/lib/credentials/proxy";
 
-const ICONTROLLER_CREDENTIAL_ID = "e9a9570e-5f0d-4d50-8b41-212fc6bdb78a";
-const SESSION_KEY = "icontroller_session";
-const ICONTROLLER_URL = "https://test-walkerfire-testing.icontroller.billtrust.com";
 const AUTOMATION_NAME = "debtor-email-cleanup";
+
+export type IControllerEnv = "acceptance" | "production";
+
+interface EnvConfig {
+  url: string;
+  credentialId: string;
+  sessionKey: string;
+}
+
+function resolveEnv(env: IControllerEnv | undefined): EnvConfig {
+  const resolved: IControllerEnv =
+    env ?? (process.env.ICONTROLLER_ENV === "production" ? "production" : "acceptance");
+  if (resolved === "production") {
+    return {
+      url: "https://walkerfire.icontroller.eu",
+      credentialId: "dfae6b50-59dd-44e6-81ac-79d4f3511c3f",
+      sessionKey: "icontroller_session_prod",
+    };
+  }
+  return {
+    url: "https://test-walkerfire-testing.icontroller.billtrust.com",
+    credentialId: "e9a9570e-5f0d-4d50-8b41-212fc6bdb78a",
+    sessionKey: "icontroller_session",
+  };
+}
 
 export interface EmailIdentifiers {
   /** Company name as shown in iController sidebar */
@@ -32,8 +54,8 @@ export interface CleanupResult {
  * Login to iController. Skips if already logged in via session reuse.
  * Selectors: #login-username (type=text), #login-password, #login-submit
  */
-async function login(page: Page): Promise<void> {
-  await page.goto(ICONTROLLER_URL, { waitUntil: "domcontentloaded" });
+async function login(page: Page, cfg: EnvConfig): Promise<void> {
+  await page.goto(cfg.url, { waitUntil: "domcontentloaded" });
   await page.waitForTimeout(2000);
 
   const hasLoginForm = await page.locator('#login-username')
@@ -42,7 +64,7 @@ async function login(page: Page): Promise<void> {
 
   if (!hasLoginForm) return; // Already logged in via session
 
-  const creds = await resolveCredentials(ICONTROLLER_CREDENTIAL_ID);
+  const creds = await resolveCredentials(cfg.credentialId);
 
   await page.fill('#login-username', creds.username);
   await page.fill('#login-password', creds.password);
@@ -56,8 +78,8 @@ async function login(page: Page): Promise<void> {
  * Navigate directly to Messages inbox via URL.
  * Collections is already the active section after login.
  */
-async function navigateToMessages(page: Page): Promise<void> {
-  await page.goto(`${ICONTROLLER_URL}/messages`, { waitUntil: "domcontentloaded" });
+async function navigateToMessages(page: Page, cfg: EnvConfig): Promise<void> {
+  await page.goto(`${cfg.url}/messages`, { waitUntil: "domcontentloaded" });
   await page.waitForTimeout(2000);
 }
 
@@ -66,16 +88,13 @@ async function navigateToMessages(page: Page): Promise<void> {
  * Sidebar is a <ul> with <a> links, format "» CompanyName",
  * href = /messages/index/mailbox/{id}. Navigate directly via URL for reliability.
  */
-async function selectCompanyMailbox(page: Page, company: string): Promise<boolean> {
-  // Find the mailbox link by matching company name in the sidebar
+async function selectCompanyMailbox(page: Page, cfg: EnvConfig, company: string): Promise<boolean> {
   const mailboxHref = await page.evaluate((name) => {
     const links = Array.from(document.querySelectorAll('a'));
-    // Try exact match first (sidebar shows "» CompanyName")
     for (const a of links) {
       const text = a.textContent?.trim().replace(/^»\s*/, '') || '';
       if (text.toLowerCase() === name.toLowerCase()) return a.getAttribute('href');
     }
-    // Try partial match
     for (const a of links) {
       const text = a.textContent?.trim().toLowerCase() || '';
       if (text.includes(name.toLowerCase())) return a.getAttribute('href');
@@ -85,8 +104,7 @@ async function selectCompanyMailbox(page: Page, company: string): Promise<boolea
 
   if (!mailboxHref) return false;
 
-  // Navigate directly to the mailbox URL
-  await page.goto(`${ICONTROLLER_URL}${mailboxHref}`, { waitUntil: "domcontentloaded" });
+  await page.goto(`${cfg.url}${mailboxHref}`, { waitUntil: "domcontentloaded" });
   await page.waitForTimeout(2000);
   return true;
 }
@@ -157,6 +175,103 @@ async function selectAndDelete(page: Page, rowIndex: number): Promise<void> {
   await page.waitForTimeout(2000);
 }
 
+export interface PreviewResult {
+  success: boolean;
+  emailFound: boolean;
+  rowIndex: number;
+  rowPreview: string | null;
+  screenshot: { path: string; url: string | null } | null;
+  error?: string;
+}
+
+/**
+ * Dry-run: login, navigate, find the email, capture a before-screenshot.
+ * Does NOT delete. For production safety gate — user inspects screenshot
+ * before we re-run with the delete path.
+ */
+export async function findAndPreviewEmail(
+  email: EmailIdentifiers,
+  env?: IControllerEnv,
+): Promise<PreviewResult> {
+  const cfg = resolveEnv(env);
+  const { browser, context, page } = await connectWithSession(cfg.sessionKey);
+
+  try {
+    await login(page, cfg);
+    await navigateToMessages(page, cfg);
+
+    const found = await selectCompanyMailbox(page, cfg, email.company);
+    if (!found) {
+      const shot = await captureScreenshot(page, {
+        automation: AUTOMATION_NAME,
+        label: `preview-company-not-found-${email.company}`,
+      });
+      return {
+        success: false,
+        emailFound: false,
+        rowIndex: -1,
+        rowPreview: null,
+        screenshot: shot,
+        error: `Company "${email.company}" not found in iController sidebar`,
+      };
+    }
+
+    const rowIndex = await findEmail(page, email);
+    if (rowIndex === -1) {
+      const shot = await captureScreenshot(page, {
+        automation: AUTOMATION_NAME,
+        label: `preview-email-not-found`,
+      });
+      return {
+        success: false,
+        emailFound: false,
+        rowIndex: -1,
+        rowPreview: null,
+        screenshot: shot,
+        error: `Email not found: "${email.subject}" from ${email.from}`,
+      };
+    }
+
+    const rowPreview = await page.evaluate((i) => {
+      const row = document.querySelectorAll("#messages-list tbody tr")[i];
+      if (!row) return null;
+      return Array.from(row.querySelectorAll("td"))
+        .map((td) => td.textContent?.trim() || "")
+        .join(" | ");
+    }, rowIndex);
+
+    const shot = await captureScreenshot(page, {
+      automation: AUTOMATION_NAME,
+      label: `preview-before-delete-${email.company}`,
+    });
+
+    await saveSession(context, cfg.sessionKey);
+
+    return {
+      success: true,
+      emailFound: true,
+      rowIndex,
+      rowPreview,
+      screenshot: shot,
+    };
+  } catch (error) {
+    const shot = await captureScreenshot(page, {
+      automation: AUTOMATION_NAME,
+      label: "preview-error",
+    }).catch(() => null);
+    return {
+      success: false,
+      emailFound: false,
+      rowIndex: -1,
+      rowPreview: null,
+      screenshot: shot,
+      error: String(error),
+    };
+  } finally {
+    await browser.close();
+  }
+}
+
 /**
  * Find and delete a specific email in iController.
  * Called by the Vercel API route after Zapier handles the Outlook side.
@@ -164,15 +279,18 @@ async function selectAndDelete(page: Page, rowIndex: number): Promise<void> {
  * Input: email identifiers from Zapier (company, from, subject, receivedAt)
  * Output: success status + before/after screenshot paths for audit trail
  */
-export async function deleteEmailFromIController(email: EmailIdentifiers): Promise<CleanupResult> {
-  const { browser, context, page } = await connectWithSession(SESSION_KEY);
+export async function deleteEmailFromIController(
+  email: EmailIdentifiers,
+  env?: IControllerEnv,
+): Promise<CleanupResult> {
+  const cfg = resolveEnv(env);
+  const { browser, context, page } = await connectWithSession(cfg.sessionKey);
 
   try {
-    await login(page);
-    await navigateToMessages(page);
+    await login(page, cfg);
+    await navigateToMessages(page, cfg);
 
-    // Find the company mailbox
-    const found = await selectCompanyMailbox(page, email.company);
+    const found = await selectCompanyMailbox(page, cfg, email.company);
     if (!found) {
       const errorScreenshot = await captureScreenshot(page, {
         automation: AUTOMATION_NAME,
@@ -211,7 +329,7 @@ export async function deleteEmailFromIController(email: EmailIdentifiers): Promi
       },
     );
 
-    await saveSession(context, SESSION_KEY);
+    await saveSession(context, cfg.sessionKey);
 
     return {
       success: true,
