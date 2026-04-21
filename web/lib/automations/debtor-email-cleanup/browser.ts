@@ -251,12 +251,17 @@ export async function findAndPreviewEmail(
     }
 
     const rowPreview = await page.evaluate((i) => {
-      const row = document.querySelectorAll("#messages-list tbody tr")[i];
+      const row = document.querySelectorAll("#messages-list tbody tr")[i] as HTMLElement | undefined;
       if (!row) return null;
+      row.scrollIntoView({ block: "center" });
+      row.style.outline = "3px solid #ff0033";
+      row.style.outlineOffset = "-3px";
+      row.style.background = "#ffe5ec";
       return Array.from(row.querySelectorAll("td"))
         .map((td) => td.textContent?.trim() || "")
         .join(" | ");
     }, rowIndex);
+    await page.waitForTimeout(400);
 
     const shot = await captureScreenshot(page, {
       automation: AUTOMATION_NAME,
