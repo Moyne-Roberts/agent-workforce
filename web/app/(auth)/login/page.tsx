@@ -34,6 +34,11 @@ function MicrosoftIcon() {
 function LoginForm() {
   const searchParams = useSearchParams();
   const error = searchParams.get("error");
+  // Safety net: only accept relative paths starting with `/` (not `//`) to
+  // prevent open-redirect via ?next=//evil.com.
+  const rawNext = searchParams.get("next");
+  const next =
+    rawNext && rawNext.startsWith("/") && !rawNext.startsWith("//") ? rawNext : "/";
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -51,7 +56,7 @@ function LoginForm() {
       provider: "azure",
       options: {
         scopes: "email profile openid",
-        redirectTo: `${window.location.origin}/auth/callback`,
+        redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}`,
       },
     });
 
@@ -75,8 +80,8 @@ function LoginForm() {
       setFormError(error.message);
       setLoading(false);
     } else {
-      // Successful sign-in -- redirect to dashboard
-      window.location.href = "/";
+      // Successful sign-in -- redirect back to the page they came from.
+      window.location.href = next;
     }
   }
 

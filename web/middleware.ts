@@ -41,8 +41,13 @@ export default async function proxy(request: NextRequest) {
     !request.nextUrl.pathname.startsWith("/api/automations") &&
     !request.nextUrl.pathname.startsWith("/rijtijden")
   ) {
+    const originalPath = request.nextUrl.pathname + request.nextUrl.search;
     const url = request.nextUrl.clone();
     url.pathname = "/login";
+    url.search = "";
+    if (originalPath !== "/" && !originalPath.startsWith("/login")) {
+      url.searchParams.set("next", originalPath);
+    }
     return NextResponse.redirect(url);
   }
 
