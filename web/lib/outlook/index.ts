@@ -1,2 +1,2 @@
-export { categorizeEmail, archiveEmail } from "./client";
-export type { OutlookActionResult } from "./client";
+export { categorizeEmail, archiveEmail, listInboxMessages } from "./client";
+export type { OutlookActionResult, OutlookMessage } from "./client";
