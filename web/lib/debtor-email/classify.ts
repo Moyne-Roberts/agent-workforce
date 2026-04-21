@@ -170,6 +170,13 @@ export function classify(input: ClassifyInput): ClassifyResult {
   if (senderIsPaymentRole && bodyIsPaymentConfirmation) {
     return { category: "payment_admittance", confidence: 0.85, matchedRule: "payment_sender+body" };
   }
+  // Body-only confirmation from a system/noreply sender. Catches cases like
+  // `noreply@jumbo.com` + "Excel specificatie 2000095879" + body containing
+  // "betaalspecificatie"/"overgemaakt" — the subject has no payment keyword
+  // but the body is definitively a payment advice from an automated system.
+  if (isSystemSender && bodyIsPaymentConfirmation) {
+    return { category: "payment_admittance", confidence: 0.85, matchedRule: "payment_system_sender+body" };
+  }
 
   // ── AUTO-REPLY / OoO family ───────────────────────────────────────────────
 
