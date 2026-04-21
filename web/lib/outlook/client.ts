@@ -38,12 +38,102 @@ async function graphFetch(
     fetchOptions.body = JSON.stringify(options.body);
   }
 
-  return zapier.fetch(url, fetchOptions);
+  // Retry socket-level failures (UND_ERR_SOCKET, ECONNRESET, fetch failed).
+  // Sequential Graph calls over a warm undici pool occasionally get a dropped
+  // connection mid-pagination; Graph itself is fine on retry.
+  let lastErr: unknown;
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try {
+      return await zapier.fetch(url, fetchOptions);
+    } catch (err) {
+      lastErr = err;
+      const msg = String(err);
+      const retriable =
+        /UND_ERR_SOCKET|ECONNRESET|fetch failed|socket hang up|ETIMEDOUT/i.test(msg);
+      if (!retriable || attempt === 2) break;
+      await new Promise((r) => setTimeout(r, 250 * (attempt + 1)));
+    }
+  }
+  throw lastErr;
 }
 
 export interface OutlookActionResult {
   success: boolean;
   error?: string;
+}
+
+export interface OutlookMessage {
+  id: string;
+  subject: string;
+  from: string;
+  fromName: string;
+  receivedAt: string;
+  bodyPreview: string;
+  isRead: boolean;
+  internetMessageId: string | null;
+  categories: string[];
+}
+
+/**
+ * List messages from the Inbox folder of a mailbox, newest first.
+ * Uses Graph API pagination — pulls up to `max` messages.
+ */
+export async function listInboxMessages(
+  mailbox: string,
+  max: number = 200,
+): Promise<OutlookMessage[]> {
+  const fields = [
+    "id",
+    "subject",
+    "from",
+    "receivedDateTime",
+    "bodyPreview",
+    "isRead",
+    "internetMessageId",
+    "categories",
+  ].join(",");
+  // Graph allows $top up to 999 for /messages. Bigger pages = fewer sequential
+  // round-trips → fewer socket drops over the Zapier→Graph chain.
+  const pageSize = Math.min(500, max);
+  let url: string | null = `${GRAPH_BASE}/users/${mailbox}/mailFolders/inbox/messages?$top=${pageSize}&$orderby=receivedDateTime desc&$select=${fields}`;
+
+  const out: OutlookMessage[] = [];
+  while (url && out.length < max) {
+    const res = await graphFetch(url);
+    if (!res.ok) {
+      throw new Error(`listInboxMessages ${res.status}: ${await res.text()}`);
+    }
+    const data = (await res.json()) as {
+      value: Array<{
+        id: string;
+        subject?: string;
+        from?: { emailAddress: { address: string; name?: string } };
+        receivedDateTime?: string;
+        bodyPreview?: string;
+        isRead?: boolean;
+        internetMessageId?: string;
+        categories?: string[];
+      }>;
+      "@odata.nextLink"?: string;
+    };
+    for (const m of data.value) {
+      if (out.length >= max) break;
+      out.push({
+        id: m.id,
+        subject: m.subject ?? "",
+        from: m.from?.emailAddress.address ?? "",
+        fromName: m.from?.emailAddress.name ?? "",
+        receivedAt: m.receivedDateTime ?? "",
+        bodyPreview: m.bodyPreview ?? "",
+        isRead: m.isRead ?? false,
+        internetMessageId: m.internetMessageId ?? null,
+        categories: m.categories ?? [],
+      });
+    }
+    url = data["@odata.nextLink"] ?? null;
+  }
+
+  return out;
 }
 
 /**
