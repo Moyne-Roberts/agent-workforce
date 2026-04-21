@@ -3,8 +3,14 @@
 import { categorizeEmail, archiveEmail } from "@/lib/outlook";
 import { classify } from "@/lib/debtor-email/classify";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { deleteEmailFromIController } from "@/lib/automations/debtor-email-cleanup/browser";
 
 const MAILBOX = "debiteuren@smeba.nl";
+
+// iController sidebar category that corresponds to debiteuren@smeba.nl.
+// Hardcoded while this review page is single-mailbox — generalize when we add
+// other subsidiary pairs.
+const ICONTROLLER_COMPANY = "smebabrandbeveiliging";
 
 const CATEGORY_LABEL: Record<string, string> = {
   auto_reply: "Auto-Reply",
@@ -198,6 +204,61 @@ export async function executeReviewDecisions(
       triggered_by: "bulk-review:ui",
       completed_at: isoNow,
     });
+
+    // iController delete — the same stream lands in iController's
+    // smebabrandbeveiliging inbox with gaps (many Outlook items aren't there).
+    // `not_found` is a normal outcome and is logged as completed so the
+    // catchup script doesn't re-try it. Hard failures (login, selector
+    // break, browser crash) log as failed but the Outlook actions still
+    // stand — the batch continues.
+    try {
+      const icRes = await deleteEmailFromIController(
+        {
+          company: ICONTROLLER_COMPANY,
+          from: d.from,
+          subject: d.subject,
+          receivedAt: d.receivedAt,
+        },
+        "production",
+      );
+      const errText = icRes.error ?? "";
+      const icStatus: "deleted" | "not_found" | "failed" =
+        icRes.success && icRes.emailFound
+          ? "deleted"
+          : !icRes.emailFound && /email not found|company .* not found/i.test(errText)
+            ? "not_found"
+            : "failed";
+      const nowAfter = new Date().toISOString();
+      await admin.from("automation_runs").insert({
+        automation: "debtor-email-review",
+        status: icStatus === "failed" ? "failed" : "completed",
+        result: {
+          stage: "icontroller_delete",
+          message_id: d.id,
+          company: ICONTROLLER_COMPANY,
+          icontroller: icStatus,
+          screenshots: icRes.screenshots,
+        },
+        error_message: icStatus === "failed" ? errText || null : null,
+        triggered_by: "bulk-review:ui",
+        completed_at: nowAfter,
+      });
+    } catch (err) {
+      const nowAfter = new Date().toISOString();
+      await admin.from("automation_runs").insert({
+        automation: "debtor-email-review",
+        status: "failed",
+        result: {
+          stage: "icontroller_delete",
+          message_id: d.id,
+          company: ICONTROLLER_COMPANY,
+          icontroller: "failed",
+        },
+        error_message: String(err),
+        triggered_by: "bulk-review:ui",
+        completed_at: nowAfter,
+      });
+    }
   }
 
   return result;
