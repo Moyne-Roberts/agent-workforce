@@ -1,3 +1,7 @@
+// TODO(v7): this component is pervasively light-themed (bg-white, bg-gray-50,
+// bg-blue-50/orange-50/red-50/green-50 accent panels, text-gray-600/700 body).
+// It needs a proper rework onto v7 surface + category tokens rather than a
+// 1:1 color swap — skipping for Phase 56 sweep.
 import { Badge } from "@/components/ui/badge";
 import { ReviewActions } from "./review-actions";
 
