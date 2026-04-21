@@ -168,23 +168,57 @@ async function findEmail(page: Page, email: EmailIdentifiers, maxPages = 10): Pr
 }
 
 /**
- * Select a row by index and click the delete button.
- * Table: #messages-list. Rows have a checkbox in the select column.
- * Delete button: div.delete-bulk.bulk-action in the toolbar.
+ * Scroll matched row into view and apply red outline + pink background
+ * so screenshots visually point to the target.
+ */
+async function highlightRow(page: Page, rowIndex: number): Promise<string | null> {
+  return page.evaluate((i) => {
+    const row = document.querySelectorAll("#messages-list tbody tr")[i] as HTMLElement | undefined;
+    if (!row) return null;
+    row.scrollIntoView({ block: "center" });
+    row.style.outline = "3px solid #ff0033";
+    row.style.outlineOffset = "-3px";
+    row.style.background = "#ffe5ec";
+    return Array.from(row.querySelectorAll("td"))
+      .map((td) => td.textContent?.trim() || "")
+      .join(" | ");
+  }, rowIndex);
+}
+
+/**
+ * Select a row's checkbox and click the bulk delete button.
+ * Verifies the checkbox is actually :checked before clicking delete; falls
+ * back to clicking the select-column td (DataTables row-click toggle) if
+ * the direct input click doesn't register.
  */
 async function selectAndDelete(page: Page, rowIndex: number): Promise<void> {
-  // Click the checkbox on the row (column with class "column-select")
-  const checkbox = page.locator(`#messages-list tbody tr:nth-child(${rowIndex + 1}) .column-select input[type="checkbox"], #messages-list tbody tr:nth-child(${rowIndex + 1}) td:nth-child(2)`).first();
-  await checkbox.click();
-  await page.waitForTimeout(500);
+  const rowSelector = `#messages-list tbody tr:nth-child(${rowIndex + 1})`;
+  const row = page.locator(rowSelector);
+  const checkbox = row.locator('input[type="checkbox"]').first();
 
-  // Click the delete button (div.delete-bulk.bulk-action)
+  await checkbox.scrollIntoViewIfNeeded();
+  await checkbox.click();
+  await page.waitForTimeout(400);
+
+  let checked = await checkbox.isChecked().catch(() => false);
+  if (!checked) {
+    // Fallback: click the first cell (select column) — many DataTables
+    // implementations toggle the checkbox when the cell is clicked.
+    await row.locator("td").first().click();
+    await page.waitForTimeout(400);
+    checked = await checkbox.isChecked().catch(() => false);
+  }
+  if (!checked) {
+    throw new Error(`Checkbox on row ${rowIndex} could not be checked`);
+  }
+
   const deleteButton = page.locator('.delete-bulk.bulk-action').first();
   await deleteButton.click();
   await page.waitForTimeout(1000);
 
-  // Handle potential confirmation dialog
-  const confirmButton = page.locator('button:has-text("OK"), button:has-text("Yes"), button:has-text("Confirm"), button:has-text("Delete"), .modal button.call-to-action');
+  const confirmButton = page.locator(
+    'button:has-text("OK"), button:has-text("Yes"), button:has-text("Confirm"), button:has-text("Delete"), .modal button.call-to-action',
+  );
   const hasConfirm = await confirmButton.first().isVisible({ timeout: 3000 }).catch(() => false);
   if (hasConfirm) {
     await confirmButton.first().click();
@@ -250,17 +284,7 @@ export async function findAndPreviewEmail(
       };
     }
 
-    const rowPreview = await page.evaluate((i) => {
-      const row = document.querySelectorAll("#messages-list tbody tr")[i] as HTMLElement | undefined;
-      if (!row) return null;
-      row.scrollIntoView({ block: "center" });
-      row.style.outline = "3px solid #ff0033";
-      row.style.outlineOffset = "-3px";
-      row.style.background = "#ffe5ec";
-      return Array.from(row.querySelectorAll("td"))
-        .map((td) => td.textContent?.trim() || "")
-        .join(" | ");
-    }, rowIndex);
+    const rowPreview = await highlightRow(page, rowIndex);
     await page.waitForTimeout(400);
 
     const shot = await captureScreenshot(page, {
@@ -342,7 +366,10 @@ export async function deleteEmailFromIController(
       };
     }
 
-    // Delete with before/after screenshots
+    // Highlight the target row so before/after screenshots clearly point to it.
+    await highlightRow(page, rowIndex);
+    await page.waitForTimeout(400);
+
     const audit = await captureBeforeAfter(
       page,
       AUTOMATION_NAME,
