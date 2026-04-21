@@ -1,9 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createZapierSdk } from "@zapier/zapier-sdk";
 
+export const maxDuration = 25;
+
 const INTERNAL_API_KEY = process.env.SMEBA_INTERNAL_API_KEY!;
 // Connection ID for "Sugar CRM // NCrutzen" in Zapier
 const SUGARCRM_CONNECTION_ID = 58816663;
+const ZAPIER_CALL_TIMEOUT_MS = 18_000;
 // Max items fetched per lookup to keep latency under ~12s
 const MAX_CASES = 5;
 const MAX_QUOTES = 5;
@@ -73,6 +76,15 @@ export async function POST(request: NextRequest) {
 
   const zapier = createZapierSdk();
 
+  function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
+    return Promise.race([
+      promise,
+      new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error(`Zapier call timed out after ${ms}ms`)), ms)
+      ),
+    ]);
+  }
+
   try {
     // Step 1: Search Accounts by sender domain.
     // SugarCRM Accounts have an email domain field — search by domain to find the customer.
@@ -80,18 +92,21 @@ export async function POST(request: NextRequest) {
     // Fallback: 'name' match if domain search returns nothing.
     let accountData: Record<string, unknown> | null = null;
 
-    const { data: accountResults } = await zapier.runAction({
-      app: "SugarCRMCLIAPI",
-      actionType: "search",
-      action: "record",
-      connectionId: SUGARCRM_CONNECTION_ID,
-      inputs: {
-        module: "Accounts",
-        search_field_1: "email_address_used_for_sending",
-        value_for_search_field_1: domain,
-      },
-      maxItems: 1,
-    });
+    const { data: accountResults } = await withTimeout(
+      zapier.runAction({
+        app: "SugarCRMCLIAPI",
+        actionType: "search",
+        action: "record",
+        connectionId: SUGARCRM_CONNECTION_ID,
+        inputs: {
+          module: "Accounts",
+          search_field_1: "email_address_used_for_sending",
+          value_for_search_field_1: domain,
+        },
+        maxItems: 1,
+      }),
+      ZAPIER_CALL_TIMEOUT_MS
+    );
 
     if (accountResults && accountResults.length > 0) {
       accountData = accountResults[0] as Record<string, unknown>;
@@ -113,47 +128,39 @@ export async function POST(request: NextRequest) {
 
     // Step 2: Fetch Cases + Quotes + recent Emails linked to this account in parallel.
     const [casesResult, quotesResult, emailsResult] = await Promise.allSettled([
-      zapier
-        .runAction({
+      withTimeout(
+        zapier.runAction({
           app: "SugarCRMCLIAPI",
           actionType: "read",
           action: "get_records",
           connectionId: SUGARCRM_CONNECTION_ID,
-          inputs: {
-            module: "Cases",
-            account_id: accountId,
-          },
+          inputs: { module: "Cases", account_id: accountId },
           maxItems: MAX_CASES,
-        })
-        .then((r) => r.data),
-
-      zapier
-        .runAction({
+        }).then((r) => r.data),
+        ZAPIER_CALL_TIMEOUT_MS
+      ),
+      withTimeout(
+        zapier.runAction({
           app: "SugarCRMCLIAPI",
           actionType: "read",
           action: "get_records",
           connectionId: SUGARCRM_CONNECTION_ID,
-          inputs: {
-            module: "Quotes",
-            account_id: accountId,
-          },
+          inputs: { module: "Quotes", account_id: accountId },
           maxItems: MAX_QUOTES,
-        })
-        .then((r) => r.data),
-
-      zapier
-        .runAction({
+        }).then((r) => r.data),
+        ZAPIER_CALL_TIMEOUT_MS
+      ),
+      withTimeout(
+        zapier.runAction({
           app: "SugarCRMCLIAPI",
           actionType: "read",
           action: "get_records",
           connectionId: SUGARCRM_CONNECTION_ID,
-          inputs: {
-            module: "Emails",
-            parent_id: accountId,
-          },
+          inputs: { module: "Emails", parent_id: accountId },
           maxItems: MAX_EMAILS,
-        })
-        .then((r) => r.data),
+        }).then((r) => r.data),
+        ZAPIER_CALL_TIMEOUT_MS
+      ),
     ]);
 
     return NextResponse.json({
