@@ -6,7 +6,10 @@ const MAILBOX = "debiteuren@smeba.nl";
 const FETCH_LIMIT = 300;
 
 export const dynamic = "force-dynamic";
-export const maxDuration = 120;
+// Server actions on this route include iController browser automation per
+// approved item (≈5–10s each after session warmup). An 18-item batch can
+// take ≈3 min. Vercel Pro allows up to 300s.
+export const maxDuration = 300;
 
 function bandFor(conf: number): "high" | "medium" | "low" {
   if (conf >= 0.9) return "high";
