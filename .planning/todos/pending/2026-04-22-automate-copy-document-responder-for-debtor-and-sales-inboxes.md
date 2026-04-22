@@ -37,6 +37,17 @@ Customers email `debiteuren@*` and sales inboxes asking for copies of business d
 
 **Critical finding:** keyword filter has ~31% recall. Production classifier MUST use LLM, not keywords. Most missed pattern: `FW: Documenten n.a.v. uitgevoerde werkzaamheden. Factuur: NNNNNNNN` — customer forwards Smeba's auto-doc-mail to their own AP team.
 
+## Probe findings 2026-04-22 (iController acceptance)
+
+Live probe captured composer DOM + selectors. Artifacts in `.planning/briefs/artifacts/`:
+- "New message" button: on `/messages`, plain `<button>` text="New message"
+- Composer opens in **new tab** at `/messages/compose?` → handle via `context.waitForEvent("page")`
+- Body editor: `<iframe>` (CKEditor-style) with mirrored hidden `<textarea name="message">`
+- Attachments: Dropzone.js — button `<button class="attachments dz-clickable">Add attachments</button>` + hidden `<input type="file" multiple>` already in DOM. Use Playwright `setInputFiles()` directly on the hidden input; skip the button click.
+- Save as draft: plain `<button>Save as draft</button>`, no send side-effect
+- 10 form fields (to/cc/subject/entity/etc.) — full list in `06-probe-summary.json`
+- **Session pattern:** iController uses session cookies. Reuse via Playwright `storageState` IS correct, but: use a **dedicated session key per automation**, validate session before trusting (check for Billtrust error shell + known-good landmark), and save state only AFTER successful navigation to a real page. See learning `24a11fb2-d3f1-49dd-8b08-7d97004a6be4`.
+
 ## Architecture decisions (2026-04-22)
 
 - **Copy-document is a dedicated sub-agent** in the debtor swarm, not just a function/tool. It has its own prompt, its own Zapier-SDK-backed tool set (NXT SQL lookup, S3 fetch), and its own success criteria. The intent agent routes `copy_document_request` → this sub-agent.
