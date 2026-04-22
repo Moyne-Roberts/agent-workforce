@@ -99,9 +99,16 @@ export function KanbanBoard({ swarmId: _swarmId }: KanbanBoardProps) {
     for (const j of filteredJobs) {
       acc[j.stage].push(j);
     }
-    // Stable order within column: created_at desc.
+    // Newest first — entity-grouped jobs set updated_at to the latest run's
+    // completion time, so this surfaces the most recently active items at
+    // the top of every column. Fall back to created_at when updated_at is
+    // missing.
     for (const stage of KANBAN_STAGES) {
-      acc[stage].sort((a, b) => b.created_at.localeCompare(a.created_at));
+      acc[stage].sort((a, b) => {
+        const at = a.updated_at ?? a.created_at;
+        const bt = b.updated_at ?? b.created_at;
+        return bt.localeCompare(at);
+      });
     }
     return acc;
   }, [filteredJobs]);

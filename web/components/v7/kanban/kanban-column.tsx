@@ -7,8 +7,11 @@
  *     supports cross-column moves; within-column reordering is not
  *     persisted -- see Plan 52-02 D-14)
  *
- * Shows up to VISIBLE_LIMIT cards by default; a "Toon N meer" button
- * expands the rest in place so users can still drag from the full list.
+ * Shows up to VISIBLE_LIMIT cards inline. Anything beyond that opens in a
+ * centred modal on click — drag is disabled there (cards in the modal are
+ * not sortable) since the modal is intentionally a browse view, not a
+ * drag surface. Use drag on the visible cards, or move cards first via
+ * bulk-review / automation and let realtime reconcile.
  */
 
 import { useState } from "react";
@@ -19,6 +22,13 @@ import {
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { cn } from "@/lib/utils";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import { KanbanJobCard } from "@/components/v7/kanban/kanban-job-card";
 import { STAGE_LABELS } from "@/lib/v7/kanban/stages";
 import type { SwarmJob, SwarmJobStage } from "@/lib/v7/types";
@@ -31,8 +41,8 @@ interface KanbanColumnProps {
 const VISIBLE_LIMIT = 5;
 
 export function KanbanColumn({ stage, jobs }: KanbanColumnProps) {
-  const [expanded, setExpanded] = useState(false);
-  const visibleJobs = expanded ? jobs : jobs.slice(0, VISIBLE_LIMIT);
+  const [modalOpen, setModalOpen] = useState(false);
+  const visibleJobs = jobs.slice(0, VISIBLE_LIMIT);
   const hiddenCount = jobs.length - visibleJobs.length;
 
   const { setNodeRef, isOver } = useDroppable({
@@ -89,24 +99,40 @@ export function KanbanColumn({ stage, jobs }: KanbanColumnProps) {
                 <KanbanJobCard key={job.id} job={job} />
               ))}
               {hiddenCount > 0 && (
-                <button
-                  type="button"
-                  onClick={() => setExpanded(true)}
-                  className="flex items-center justify-center gap-1.5 rounded-[var(--v7-radius-sm)] border border-dashed border-[var(--v7-line)] px-3 py-2 text-[12px] text-[var(--v7-muted)] transition-colors hover:border-[var(--v7-teal)] hover:text-[var(--v7-text)]"
-                >
-                  <ChevronDown size={12} />
-                  Toon {hiddenCount} meer
-                </button>
-              )}
-              {expanded && jobs.length > VISIBLE_LIMIT && (
-                <button
-                  type="button"
-                  onClick={() => setExpanded(false)}
-                  className="flex items-center justify-center gap-1.5 rounded-[var(--v7-radius-sm)] border border-dashed border-[var(--v7-line)] px-3 py-2 text-[12px] text-[var(--v7-muted)] transition-colors hover:border-[var(--v7-teal)] hover:text-[var(--v7-text)]"
-                >
-                  <ChevronDown size={12} className="rotate-180" />
-                  Inklappen
-                </button>
+                <Dialog open={modalOpen} onOpenChange={setModalOpen}>
+                  <DialogTrigger asChild>
+                    <button
+                      type="button"
+                      className="flex items-center justify-center gap-1.5 rounded-[var(--v7-radius-sm)] border border-dashed border-[var(--v7-line)] px-3 py-2 text-[12px] text-[var(--v7-muted)] transition-colors hover:border-[var(--v7-teal)] hover:text-[var(--v7-text)]"
+                    >
+                      <ChevronDown size={12} />
+                      Toon {hiddenCount} meer
+                    </button>
+                  </DialogTrigger>
+                  <DialogContent
+                    className="max-h-[90vh] w-[min(92vw,900px)] overflow-hidden bg-[var(--v7-bg)] border border-[var(--v7-line)] p-0"
+                  >
+                    <DialogHeader className="border-b border-[var(--v7-line)] p-5">
+                      <DialogTitle className="flex items-center gap-3 text-[18px] font-semibold text-[var(--v7-text)]">
+                        {STAGE_LABELS[stage]}
+                        <span className="rounded-full bg-[var(--v7-panel-2)] px-2.5 py-0.5 text-[12px] font-medium text-[var(--v7-muted)]">
+                          {jobs.length}
+                        </span>
+                      </DialogTitle>
+                    </DialogHeader>
+                    <div className="max-h-[calc(90vh-80px)] overflow-y-auto p-5">
+                      <div className="flex flex-col gap-2.5">
+                        {jobs.map((job) => (
+                          <KanbanJobCard
+                            key={job.id}
+                            job={job}
+                            isDragOverlay
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  </DialogContent>
+                </Dialog>
               )}
             </>
           )}
