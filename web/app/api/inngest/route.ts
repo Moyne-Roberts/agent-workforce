@@ -13,6 +13,7 @@ import {
   createMonthlyInvoiceDrafts,
 } from "@/lib/inngest/functions/heeren-oefeningen";
 import { refreshBriefings } from "@/lib/inngest/functions/briefing-refresh";
+import { syncDebtorEmailBridgeCron } from "@/lib/inngest/functions/debtor-email-bridge";
 
 export const { GET, POST, PUT } = serve({
   client: inngest,
@@ -28,5 +29,6 @@ export const { GET, POST, PUT } = serve({
     processHeerenOefening,
     createMonthlyInvoiceDrafts,
     refreshBriefings,
+    syncDebtorEmailBridgeCron,
   ],
 });
