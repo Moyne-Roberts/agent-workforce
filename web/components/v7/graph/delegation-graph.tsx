@@ -140,7 +140,7 @@ export function DelegationGraph(_props: DelegationGraphProps) {
         </div>
       ) : (
         <div
-          className="relative h-[260px] min-h-[220px] rounded-[var(--v7-radius)] border border-[var(--v7-line)] overflow-hidden"
+          className="relative h-[380px] min-h-[320px] rounded-[var(--v7-radius)] border border-[var(--v7-line)] overflow-hidden"
           style={{
             background:
               "linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01))",
@@ -183,22 +183,22 @@ export function DelegationGraph(_props: DelegationGraphProps) {
               return (
                 <g>
                   <text
-                    x={20}
-                    y={orchY - 14}
+                    x={30}
+                    y={orchY - 18}
                     fontSize={14}
                     fontWeight={600}
                     letterSpacing={2}
                     fill="var(--v7-faint)"
                     style={{ textTransform: "uppercase" }}
                   >
-                    Inkomend
+                    Inkomende mail
                   </text>
-                  <text x={20} y={orchY + 6} fontSize={13} fill="var(--v7-muted)">
+                  <text x={30} y={orchY + 4} fontSize={13} fill="var(--v7-muted)">
                     debiteuren@smeba.nl
                   </text>
                   <line
-                    x1={20}
-                    y1={orchY + 20}
+                    x1={30}
+                    y1={orchY + 24}
                     x2={orchX - NODE_HALF_WIDTH - 6}
                     y2={orchY}
                     stroke="var(--v7-teal)"
