@@ -19,10 +19,13 @@ export const KANBAN_STAGES: SwarmJobStage[] = [
   "done",
 ];
 
+// Column labels align with the live terminal's event-type chips so the
+// two surfaces share a single vocabulary. See
+// web/lib/v7/terminal/format.ts::EVENT_TYPE_CHIP.
 export const STAGE_LABELS: Record<SwarmJobStage, string> = {
   backlog: "Backlog",
-  ready: "Ready",
-  progress: "In progress",
+  ready: "Queued",
+  progress: "Processing",
   review: "Human review",
   done: "Done",
 };
