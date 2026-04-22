@@ -308,14 +308,17 @@ export function classify(input: ClassifyInput): ClassifyResult {
   if (subjectIsTicketRef) {
     return { category: "auto_reply", confidence: 0.9, matchedRule: "subject_ticket_ref" };
   }
-  // Role-based sender replying ("RE:") to our outbound invoice email —
-  // e.g. invoicesNL@inditex.com, s.baswareapbcf@phoenixgroup.eu. No body
-  // check needed; the sender+prefix combo is highly structured. We also
-  // accept AP-system handles anywhere in the local-part (Basware, Blue10,
-  // Tradeshift) since those vendors embed the system name inside a longer
-  // address (e.g. s.baswareapbcf@).
-  if (subjectIsReplyPrefix && (senderIsPaymentRole || SENDER_AP_SYSTEM_ANYWHERE.test(from))) {
-    return { category: "auto_reply", confidence: 0.9, matchedRule: "reply_prefix+ap_system_sender" };
+  // RE:/FW: van bekende AP-automation systemen (Basware, Blue10, Tradeshift).
+  // Eerdere versie accepteerde ELKE SENDER_PAYMENT_ROLE — dat was te los:
+  // `crediteuren@hansanders.com` en `accounting@lidl.nl` zijn vaak gedeelde
+  // mensen-postbussen voor credit control, geen automation. De reviewer
+  // ving die terecht op ("Is een bevestiging door een mens niet een Auto
+  // Reply"). Alleen specifieke AP-system handles in de local-part vormen
+  // een betrouwbaar signaal; generieke role-addressen moeten via een
+  // inhoudelijke regel (subject_ack/ticket_ref of klassiek subject_autoreply)
+  // bewezen worden.
+  if (subjectIsReplyPrefix && SENDER_AP_SYSTEM_ANYWHERE.test(from)) {
+    return { category: "auto_reply", confidence: 0.9, matchedRule: "reply_prefix+ap_automation_sender" };
   }
 
   if (subjectIsAutoReply) {
