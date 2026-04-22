@@ -19,7 +19,7 @@ const PREFIX = "debtor-email";
 
 /** automation_runs.automation → swarm_agents.agent_name */
 const AGENT_MAP: Record<string, string> = {
-  "debtor-email-review": "Classifier",
+  "debtor-email-review": "Classifier Orchestrator",
   "debtor-email-cleanup": "AutoReplyHandler",
 };
 

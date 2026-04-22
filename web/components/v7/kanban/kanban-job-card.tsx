@@ -8,6 +8,8 @@
  */
 
 import { useMemo } from "react";
+import Link from "next/link";
+import { ExternalLink } from "lucide-react";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { cn } from "@/lib/utils";
@@ -127,13 +129,24 @@ export function KanbanJobCard({ job, isDragOverlay }: KanbanJobCardProps) {
           {job.description}
         </p>
       )}
-      {(visible.length > 0 || overflow > 0) && (
-        <div className="flex flex-wrap gap-2 mt-[10px]">
+      {(visible.length > 0 || overflow > 0 || job.stage === "review") && (
+        <div className="flex flex-wrap items-center gap-2 mt-[10px]">
           {visible.map((t, i) => (
             <JobTagPill key={`${t.label}-${i}`} label={t.label} variant={t.variant} />
           ))}
           {overflow > 0 && (
             <JobTagPill label={`+${overflow}`} variant="default" />
+          )}
+          {job.stage === "review" && !isDragOverlay && (
+            <Link
+              href="/automations/debtor-email-review"
+              onClick={(e) => e.stopPropagation()}
+              onPointerDown={(e) => e.stopPropagation()}
+              className="ml-auto inline-flex items-center gap-1 rounded-[var(--v7-radius-pill)] border border-[var(--v7-teal)] bg-[var(--v7-teal-soft)] px-2 py-0.5 text-[11px] font-medium text-[var(--v7-teal)] transition-colors hover:bg-[var(--v7-teal)] hover:text-[var(--v7-inverse)]"
+            >
+              <ExternalLink size={10} />
+              Open review
+            </Link>
           )}
         </div>
       )}

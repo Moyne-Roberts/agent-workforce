@@ -96,24 +96,19 @@ export function TerminalStream({ swarmId }: TerminalStreamProps) {
   const lastIndex = events.length - 1;
 
   return (
-    <GlassCard className="p-[18px] flex flex-col gap-[14px] min-h-[280px] h-full">
-      <header className="flex justify-between items-start gap-3">
-        <div className="flex flex-col gap-2">
-          <span className="inline-flex items-center gap-2 text-[12px] leading-[1.3] tracking-[0.1em] uppercase text-[var(--v7-faint)]">
-            <span
-              aria-hidden
-              className="inline-block w-2 h-2 rounded-full"
-              style={{
-                background: "var(--v7-teal)",
-                animation: "v7-pulse-eyebrow 1.8s ease-in-out infinite",
-              }}
-            />
-            Live event stream
-          </span>
-          <span className="font-[var(--font-cabinet)] text-[20px] leading-[1.2] font-bold text-[var(--v7-text)]">
-            Latest events from the swarm
-          </span>
-        </div>
+    <GlassCard className="p-[18px] flex flex-col gap-3">
+      <header className="flex justify-between items-center gap-3">
+        <span className="inline-flex items-center gap-2 text-[12px] leading-[1.3] tracking-[0.1em] uppercase text-[var(--v7-faint)]">
+          <span
+            aria-hidden
+            className="inline-block w-2 h-2 rounded-full"
+            style={{
+              background: "var(--v7-teal)",
+              animation: "v7-pulse-eyebrow 1.8s ease-in-out infinite",
+            }}
+          />
+          Live event stream
+        </span>
         <div className="flex items-center gap-2 shrink-0">
           <button
             type="button"
@@ -148,11 +143,12 @@ export function TerminalStream({ swarmId }: TerminalStreamProps) {
         </div>
       </header>
 
-      <div className="relative flex-1 min-h-[220px] flex flex-col">
+      <div className="relative flex flex-col" style={{ height: 260 }}>
         <div
           ref={scrollerRef}
           onScroll={handleScroll}
           className="v7-terminal-shell flex-1"
+          style={{ maxHeight: 260 }}
           role="log"
           aria-live={paused ? "off" : "polite"}
           aria-relevant="additions"
