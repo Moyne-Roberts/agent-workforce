@@ -116,19 +116,45 @@ export function KanbanJobCard({ job, isDragOverlay }: KanbanJobCardProps) {
       <h4 className="font-[var(--font-cabinet)] text-[15.5px] leading-[1.3] font-bold text-[var(--v7-text)] m-0">
         {job.title}
       </h4>
-      {job.description && (
-        <p
-          className="mt-2 text-[14px] leading-[1.4] text-[var(--v7-muted)] m-0"
-          style={{
-            display: "-webkit-box",
-            WebkitLineClamp: 2,
-            WebkitBoxOrient: "vertical",
-            overflow: "hidden",
-          }}
-        >
-          {job.description}
-        </p>
-      )}
+      {(() => {
+        // `description` may contain either:
+        //   - A plain-text error/info message (legacy shape) → show as-is
+        //   - A JSON blob with { timeline, latest_error, entity_id } from
+        //     the entity-grouped bridge → extract the latest_error (if any)
+        //     and the number of runs for a compact summary.
+        const raw = job.description;
+        if (!raw) return null;
+        const trimmed = raw.trimStart();
+        if (trimmed.startsWith("{") || trimmed.startsWith("[")) {
+          try {
+            const parsed = JSON.parse(raw) as {
+              timeline?: unknown[];
+              latest_error?: string | null;
+            };
+            const steps = Array.isArray(parsed.timeline)
+              ? parsed.timeline.length
+              : 0;
+            const summary =
+              parsed.latest_error ??
+              (steps > 0
+                ? `${steps} log ${steps === 1 ? "entry" : "entries"}`
+                : null);
+            if (!summary) return null;
+            return (
+              <p className="mt-2 line-clamp-2 text-[13px] leading-[1.4] text-[var(--v7-muted)] m-0">
+                {summary}
+              </p>
+            );
+          } catch {
+            // Fall through to plain render below.
+          }
+        }
+        return (
+          <p className="mt-2 line-clamp-2 text-[13px] leading-[1.4] text-[var(--v7-muted)] m-0">
+            {raw}
+          </p>
+        );
+      })()}
       {(visible.length > 0 || overflow > 0 || job.stage === "review") && (
         <div className="flex flex-wrap items-center gap-2 mt-[10px]">
           {visible.map((t, i) => (
