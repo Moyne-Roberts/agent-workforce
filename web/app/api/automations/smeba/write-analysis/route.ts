@@ -72,17 +72,8 @@ export async function POST(request: NextRequest) {
     console.log("[smeba/write-analysis] Created new email_pipeline row:", supabaseEmailId);
   }
 
-  // Map agent-supplied draft_status to DB-allowed values: none | pending | approved | rejected | skipped
-  const VALID_STATUSES = new Set(["none", "pending", "approved", "rejected", "skipped"]);
-  const rawStatus = body.draft_status ?? "none";
-  const draft_status = VALID_STATUSES.has(rawStatus)
-    ? rawStatus
-    : body.draft_response
-    ? "pending"
-    : "none";
-
   // Orq.ai HTTP tools reject empty-string variables, so the orchestrator passes
-  // sentinel values (e.g. "-" or "n.v.t.") for missing CRM fields. Normalise those
+  // sentinel values (e.g. "-" or "n.v.t.") for missing fields. Normalise those
   // back to null before writing.
   const nullish = (v: unknown): string | null => {
     if (v === null || v === undefined) return null;
@@ -90,6 +81,28 @@ export async function POST(request: NextRequest) {
     if (s === "" || s === "-" || s.toLowerCase() === "n.v.t." || s.toLowerCase() === "n/a" || s.toLowerCase() === "null" || s.toLowerCase() === "onbekend") return null;
     return s;
   };
+
+  const normalizedDraft = nullish(body.draft_response);
+
+  // Map agent-supplied draft_status to DB-allowed values: none | pending | approved | rejected | skipped.
+  // Keep draft_status consistent with the normalized draft_response:
+  // if there's no draft, status must be "none" or "skipped".
+  const VALID_STATUSES = new Set(["none", "pending", "approved", "rejected", "skipped"]);
+  const rawStatus = String(body.draft_status ?? "none").toLowerCase();
+  let draft_status: string;
+  if (rawStatus === "skipped") {
+    draft_status = "skipped";
+  } else if (!normalizedDraft) {
+    // No draft text → either a fast-path skip or a needs_review flag. Map both to "none"
+    // unless the agent explicitly asked for "skipped".
+    draft_status = "none";
+  } else if (VALID_STATUSES.has(rawStatus)) {
+    draft_status = rawStatus;
+  } else {
+    // Unknown agent statuses like "pending_review" / "needs_review" map to "pending"
+    // when there IS a draft.
+    draft_status = "pending";
+  }
 
   const { error } = await supabase
     .schema("sales")
@@ -102,7 +115,7 @@ export async function POST(request: NextRequest) {
         ai_summary: nullish(body.ai_summary),
         urgency: nullish(body.urgency),
         requires_action: body.requires_action ?? body.requires_human_review ?? false,
-        draft_response: nullish(body.draft_response),
+        draft_response: normalizedDraft,
         draft_status,
         language: nullish(body.language),
         customer_name: nullish(body.customer_name),
