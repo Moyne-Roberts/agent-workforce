@@ -63,6 +63,11 @@ const ACTIONABLE_CATEGORIES: Category[] = [
   "payment_admittance",
 ];
 
+// Keep in sync with LABEL_ONLY_CATEGORIES in actions.ts. These categories
+// get the Outlook label but are NOT archived — a human must update NXT
+// with the new contact address first.
+const LABEL_ONLY_CATEGORIES = new Set<Category>(["ooo_permanent"]);
+
 const BAND_COLOR: Record<string, string> = {
   high: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300",
   medium: "bg-amber-500/15 text-amber-700 dark:text-amber-300",
@@ -284,7 +289,9 @@ export function BulkReview(props: Props) {
                       <p className="text-sm text-muted-foreground mt-1">
                         {g.category === "unknown"
                           ? "Vallen buiten de huidige regels — bekijk en label handmatig om de classifier te trainen"
-                          : "Actie bij goedkeuring: labelen en archiveren in Outlook"}
+                          : LABEL_ONLY_CATEGORIES.has(g.category)
+                            ? "Actie bij goedkeuring: alleen labelen — vereist handmatige update van contactadres in NXT, blijft in inbox"
+                            : "Actie bij goedkeuring: labelen en archiveren in Outlook"}
                       </p>
                     </div>
                     {done ? (

@@ -19,6 +19,18 @@ const CATEGORY_LABEL: Record<string, string> = {
   payment_admittance: "Payment Admittance",
 };
 
+/**
+ * Categories that get labeled but NOT archived / iController-deleted.
+ *
+ * `ooo_permanent` means the person has left OR the mailbox is retired —
+ * both require a human to update the vendor master in NXT with the new
+ * contact. If we archive automatically, that ERP-update action disappears
+ * from view and future invoices keep landing in the wrong mailbox. The
+ * label still goes on so the mail is visually grouped in Outlook and a
+ * human can sweep them later after updating NXT.
+ */
+const LABEL_ONLY_CATEGORIES = new Set(["ooo_permanent"]);
+
 export interface ExecuteResult {
   total: number;
   executed: number;
@@ -184,11 +196,13 @@ export async function executeReviewDecisions(
       continue;
     }
 
-    // labelOnly: hand-picked from the Onbekend bucket. Stop after applying
-    // the Outlook label — keep the mail in the inbox so the reviewer can
-    // verify classifier-training inputs before the classifier learns to
-    // auto-action this pattern. Skips archive + iController delete.
-    if (d.labelOnly) {
+    // labelOnly: two sources trigger this path —
+    //   (a) reviewer hand-picked from the Onbekend bucket — we want to
+    //       train the classifier but verify before auto-actioning.
+    //   (b) category is in LABEL_ONLY_CATEGORIES (ooo_permanent) —
+    //       requires a human to update NXT with the new contact address
+    //       before the mail can be archived.
+    if (d.labelOnly || LABEL_ONLY_CATEGORIES.has(targetCategoryKey)) {
       result.executed++;
       result.succeeded++;
       if (d.decision === "recategorize") result.recategorized++;
@@ -200,7 +214,7 @@ export async function executeReviewDecisions(
           message_id: d.id,
           applied_category: categoryLabel,
           decision: d.decision,
-          source: "unknown_group",
+          source: d.labelOnly ? "unknown_group" : "label_only_category",
         },
         error_message: null,
         triggered_by: "bulk-review:ui",
