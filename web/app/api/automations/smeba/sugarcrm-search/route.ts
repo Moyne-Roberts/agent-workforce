@@ -92,28 +92,57 @@ export async function POST(request: NextRequest) {
     // Fallback: 'name' match if domain search returns nothing.
     let accountData: Record<string, unknown> | null = null;
 
-    const { data: accountResults } = await withTimeout(
+    // Step 1a: Search Contacts by exact sender email → derive account_id
+    const cleanEmail = extractEmail(sender_email);
+    const { data: contactResults } = await withTimeout(
       zapier.runAction({
         app: "SugarCRMCLIAPI",
         actionType: "search",
         action: "record",
         connectionId: SUGARCRM_CONNECTION_ID,
         inputs: {
-          module: "Accounts",
-          search_field_1: "email_address_used_for_sending",
-          value_for_search_field_1: domain,
+          module: "Contacts",
+          search_field_1: "email1",
+          value_for_search_field_1: cleanEmail,
         },
         maxItems: 1,
       }),
       ZAPIER_CALL_TIMEOUT_MS
     );
 
-    if (accountResults && accountResults.length > 0) {
-      accountData = accountResults[0] as Record<string, unknown>;
+    let accountId: string | null = null;
+
+    if (contactResults && contactResults.length > 0) {
+      const contact = contactResults[0] as Record<string, unknown>;
+      const acc = contact["account"] as Record<string, unknown> | undefined;
+      accountId = (contact["account_id"] ?? acc?.["id"] ?? null) as string | null;
     }
 
-    if (!accountData) {
-      // No account found for this domain
+    // Step 1b: Fallback — search Accounts by email domain via email1 field
+    if (!accountId) {
+      const { data: accountResults } = await withTimeout(
+        zapier.runAction({
+          app: "SugarCRMCLIAPI",
+          actionType: "search",
+          action: "record",
+          connectionId: SUGARCRM_CONNECTION_ID,
+          inputs: {
+            module: "Accounts",
+            search_field_1: "email1",
+            value_for_search_field_1: domain,
+          },
+          maxItems: 1,
+        }),
+        ZAPIER_CALL_TIMEOUT_MS
+      );
+
+      if (accountResults && accountResults.length > 0) {
+        accountData = accountResults[0] as Record<string, unknown>;
+        accountId = accountData["id"] as string;
+      }
+    }
+
+    if (!accountId) {
       return NextResponse.json({
         crm_match: false,
         crm_account: null,
@@ -124,7 +153,31 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    const accountId = accountData["id"] as string;
+    // Step 1c: Fetch full account record if we only have accountId from contact lookup
+    if (!accountData) {
+      const { data: accResults } = await withTimeout(
+        zapier.runAction({
+          app: "SugarCRMCLIAPI",
+          actionType: "read",
+          action: "get_record",
+          connectionId: SUGARCRM_CONNECTION_ID,
+          inputs: { module: "Accounts", id: accountId },
+        }),
+        ZAPIER_CALL_TIMEOUT_MS
+      );
+      accountData = (accResults?.[0] ?? null) as Record<string, unknown> | null;
+    }
+
+    if (!accountData) {
+      return NextResponse.json({
+        crm_match: false,
+        crm_account: null,
+        crm_cases: [],
+        crm_quotes: [],
+        crm_emails: [],
+        crm_error: false,
+      });
+    }
 
     // Step 2: Fetch Cases + Quotes + recent Emails linked to this account in parallel.
     const [casesResult, quotesResult, emailsResult] = await Promise.allSettled([

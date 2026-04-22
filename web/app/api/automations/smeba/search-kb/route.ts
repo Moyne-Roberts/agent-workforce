@@ -1,32 +1,23 @@
 import { NextRequest, NextResponse } from "next/server";
+import { Orq } from "@orq-ai/node";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 export const maxDuration = 25;
 
 const INTERNAL_API_KEY = process.env.SMEBA_INTERNAL_API_KEY!;
-const OPENAI_API_KEY = process.env.OPENAI_API_KEY!;
-const EMBEDDING_MODEL = "text-embedding-3-small";
 
 async function generateEmbedding(text: string): Promise<number[]> {
-  const res = await fetch("https://api.openai.com/v1/embeddings", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${OPENAI_API_KEY}`,
-    },
-    body: JSON.stringify({
-      model: EMBEDDING_MODEL,
-      input: text.slice(0, 8000), // token safety limit
-    }),
+  const orq = new Orq({ apiKey: process.env.ORQ_API_KEY! });
+  const res = await orq.router.embeddings.create({
+    model: "openai/text-embedding-3-small",
+    input: text.slice(0, 8000),
   });
 
-  if (!res.ok) {
-    const err = await res.text();
-    throw new Error(`OpenAI embeddings error ${res.status}: ${err.slice(0, 300)}`);
+  const embedding = res.data[0].embedding;
+  if (typeof embedding === "string") {
+    throw new Error("Unexpected base64 embedding format from Orq.ai");
   }
-
-  const data = await res.json();
-  return data.data[0].embedding as number[];
+  return embedding;
 }
 
 export async function POST(request: NextRequest) {
@@ -57,7 +48,7 @@ export async function POST(request: NextRequest) {
     limit?: number;
   } = body;
 
-  // Generate embedding server-side.
+  // Generate embedding via Orq.ai router (routes to openai/text-embedding-3-small).
   // sales.search_kb() expects a pre-computed vector(1536) — agents pass text only.
   let embedding: number[];
   try {

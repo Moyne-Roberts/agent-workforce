@@ -48,6 +48,7 @@ export async function POST(request: NextRequest) {
       .insert({
         source_id: sourceId,
         source: "sugarcrm",
+        mailbox: "verkoop@smeba.nl",
         subject: body.subject ?? null,
         body_text: body.body ?? body.body_text ?? null,
         sender_email: body.sender_email ?? null,
