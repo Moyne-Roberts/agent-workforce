@@ -84,9 +84,9 @@ Requirements for V7.0 Agent OS milestone. Each maps to roadmap phases.
 
 ### Polish
 
-- [ ] **POL-01**: Existing V6.0 executive dashboard page migrated to V7 design tokens
-- [ ] **POL-02**: Existing projects page migrated to V7 design tokens
-- [ ] **POL-03**: Existing settings page migrated to V7 design tokens
+- [x] **POL-01**: Existing V6.0 executive dashboard page migrated to V7 design tokens
+- [x] **POL-02**: Existing projects page migrated to V7 design tokens
+- [x] **POL-03**: Existing settings page migrated to V7 design tokens
 
 ## V8+ Requirements
 
@@ -137,34 +137,34 @@ Which phases cover which requirements. Updated during roadmap creation.
 | DATA-01 | Phase 50 | Complete (code); verify pending migration apply |
 | DATA-02 | Phase 50 | Complete (inherits Phase 48 Realtime publication) |
 | DATA-03 | Phase 50 | Complete (orqai_sync_state watermark + per-swarm isolation) |
-| FLEET-01 | Phase 51 | Pending |
-| FLEET-02 | Phase 51 | Pending |
-| FLEET-03 | Phase 51 | Pending |
-| FLEET-04 | Phase 51 | Pending |
-| BRIEF-01 | Phase 51 | Pending |
-| BRIEF-02 | Phase 51 | Pending |
-| BRIEF-03 | Phase 51 | Pending |
-| DRAW-01 | Phase 51 | Pending |
-| DRAW-02 | Phase 51 | Pending |
-| DRAW-03 | Phase 51 | Pending |
-| DRAW-04 | Phase 51 | Pending |
-| OBS-03 | Phase 52 | Pending |
-| OBS-04 | Phase 52 | Pending |
-| OBS-05 | Phase 52 | Pending |
-| KAN-01 | Phase 52 | Pending |
-| KAN-02 | Phase 52 | Pending |
-| KAN-03 | Phase 52 | Pending |
-| KAN-04 | Phase 52 | Pending |
-| NAV-04 | Phase 52 | Pending |
+| FLEET-01 | Phase 51 | Complete (code); browser verify pending fixture apply |
+| FLEET-02 | Phase 51 | Complete (code); browser verify pending fixture apply |
+| FLEET-03 | Phase 51 | Complete (code); browser verify pending fixture apply |
+| FLEET-04 | Phase 51 | Complete (code); browser verify pending fixture apply |
+| BRIEF-01 | Phase 51 | Complete (code + Orq.ai agent deployed); live invoke verify pending |
+| BRIEF-02 | Phase 51 | Complete (Inngest cron registered) |
+| BRIEF-03 | Phase 51 | Complete (code); browser verify pending fixture apply |
+| DRAW-01 | Phase 51 | Complete (code); browser verify pending fixture apply |
+| DRAW-02 | Phase 51 | Complete (code); browser verify pending fixture apply |
+| DRAW-03 | Phase 51 | Complete (code); browser verify pending fixture apply |
+| DRAW-04 | Phase 51 | Complete (code); browser verify pending fixture apply |
+| OBS-03 | Phase 52 | Complete (code); browser walkthrough deferred |
+| OBS-04 | Phase 52 | Complete (ring buffer 500-event FIFO eviction live) |
+| OBS-05 | Phase 52 | Complete (terminal reads via useRealtimeTable, no extra channel) |
+| KAN-01 | Phase 52 | Complete (5 columns rendering 10 fixture jobs in DB) |
+| KAN-02 | Phase 52 | Complete (dnd-kit Pointer + Keyboard sensors) |
+| KAN-03 | Phase 52 | Complete (optimistic overlay + moveJob server action + sonner revert) |
+| KAN-04 | Phase 52 | Complete (title + description line-clamp + tag pill row) |
+| NAV-04 | Phase 52 | Complete (3 chips, ?filter= URL state via router.replace) |
 | GRAPH-01 | Phase 53 | Pending |
 | GRAPH-02 | Phase 53 | Pending |
 | GRAPH-03 | Phase 53 | Pending |
 | GRAPH-04 | Phase 53 | Pending |
 | OBS-01 | Phase 53 | Pending |
 | OBS-02 | Phase 53 | Pending |
-| POL-01 | Phase 54 | Pending |
-| POL-02 | Phase 54 | Pending |
-| POL-03 | Phase 54 | Pending |
+| POL-01 | Phase 54 | Complete (code) |
+| POL-02 | Phase 54 | Complete (code) |
+| POL-03 | Phase 54 | Complete (code) |
 
 **Coverage:**
 - V7.0 requirements: 45 total (12 categories)

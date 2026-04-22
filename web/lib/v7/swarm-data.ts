@@ -5,24 +5,27 @@
  *
  * Do NOT import from client components — this module uses the server
  * Supabase client which reads the auth cookie.
- * Types and constants live in swarm-types.ts (safe for client imports).
+ * Types and constants live in sidebar-types.ts (safe for client imports).
  */
 
 import { createClient } from "@/lib/supabase/server";
 import {
   ACTIVE_JOB_STAGES,
-  type SwarmWithCounts,
-  type SwarmJobRow,
   type SwarmAgentRow,
+  type SwarmJobRow,
   type SwarmSidebarData,
-} from "@/lib/v7/swarm-types";
+  type SwarmWithCounts,
+} from "@/lib/v7/sidebar-types";
 
+// Re-export so existing imports from "@/lib/v7/swarm-data" keep working
+// from server-only call sites. New client code should import from
+// "@/lib/v7/sidebar-types" directly.
 export {
   ACTIVE_JOB_STAGES,
-  type SwarmWithCounts,
-  type SwarmJobRow,
   type SwarmAgentRow,
+  type SwarmJobRow,
   type SwarmSidebarData,
+  type SwarmWithCounts,
 };
 
 /**

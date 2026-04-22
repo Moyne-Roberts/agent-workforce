@@ -12,6 +12,7 @@ import {
   processHeerenOefening,
   createMonthlyInvoiceDrafts,
 } from "@/lib/inngest/functions/heeren-oefeningen";
+import { refreshBriefings } from "@/lib/inngest/functions/briefing-refresh";
 
 export const { GET, POST, PUT } = serve({
   client: inngest,
@@ -26,5 +27,6 @@ export const { GET, POST, PUT } = serve({
     syncOrqaiTraces,
     processHeerenOefening,
     createMonthlyInvoiceDrafts,
+    refreshBriefings,
   ],
 });

@@ -41,7 +41,7 @@ import {
   type SwarmAgentRow,
   type SwarmJobRow,
   type SwarmWithCounts,
-} from "@/lib/v7/swarm-types";
+} from "@/lib/v7/sidebar-types";
 
 interface SwarmSidebarProps {
   user: {

@@ -7,7 +7,7 @@
 
 import Link from "next/link";
 import { SidebarMiniStat } from "@/components/v7/sidebar-mini-stat";
-import type { SwarmWithCounts } from "@/lib/v7/swarm-data";
+import type { SwarmWithCounts } from "@/lib/v7/sidebar-types";
 
 interface SwarmListItemProps {
   swarm: SwarmWithCounts;
