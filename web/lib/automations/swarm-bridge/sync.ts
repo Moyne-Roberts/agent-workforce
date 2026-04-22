@@ -371,16 +371,36 @@ export async function syncSwarmBridge(
     created_at: string;
   }> = [];
 
+  // Map run.status → start-event type so the live terminal actually
+  // tells the reviewer what state each run is in right now:
+  //   deferred  → waiting     ("queued for a downstream worker")
+  //   pending   → thinking    ("actively processing")
+  //   feedback  → delegation  ("handed off to human")
+  //   else      → tool_call   (default, covers completed/skipped/failed)
+  const startEventType = (status: string): string => {
+    if (status === "deferred") return "waiting";
+    if (status === "pending") return "thinking";
+    if (status === "feedback") return "delegation";
+    return "tool_call";
+  };
+
   for (const run of runRows) {
     const agent = agentResolver(run);
     const endIso = run.completed_at ?? run.created_at;
+    const r = (run.result as Record<string, unknown> | null) ?? {};
+    const stage = typeof r.stage === "string" ? r.stage : null;
 
     events.push({
       swarm_id: swarmId,
       agent_name: agent,
-      event_type: "tool_call",
+      event_type: startEventType(run.status),
       span_id: `${run.id}:start`,
-      content: { automation: run.automation, run_id: run.id },
+      content: {
+        automation: run.automation,
+        run_id: run.id,
+        status: run.status,
+        stage,
+      },
       started_at: run.created_at,
       ended_at: endIso,
       created_at: run.created_at,
@@ -392,7 +412,7 @@ export async function syncSwarmBridge(
         agent_name: agent,
         event_type: "error",
         span_id: `${run.id}:end`,
-        content: { error: run.error_message },
+        content: { error: run.error_message, stage },
         started_at: endIso,
         ended_at: endIso,
         created_at: endIso,
@@ -406,7 +426,7 @@ export async function syncSwarmBridge(
         agent_name: agent,
         event_type: "done",
         span_id: `${run.id}:end`,
-        content: { status: run.status },
+        content: { status: run.status, stage },
         started_at: endIso,
         ended_at: endIso,
         created_at: endIso,

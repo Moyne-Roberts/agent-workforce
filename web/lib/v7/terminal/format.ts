@@ -48,26 +48,33 @@ export function formatPayload(event: AgentEvent): string {
   const spanName = readString(event.content, "span_name");
   const error = readString(event.content, "error");
   const reason = readString(event.content, "reason");
+  // The swarm-bridge writes `stage` into content for every run. Prefer
+  // it as the payload's subject so the terminal reads like a
+  // step-by-step log of what each card is doing.
+  const stage = readString(event.content, "stage");
+  const stageLabel = stage ? stage.replace(/_/g, " ") : null;
 
   switch (event.event_type) {
     case "tool_call":
-      return `${agent} \u2192 tool: ${tool ?? "unknown"}`;
+      return `${agent} → ${stageLabel ?? tool ?? "step"}`;
     case "tool_result": {
-      const base = `${agent} \u2190 tool: ${tool ?? "unknown"}`;
+      const base = `${agent} ← ${stageLabel ?? tool ?? "step"}`;
       return error ? `${base} (error: ${error})` : base;
     }
     case "thinking":
-      return `${agent} reasoning: ${spanName ?? "(no span)"}`;
+      return `${agent} processing: ${stageLabel ?? spanName ?? "(step)"}`;
     case "done":
-      return `${agent} done: ${spanName ?? "(no span)"}`;
+      return `${agent} finished: ${stageLabel ?? spanName ?? "(step)"}`;
     case "waiting":
-      return `${agent} waiting: ${spanName ?? "human gate"}`;
-    case "error":
-      return `${agent} error: ${reason ?? error ?? "unknown"}`;
+      return `${agent} queued: ${stageLabel ?? spanName ?? "next worker"}`;
+    case "error": {
+      const what = stageLabel ? `${stageLabel} failed` : "error";
+      return `${agent} ${what}: ${reason ?? error ?? "unknown"}`;
+    }
     case "delegation":
-      return `${agent} delegated`;
+      return `${agent} handed off${stageLabel ? `: ${stageLabel}` : ""}`;
     default:
-      return agent;
+      return stageLabel ? `${agent} ${stageLabel}` : agent;
   }
 }
 
@@ -87,22 +94,22 @@ export const EVENT_TYPE_CHIP: Record<AgentEventType, ChipStyle> = {
   thinking: {
     bg: "rgba(255,120,207,0.12)",
     border: "rgba(255,120,207,0.18)",
-    label: "Reasoning",
+    label: "Processing",
   },
   tool_call: {
     bg: "rgba(105,168,255,0.12)",
     border: "rgba(105,168,255,0.18)",
-    label: "PreToolUse",
+    label: "Action",
   },
   tool_result: {
     bg: "rgba(58,199,201,0.12)",
     border: "rgba(58,199,201,0.18)",
-    label: "PostToolUse",
+    label: "Result",
   },
   waiting: {
     bg: "rgba(255,181,71,0.13)",
     border: "rgba(255,181,71,0.20)",
-    label: "HumanGate",
+    label: "Queued",
   },
   done: {
     bg: "rgba(58,199,201,0.18)",
@@ -117,6 +124,6 @@ export const EVENT_TYPE_CHIP: Record<AgentEventType, ChipStyle> = {
   delegation: {
     bg: "rgba(105,168,255,0.18)",
     border: "rgba(105,168,255,0.30)",
-    label: "Delegation",
+    label: "Handoff",
   },
 };
