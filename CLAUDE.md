@@ -2,6 +2,9 @@
 
 Centraal platform voor AI-driven automations bij Moyne Roberts.
 
+## Auto-loaded Skills
+- **Sketch findings voor agent-workforce** (design decisions, CSS patterns, visual direction voor Smeba Draft Review frontend) → `Skill("sketch-findings-agent-workforce")`
+
 ## Stack — Niet-onderhandelbaar
 
 **ALTIJD gebruiken:**
@@ -46,18 +49,6 @@ ANON KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6I
 
 Anon key: alleen INSERT/SELECT op `learnings`. Voor DDL/deletes/credentials: service role key uit `web/.env.local`.
 
-```bash
-# Lezen
-curl "https://mvqjhlxfvtqqubqgdvhz.supabase.co/rest/v1/{tabel}?select=*" \
-  -H "apikey: {ANON_KEY}" -H "Authorization: Bearer {ANON_KEY}"
-
-# Schrijven
-curl -X POST "https://mvqjhlxfvtqqubqgdvhz.supabase.co/rest/v1/{tabel}" \
-  -H "apikey: {ANON_KEY}" -H "Authorization: Bearer {ANON_KEY}" \
-  -H "Content-Type: application/json" -H "Prefer: return=representation" \
-  -d '{...}'
-```
-
 ## Zapier-First Beslisboom
 
 ```
@@ -70,16 +61,7 @@ Kan Zapier de HELE flow?
 
 ## Learnings
 
-Bij debuggen of correctie door gebruiker → vastleggen:
-
-```bash
-curl -X POST "https://mvqjhlxfvtqqubqgdvhz.supabase.co/rest/v1/learnings" \
-  -H "apikey: {ANON_KEY}" -H "Authorization: Bearer {ANON_KEY}" \
-  -H "Content-Type: application/json" -H "Prefer: return=representation" \
-  -d '{"system":"{x}","title":"{x}","problem":"{x}","root_cause":"{x}","solution":"{x}","discovered_by":"{naam}"}'
-```
-
-Bij sessiestart ophalen: `GET /rest/v1/learnings?select=system,title,solution&order=created_at.desc&limit=20`
+Bij debuggen of correctie door gebruiker → vastleggen via `/mr-automations:learn` of direct in Supabase `learnings` tabel.
 
 **Self-improvement:** correctie → learning schrijven → CLAUDE.md wijziging voorstellen → commit + push.
 
