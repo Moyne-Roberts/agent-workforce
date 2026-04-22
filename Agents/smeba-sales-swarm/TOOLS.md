@@ -11,17 +11,17 @@
 | Persist analysis + draft to Supabase | http | `supabase_write_draft` | smeba-sales-orchestrator-agent | The `sales.email_analysis` table is directly accessible via Supabase REST API (correct grants in place). No intermediary layer needed — direct HTTP upsert is the simplest, most reliable path. |
 | Email classification and intent routing | — | none | smeba-sales-classifier-agent | Pure text reasoning on the raw email payload. No external I/O needed. Structured output enforced via `response_format` with `json_schema` at the Orq.ai agent level. |
 | Draft response generation | — | none | smeba-sales-draft-agent | Pure generation on assembled context (email + classification + CRM data from Zapier payload + KB chunks). No tools required. |
-| SugarCRM account + history lookup | — | none (Zapier) | — | **Verschoven naar Zapier Zap (v3).** De Zapier SDK vereist Zapier-native infrastructuur en kan niet vanuit Vercel draaien. De Zap haalt account, cases en quotes op bij de trigger en stuurt die mee in de webhook payload. De orchestrator geeft CRM data rechtstreeks door aan de draft agent — geen agent tool nodig. |
+| SugarCRM account + history lookup | function | `sugarcrm_search` | smeba-sales-context-agent | Zapier SDK `runAction()` werkt WEL vanuit Vercel — de lokale 403 was een ontbrekende `ZAPIER_CREDENTIALS_CLIENT_SECRET` env var, geen SDK-incompatibiliteit. De Vercel route roept `runAction()` aan met connection ID 58816663. Domain-based account lookup + parallel fetch van cases, quotes en emails. |
 
 > **Alternatives considered:**
 > - `smeba_search_kb`: Could be a direct Supabase RPC `http` tool, but `sales` schema is not exposed via PostgREST and the vector parameter cannot be generated inside an HTTP tool config — the Vercel route is mandatory.
-> - `sugarcrm_search` (removed in v3): Originally a Vercel proxy to Zapier SDK, but Zapier SDK requires Zapier-native auth that is unavailable outside Zapier infrastructure. Moved to Zapier Zap as a pre-fetch step before the webhook fires.
+> - `sugarcrm_search` as Zapier Zap pre-fetch (was v3, reverted): The local 403 error that led to this decision was caused by a missing `ZAPIER_CREDENTIALS_CLIENT_SECRET` env var, not a fundamental SDK incompatibility. `runAction()` works fine from Vercel. The Vercel route approach is retained — it keeps CRM lookup in the agent context where it belongs and avoids bloating the Zapier webhook payload.
 
 ---
 
 ## Shared Tools
 
-No tools are shared across multiple agents in this swarm. `smeba_search_kb` is exclusive to the context agent; `supabase_write_draft`, `retrieve_agents`, and `call_sub_agent` are exclusive to the orchestrator. The classifier and draft agents have no tools. CRM data is pre-fetched by the Zapier Zap and arrives in the orchestrator payload — no agent tool needed.
+No tools are shared across multiple agents in this swarm. `smeba_search_kb` and `sugarcrm_search` are exclusive to the context agent; `supabase_write_draft`, `retrieve_agents`, and `call_sub_agent` are exclusive to the orchestrator. The classifier and draft agents have no tools.
 
 ---
 
@@ -120,7 +120,46 @@ Upserts the analysis result and draft response into `sales.email_analysis`. Uses
 
 **MCP:** Not applicable for this agent.
 
-> **Note (v3):** SugarCRM lookup is handled by the Zapier Zap before the webhook fires. CRM data (account, cases, quotes) arrives pre-fetched in the orchestrator payload. This agent only performs KB search.
+**Function — `sugarcrm_search`:**
+
+Domain-based SugarCRM account lookup, with parallel fetch of linked cases, quotes, and recent emails. The Vercel route uses Zapier SDK `runAction()` with connection ID 58816663 (Sugar CRM // NCrutzen). Requires `ZAPIER_CREDENTIALS_CLIENT_ID` + `ZAPIER_CREDENTIALS_CLIENT_SECRET` in Vercel env vars.
+
+```json
+{
+  "type": "function",
+  "function": {
+    "name": "sugarcrm_search",
+    "description": "Look up the SugarCRM customer account for an incoming email by sender domain. Returns the matching account, recent cases, quotes, and emails. Call this in parallel with smeba_search_kb. If crm_match=false, no account was found for this sender — proceed with draft generation using KB only.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "sender_email": {
+          "type": "string",
+          "description": "Full email address of the sender (e.g. 'jan@klantbedrijf.nl'). The route extracts the domain and searches SugarCRM Accounts."
+        }
+      },
+      "required": ["sender_email"]
+    }
+  }
+}
+```
+
+> **Backend handler:** `POST {{AGENT_WORKFORCE_BASE_URL}}/api/automations/smeba/sugarcrm-search`
+> Headers: `Content-Type: application/json`, `x-api-key: {{SMEBA_INTERNAL_API_KEY}}`
+> Body: `{ "sender_email": "..." }`
+>
+> Expected response shape:
+> ```json
+> {
+>   "crm_match": true,
+>   "crm_account": { "id": "...", "name": "...", ... },
+>   "crm_cases": [ { "id": "...", "name": "...", "status": "...", ... } ],
+>   "crm_quotes": [ { "id": "...", "name": "...", "stage": "...", ... } ],
+>   "crm_emails": [ { "id": "...", "subject": "...", "date_sent": "...", ... } ],
+>   "crm_error": false
+> }
+> ```
+> On error or no match: `{ "crm_match": false, "crm_error": true/false, ... }`
 
 **Function — `smeba_search_kb`:**
 
@@ -226,31 +265,53 @@ Semantic search over the Smeba sales knowledge base (14,647 chunks: email Q&A pa
 
 ---
 
-### Zapier Zap — SugarCRM pre-fetch (vervangt sugarcrm_search tool)
+### Zapier Zap — trigger only (geen CRM pre-fetch)
 
-**Status (v3):** CRM lookup is verschoven van een Vercel route naar de Zapier Zap. De Zapier SDK vereist Zapier-native infrastructuur.
+De Zapier Zap triggert alleen op nieuwe emails en stuurt de webhook naar de Cloudflare Worker. CRM lookup gebeurt in de context agent via de `sugarcrm-search` Vercel route.
 
-De Zap voert deze stappen uit voordat de webhook naar de Cloudflare Worker gaat:
-1. **Trigger:** New Email in SugarCRM (Emails module, team: Smeba Brandbeveiliging BV)
-2. **Action:** Search Accounts — zoek op sender email domain
-3. **Action:** Find Cases — gefilterd op account ID uit stap 2
-4. **Action:** Find Quotes — gefilterd op account ID uit stap 2
-5. **Webhook:** Stuur alles naar Cloudflare Worker met payload:
-   ```json
-   {
-     "email_id": "...",
-     "subject": "...",
-     "body": "...",
-     "sender_email": "...",
-     "sender_name": "...",
-     "crm_account": { ... },
-     "crm_cases": [ ... ],
-     "crm_quotes": [ ... ],
-     "crm_match": true
-   }
-   ```
+**Minimale webhook payload (wat Zapier stuurt):**
+```json
+{
+  "email_id": "...",
+  "subject": "...",
+  "body": "...",
+  "sender_email": "...",
+  "sender_name": "...",
+  "date_sent": "..."
+}
+```
 
-Vraag Sam Cody voor de exacte Zapier action/field configuratie voor de SugarCRM stappen.
+---
+
+### Vercel Route — smeba-sugarcrm-search (sugarcrm_search function tool)
+
+**Route:** `POST /api/automations/smeba/sugarcrm-search`
+
+**Status:** Herbouwd in sessie 2 (16 april 2026). Bestand: `web/app/api/automations/smeba/sugarcrm-search/route.ts`
+
+**Vereiste env vars:**
+1. `SMEBA_INTERNAL_API_KEY` — al in Vercel
+2. `ZAPIER_CREDENTIALS_CLIENT_ID` — ophalen bij Nick Crutzen (zie instructies onderaan)
+3. `ZAPIER_CREDENTIALS_CLIENT_SECRET` — ophalen bij Nick Crutzen (zie instructies onderaan)
+
+**Setup stappen:**
+1. Voeg `ZAPIER_CREDENTIALS_CLIENT_ID` en `ZAPIER_CREDENTIALS_CLIENT_SECRET` toe aan Vercel env vars (en `web/.env.local` voor lokaal testen)
+2. Deploy. De route gebruikt `createZapierSdk()` die deze vars automatisch oppikt.
+3. Test met: `curl -X POST https://<app>.vercel.app/api/automations/smeba/sugarcrm-search -H "x-api-key: <SMEBA_INTERNAL_API_KEY>" -H "Content-Type: application/json" -d '{"sender_email":"test@smeba.nl"}'`
+
+**Hoe Nick de credentials aanmaakt:**
+```bash
+# Stap 1: Inloggen met Nick's Zapier account
+npx @zapier/zapier-sdk-cli login
+
+# Stap 2: Client credentials aanmaken (eenmalig)
+npx tsx -e "
+const { createZapierSdk } = require('@zapier/zapier-sdk');
+const zapier = createZapierSdk();
+zapier.createClientCredentials({ name: 'agent-workforce-smeba' }).then(r => console.log(JSON.stringify(r.data, null, 2)));
+"
+```
+Output geeft `clientId` en `clientSecret`. Deel die met Koen voor de Vercel env vars.
 
 ---
 
@@ -276,7 +337,9 @@ Vraag Sam Cody voor de exacte Zapier action/field configuratie voor de SugarCRM 
 
 | Variable | Used By | Status | Purpose |
 |----------|---------|--------|---------|
-| `SUPABASE_SERVICE_ROLE_KEY` | Orchestrator HTTP tool + Vercel search-kb route | Al in Vercel (27 dagen) | Supabase writes + supabase-js service role calls |
-| `SMEBA_INTERNAL_API_KEY` | Vercel search-kb route | Toegevoegd aan Vercel + `.env.local` | Authenticeer agent calls naar interne Vercel route |
-| `OPENAI_API_KEY` | Vercel search-kb route | Toegevoegd aan Vercel + in `.env.local` | `text-embedding-3-small` embedding generatie |
-| `AGENT_WORKFORCE_BASE_URL` | Orq.ai agent variabele op context agent | Nog in te stellen in Orq.ai Studio | Base URL voor Vercel route (bijv. `https://agent-workforce.vercel.app`) |
+| `SUPABASE_SERVICE_ROLE_KEY` | Orchestrator HTTP tool + Vercel search-kb route | ✅ Al in Vercel | Supabase writes + supabase-js service role calls |
+| `SMEBA_INTERNAL_API_KEY` | Vercel search-kb + sugarcrm-search routes | ✅ In Vercel + `.env.local` | Authenticeer agent calls naar interne Vercel routes |
+| `OPENAI_API_KEY` | Vercel search-kb route | ✅ In Vercel + `.env.local` | `text-embedding-3-small` embedding generatie |
+| `ZAPIER_CREDENTIALS_CLIENT_ID` | Vercel sugarcrm-search route | ❌ **Ontbreekt** — ophalen bij Nick | OAuth client ID voor Zapier SDK `createZapierSdk()` |
+| `ZAPIER_CREDENTIALS_CLIENT_SECRET` | Vercel sugarcrm-search route | ❌ **Ontbreekt** — ophalen bij Nick | OAuth client secret voor Zapier SDK `createZapierSdk()` |
+| `AGENT_WORKFORCE_BASE_URL` | Orq.ai agent variabele op context agent | ⏳ Nog in te stellen in Orq.ai Studio | Base URL voor Vercel routes (bijv. `https://agent-workforce.vercel.app`) |

@@ -15,11 +15,15 @@ Three corrections applied after verifying the actual `search_kb` function signat
 2. **Classifier adds `requires_action` flag** — necessary to surface actionable internal emails without generating drafts for them.
 3. **Internal email fast-path** — `internal` emails are classified only. If `requires_action=true`, they surface in the human review UI. If `requires_action=false`, they are logged and skipped. No drafts are generated for internal emails.
 
-### Amendments v3 (16 april 2026)
+### Amendments v3 (16 april 2026) — TERUGGEDRAAID
 
-One architectural correction after discovering the Zapier SDK requires Zapier-native infrastructure and cannot run in Vercel API routes:
+~~One architectural correction after discovering the Zapier SDK requires Zapier-native infrastructure and cannot run in Vercel API routes:~~
 
-4. **CRM lookup verschoven naar Zapier** — De `sugarcrm-search` Vercel route is verwijderd. In plaats daarvan haalt de Zapier Zap bij elke nieuwe email al het SugarCRM account, recente cases en offertes op, en stuurt die mee in de webhook payload naar de Cloudflare Worker. De context agent heeft daardoor geen `sugarcrm_search` tool meer nodig — CRM data zit al in de input payload van de orchestrator. Dit past in de Zapier-first aanpak en vereenvoudigt de context agent aanzienlijk.
+~~4. CRM lookup verschoven naar Zapier — De sugarcrm-search Vercel route is verwijderd.~~
+
+**CORRECTIE (sesssie 2):** Amendment v3 was onjuist. De lokale 403-fout die de Zapier SDK veroorzaakte bleek te komen door een ontbrekende `ZAPIER_CREDENTIALS_CLIENT_SECRET` env var — NIET omdat de SDK niet vanuit Vercel werkt. De learning bevestigt: `runAction()` werkt WEL vanuit Vercel voor standaard acties.
+
+4. **`sugarcrm-search` Vercel route HERSTELD** — `web/app/api/automations/smeba/sugarcrm-search/route.ts` is herbouwd. De context agent gebruikt wederom `sugarcrm_search` als tool. De Zapier Zap triggert alleen (nieuwe email) en stuurt GEEN CRM pre-fetch mee in de payload.
 
 ---
 
@@ -69,16 +73,20 @@ One architectural correction after discovering the Zapier SDK requires Zapier-na
 ---
 
 #### 3. smeba-sales-context-agent
-- **Role:** Sub-agent — KB search
-- **Responsibility:** Receives the email body text + classification output (category, email_intent). Executes one retrieval: semantic search over the Smeba KB via the `smeba_search_kb` Vercel route — POST to `/api/automations/smeba/search-kb` with `{ query: "<email body text>", intent: "...", category: "...", chunk_types: ["email_qa_pair", "outbound_template"], limit: 10 }`. The Vercel route handles OpenAI embedding generation and `sales.search_kb()` call internally. Returns array of KB chunks with `content`, `chunk_type`, `similarity`, `metadata`. CRM data (account, cases, quotes) is NOT retrieved here — it arrives pre-fetched in the orchestrator's input payload from Zapier.
+- **Role:** Sub-agent — Context retrieval (CRM + KB, parallel)
+- **Responsibility:** Receives the email body text + classification output (category, email_intent) + sender_email. Executes two retrievals in parallel:
+  1. **CRM lookup** via `sugarcrm_search` — POST to `/api/automations/smeba/sugarcrm-search` with `{ sender_email }`. The route uses Zapier SDK `runAction()` to search SugarCRM for the matching account, then fetches linked cases, quotes, and recent emails.
+  2. **KB search** via `smeba_search_kb` — POST to `/api/automations/smeba/search-kb` with `{ query: "<email body text>", intent: "...", category: "...", chunk_types: ["email_qa_pair", "outbound_template"], limit: 10 }`. The route handles OpenAI embedding generation and `sales.search_kb()` call internally.
+  Returns assembled context: `{ crm_match, crm_account, crm_cases, crm_quotes, crm_emails, kb_chunks[] }`.
 - **Model recommendation:** `anthropic/claude-3-5-haiku-20241022`
 - **Fallback models:** `openai/gpt-4o-mini`, `groq/llama-3.3-70b-versatile`
 - **Tools needed:**
-  - HTTP function tool: `smeba_search_kb` — POST to `{{AGENT_WORKFORCE_BASE_URL}}/api/automations/smeba/search-kb`. Accepts plain text query; embedding generated server-side. Returns top-10 KB chunks. **Note:** the `sales` schema is not exposed via PostgREST and `search_kb` expects a pre-computed `vector(1536)` — both handled inside the Vercel route.
+  - Function tool: `sugarcrm_search` — POST to `{{AGENT_WORKFORCE_BASE_URL}}/api/automations/smeba/sugarcrm-search`. Accepts `{ sender_email }`. Uses Zapier SDK `runAction()` (connection ID 58816663) server-side. Returns `{ crm_match, crm_account, crm_cases, crm_quotes, crm_emails, crm_error }`.
+  - Function tool: `smeba_search_kb` — POST to `{{AGENT_WORKFORCE_BASE_URL}}/api/automations/smeba/search-kb`. Accepts plain text query; embedding generated server-side. Returns top-10 KB chunks. **Note:** the `sales` schema is not exposed via PostgREST and `search_kb` expects a pre-computed `vector(1536)` — both handled inside the Vercel route.
 - **Knowledge base:** none
 - **KB description:** N/A — KB is in Supabase pgvector (`sales.kb_chunks`, 14,647 chunks). Accessed via `smeba_search_kb` Vercel route.
-- **Receives from:** smeba-sales-orchestrator-agent (email body + classification JSON)
-- **Passes to:** smeba-sales-orchestrator-agent (`{ kb_chunks[] }`)
+- **Receives from:** smeba-sales-orchestrator-agent (email body + classification JSON + sender_email)
+- **Passes to:** smeba-sales-orchestrator-agent (`{ crm_match, crm_account, crm_cases, crm_quotes, crm_emails, kb_chunks[] }`)
 
 ---
 
@@ -109,9 +117,8 @@ One architectural correction after discovering the Zapier SDK requires Zapier-na
 - **Data flow:**
   ```
   Zapier Zap (trigger: new email in SugarCRM)
-    → Zapier haalt CRM data op (account, cases, quotes) via SugarCRM acties
     → Cloudflare Worker (bridges Zapier 15s timeout)
-      → smeba-sales-orchestrator-agent (payload bevat: email + crm_account + crm_cases + crm_quotes)
+      → smeba-sales-orchestrator-agent (payload: email + sender_email only)
 
           → [1] smeba-sales-classifier-agent (email body + subject + sender)
                  ← { category, email_intent, confidence, language, is_auto_reply,
@@ -132,8 +139,10 @@ One architectural correction after discovering the Zapier SDK requires Zapier-na
           │    → STOP  (surfaces in Andrew's review UI — no draft)
           │
           └─ all other categories (quote, order, service, admin, contract, finance, complaint, other)
-               → [2] smeba-sales-context-agent (email body + classification)
-                      ← { kb_chunks[] }   ← KB only; CRM al in payload
+               → [2] smeba-sales-context-agent (email body + classification + sender_email)
+                      ├─ sugarcrm_search (Vercel route → Zapier SDK runAction → SugarCRM)
+                      └─ smeba_search_kb (Vercel route → OpenAI embedding → sales.search_kb)
+                      ← { crm_match, crm_account, crm_cases, crm_quotes, crm_emails, kb_chunks[] }
                → [3] smeba-sales-draft-agent (email + classification + crm_data + kb_chunks)
                       ← { draft_response, routing_decision, draft_confidence }
                → UPSERT Supabase { category, email_intent, ai_summary, urgency, requires_action,
@@ -141,7 +150,7 @@ One architectural correction after discovering the Zapier SDK requires Zapier-na
                                    requires_human_review, crm_match }
   ```
 
-- **Parallelism note:** Steps [1] en [2] zijn sequentieel — classificatie moet klaar zijn voordat de KB search de juiste `category` en `email_intent` filters kan meegeven. Stap [2] doet nu alleen nog de KB search (geen CRM meer). Step [3] wacht op [2].
+- **Parallelism note:** Stap [1] (classifier) en [2] (context retrieval) zijn sequentieel — classificatie moet klaar zijn zodat de KB search de juiste `category` en `email_intent` filters meekrijgt. Binnen stap [2] lopen `sugarcrm_search` en `smeba_search_kb` parallel. Stap [3] wacht op [2].
 
 - **Error handling:**
   - **Classifier failure:** Default to `category=other`, `email_intent=unknown`, `requires_action=true`, proceed with full flow. A degraded draft is better than silence.

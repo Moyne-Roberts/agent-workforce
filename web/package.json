@@ -46,6 +46,7 @@
     "zod": "^4.3.6"
   },
   "devDependencies": {
+    "@orq-ai/node": "^4.7.7",
     "@tailwindcss/postcss": "^4",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.2",

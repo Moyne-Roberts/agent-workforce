@@ -1,4 +1,7 @@
 {
+  "enabledPlugins": {
+    "vercel-plugin@claude-code-marketplace": false
+  },
   "hooks": {
     "PostToolUse": [
       {
