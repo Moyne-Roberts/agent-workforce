@@ -4,7 +4,14 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { BulkReview } from "./bulk-review";
 
 const MAILBOX = "debiteuren@smeba.nl";
-const FETCH_LIMIT = 300;
+const WINDOW_SIZE = 300;
+// Auto-walk caps: keep fetching older windows until we have at least
+// TARGET_UNHANDLED mails left to review OR we've walked MAX_WINDOWS
+// windows (1500 msgs). Keeps the page useful when the top of the inbox
+// is mostly already-handled without making the user click through
+// pagination by hand.
+const TARGET_UNHANDLED = 150;
+const MAX_WINDOWS = 5;
 
 export const dynamic = "force-dynamic";
 // Server actions on this route include iController browser automation per
@@ -27,19 +34,6 @@ export default async function DebtorEmailReviewPage({ searchParams }: PageProps)
   const before = params.before;
   const ruleFilter = params.rule || null;
 
-  let messages = [] as Awaited<ReturnType<typeof listInboxMessages>>;
-  let fetchError: string | null = null;
-  try {
-    messages = await listInboxMessages(MAILBOX, FETCH_LIMIT, { before });
-  } catch (err) {
-    fetchError = String(err);
-  }
-
-  // Oldest item in the current window → cursor for the next "older" page.
-  // Messages are Graph-ordered newest-first, so the last one is the oldest.
-  const olderCursor =
-    messages.length === FETCH_LIMIT ? messages[messages.length - 1]?.receivedAt : null;
-
   // Items die al een van onze eigen categorie-labels hebben zijn al
   // afgehandeld (door automation OF door een eerdere hand-label uit deze
   // UI). ooo_permanent en unknown-handpicks blijven in de inbox (om NXT-
@@ -54,42 +48,84 @@ export default async function DebtorEmailReviewPage({ searchParams }: PageProps)
     "Payment Admittance",
   ]);
 
-  // Mails that a reviewer has already acted on in bulk-review get logged
-  // to automation_runs — even when the Outlook label couldn't be applied
-  // (archive 404s, label-only categories that leave the mail in the
-  // inbox, etc.). Hiding on Outlook label alone kept re-surfacing those,
-  // which defeats the "work the mailbox once" flow. We additionally
-  // exclude any message_id with a non-failed debtor-email-review /
-  // debtor-email-cleanup run so the page converges to zero once the
-  // reviewer has processed the mailbox. Failed runs stay visible so the
-  // human can retry if they choose.
-  const messageIds = messages.map((m) => m.id);
-  const reviewedIds = new Set<string>();
-  if (messageIds.length > 0) {
+  type InboxMessage = Awaited<ReturnType<typeof listInboxMessages>>[number];
+  let fetchError: string | null = null;
+  const allMessages: InboxMessage[] = [];
+  const unhandledMessages: InboxMessage[] = [];
+  let windowsWalked = 0;
+  let walkedToEnd = false;
+  let cursor: string | undefined = before;
+  let windowAlreadyHandled = 0; // handled count in the FIRST window only
+                                // (what we display to the user)
+
+  const admin = createAdminClient();
+
+  // Walk older windows until we have enough unhandled mails OR we hit
+  // the end of the inbox OR we've walked the cap. A reviewer who has
+  // already processed the newest 1000 mails shouldn't have to click
+  // "older" 4 times to find the 20 items that are still pending.
+  while (
+    windowsWalked < MAX_WINDOWS &&
+    unhandledMessages.length < TARGET_UNHANDLED
+  ) {
+    let batch: InboxMessage[] = [];
     try {
-      const admin = createAdminClient();
-      const { data: handledRuns } = await admin
-        .from("automation_runs")
-        .select("result->>message_id")
-        .like("automation", "debtor-email-%")
-        .in("status", ["feedback", "completed", "skipped_idempotent", "deferred"])
-        .in("result->>message_id", messageIds);
-      for (const row of handledRuns ?? []) {
-        const id = (row as Record<string, unknown>)["message_id"];
-        if (typeof id === "string") reviewedIds.add(id);
-      }
-    } catch {
-      // Non-fatal: fall back to Outlook-label filter only.
+      batch = await listInboxMessages(MAILBOX, WINDOW_SIZE, { before: cursor });
+    } catch (err) {
+      fetchError = String(err);
+      break;
     }
+    windowsWalked++;
+    allMessages.push(...batch);
+
+    // Fetch Supabase acted-on message_ids for this batch only.
+    const batchIds = batch.map((m) => m.id);
+    const reviewedIds = new Set<string>();
+    if (batchIds.length > 0) {
+      try {
+        const { data: handledRuns } = await admin
+          .from("automation_runs")
+          .select("result->>message_id")
+          .like("automation", "debtor-email-%")
+          .in(
+            "status",
+            ["feedback", "completed", "skipped_idempotent", "deferred"],
+          )
+          .in("result->>message_id", batchIds);
+        for (const row of handledRuns ?? []) {
+          const id = (row as Record<string, unknown>)["message_id"];
+          if (typeof id === "string") reviewedIds.add(id);
+        }
+      } catch {
+        // Non-fatal: this batch falls back to Outlook-label filter only.
+      }
+    }
+
+    const isHandled = (m: InboxMessage): boolean =>
+      m.categories.some((c) => MR_LABELS.has(c)) || reviewedIds.has(m.id);
+
+    if (windowsWalked === 1) {
+      windowAlreadyHandled = batch.filter(isHandled).length;
+    }
+    for (const m of batch) {
+      if (!isHandled(m)) unhandledMessages.push(m);
+    }
+
+    if (batch.length < WINDOW_SIZE) {
+      walkedToEnd = true;
+      break;
+    }
+    cursor = batch[batch.length - 1]?.receivedAt;
   }
 
-  const isHandled = (m: (typeof messages)[number]): boolean =>
-    m.categories.some((c) => MR_LABELS.has(c)) || reviewedIds.has(m.id);
+  // Oldest item across all walked windows → cursor for manual "laad
+  // oudere" if the user still wants to dig further back.
+  const olderCursor = walkedToEnd
+    ? null
+    : allMessages[allMessages.length - 1]?.receivedAt ?? null;
+  const alreadyHandled = windowAlreadyHandled;
 
-  const alreadyHandled = messages.filter(isHandled).length;
-
-  const predictions = messages
-    .filter((m) => !isHandled(m))
+  const predictions = unhandledMessages
     .map((m) => {
       const r = classify({ subject: m.subject, from: m.from, bodySnippet: m.bodyPreview });
       return {
@@ -168,7 +204,7 @@ export default async function DebtorEmailReviewPage({ searchParams }: PageProps)
       mailbox={MAILBOX}
       fetchedAt={new Date().toISOString()}
       totalFetched={predictions.length}
-      fetchLimit={FETCH_LIMIT}
+      fetchLimit={WINDOW_SIZE}
       unknownCount={unknownCount}
       groups={groups}
       fetchError={fetchError}
