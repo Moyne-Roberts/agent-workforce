@@ -14,6 +14,7 @@ import {
 } from "@/lib/inngest/functions/heeren-oefeningen";
 import { refreshBriefings } from "@/lib/inngest/functions/briefing-refresh";
 import { syncDebtorEmailBridgeCron } from "@/lib/inngest/functions/debtor-email-bridge";
+import { cleanupIControllerPending } from "@/lib/inngest/functions/debtor-email-icontroller-cleanup";
 
 export const { GET, POST, PUT } = serve({
   client: inngest,
@@ -30,5 +31,6 @@ export const { GET, POST, PUT } = serve({
     createMonthlyInvoiceDrafts,
     refreshBriefings,
     syncDebtorEmailBridgeCron,
+    cleanupIControllerPending,
   ],
 });
