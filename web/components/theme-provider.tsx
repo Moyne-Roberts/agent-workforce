@@ -4,9 +4,9 @@ import { ThemeProvider as NextThemesProvider } from "next-themes";
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
   return (
     <NextThemesProvider
-      attribute="data-theme"
-      forcedTheme="dark"
-      enableSystem={false}
+      attribute={["class", "data-theme"]}
+      defaultTheme="dark"
+      enableSystem
       disableTransitionOnChange
     >
       {children}

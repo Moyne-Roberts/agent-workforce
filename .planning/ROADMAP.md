@@ -153,10 +153,10 @@ Plans:
 - [x] **Phase 48: Foundation** - Design system (Satoshi + Cabinet Grotesk, glassmorphism tokens, dark/light toggle), new Supabase tables (agent_events, swarm_jobs, swarm_agents), Azure AD OAuth SSO with account linking (code-complete 2026-04-16; SSO human-verify deferred pending Azure AD tenant)
 - [x] **Phase 49: Navigation & Realtime** - Sidebar with dynamic swarm list, /swarm/[swarmId] routing, single Realtime subscription per swarm view, useRealtimeTable hook (code-complete 2026-04-16; browser-based navigation + channel teardown verification deferred)
 - [x] **Phase 50: Data Pipeline** - Inngest orqai-trace-sync cron, Orq.ai trace-to-agent_events mapping, Supabase caching layer, rate limit handling (code-complete 2026-04-16; migration apply + end-to-end verify deferred pending Management API token)
-- [ ] **Phase 51: Hero Components** - Subagent fleet cards with state badges and metrics, AI narrative briefing panel with Orq.ai Briefing Agent, agent detail drawer with communication timeline
-- [ ] **Phase 52: Live Interactivity** - Claude-style terminal event stream with ring buffer, 5-column Kanban board with dnd-kit drag-and-drop, smart sidebar filters
-- [ ] **Phase 53: Advanced Observability** - Live delegation graph with CSS-animated particles, Gantt-style swimlane timeline per agent
-- [ ] **Phase 54: Polish** - Migrate executive dashboard, projects page, and settings page to V7 design tokens
+- [x] **Phase 51: Hero Components** - Subagent fleet cards with state badges and metrics, AI narrative briefing panel with Orq.ai Briefing Agent, agent detail drawer with communication timeline (code-complete 2026-04-16; browser verification deferred pending fixture apply + ORQ_API_KEY runtime)
+- [x] **Phase 52: Live Interactivity** - Claude-style terminal event stream with ring buffer, 5-column Kanban board with dnd-kit drag-and-drop, smart sidebar filters (code-complete 2026-04-16; 10-row swarm_jobs fixture APPLIED via Management API; browser walkthrough deferred)
+- [x] **Phase 53: Advanced Observability** - Live delegation graph with CSS-animated particles, Gantt-style swimlane timeline per agent (code-complete 2026-04-16; cross-agent fixture APPLIED via Management API; browser walkthrough deferred)
+- [x] **Phase 54: Polish** - Migrate executive dashboard, projects page, and settings page to V7 design tokens
 
 <details>
 <summary>V5.0 Cross-Swarm Intelligence -- DEFINED</summary>
@@ -468,9 +468,9 @@ Plans:
 **Plans**: TBD
 
 Plans:
-- [ ] 51-01: TBD
-- [ ] 51-02: TBD
-- [ ] 51-03: TBD
+- [x] 51-01: Fleet cards (SubagentFleet + SubagentFleetCard + AgentStateBadge)
+- [x] 51-02: AI briefing panel (Orq.ai Briefing Agent + server action + panel + 30-min cron)
+- [x] 51-03: Agent detail drawer (DrawerContext + AgentDetailDrawer via shadcn Sheet + timeline/cycle utils)
 
 ### Phase 52: Live Interactivity
 **Goal**: Users have a live scrolling event stream for real-time monitoring and a Kanban board for tracking where jobs stand in the business process, with smart filters to surface exceptions
@@ -482,12 +482,12 @@ Plans:
   3. 5-column Kanban board displays jobs across business stages (backlog, ready, in progress, human review, done) with title, description, and colored tag pills
   4. User can drag and drop jobs between Kanban columns with keyboard accessibility, and moves persist to swarm_jobs with optimistic UI and snapshot rollback on failure
   5. Smart filter buttons in the sidebar filter the swarm view to show only blocked, needs review, or high SLA risk items
-**Plans**: TBD
+**Plans**: 3 plans
 
 Plans:
-- [ ] 52-01: TBD
-- [ ] 52-02: TBD
-- [ ] 52-03: TBD
+- [x] 52-01: Terminal event stream with ring buffer (useSyncExternalStore + module store) + auto-scroll + pause + clear + missed-events pill
+- [x] 52-02: Kanban board with dnd-kit (5 columns, multi-column sortable, optimistic moveJob server action with sonner-revert, Realtime sync) + 10-row fixture
+- [x] 52-03: Sidebar smart filter chips with shareable URL ?filter= state (Only blocked / Needs review / High SLA risk)
 
 ### Phase 53: Advanced Observability
 **Goal**: Users can see real-time agent-to-agent delegation as an animated graph and parallel agent activity as a Gantt-style timeline -- the primary differentiators from competing agent platforms
@@ -515,8 +515,7 @@ Plans:
 **Plans**: TBD
 
 Plans:
-- [ ] 54-01: TBD
-- [ ] 54-02: TBD
+- [x] 54-01: V7 migration across dashboard, executive, projects, settings
 
 ## Progress
 
@@ -550,7 +549,7 @@ V7.0: 48 -> 49 -> 50 -> 51 -> 52 -> 53 -> 54
 | 51. Hero Components | V7.0 | 0/TBD | Not started | - |
 | 52. Live Interactivity | V7.0 | 0/TBD | Not started | - |
 | 53. Advanced Observability | V7.0 | 0/TBD | Not started | - |
-| 54. Polish | V7.0 | 0/TBD | Not started | - |
+| 54. Polish | V7.0 | 1/1 | Code-complete | 2026-04-16 |
 
 ## Progress Summary
 
