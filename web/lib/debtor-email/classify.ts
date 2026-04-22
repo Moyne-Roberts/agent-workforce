@@ -57,6 +57,39 @@ const SUBJECT_AUTO_REPLY =
   /(automatisch(?:e)?\s+antwoord|automatic\s+reply|auto[-\s]?reply|réponse\s+automatique|out\s+of\s+office|absence\s*:|afwezigheidsbericht|abwesenheits)/i;
 
 /**
+ * Receipt-acknowledgement subjects. Vendor systems confirm they received
+ * our outbound invoice email. Observed in the 2026-04-22 Onbekend hand-
+ * pick batch (20 auto_reply tags):
+ *
+ *   - "[AAC#2026031910035] Ontvangstbevestiging" (info@aacadministraties.nl)
+ *   - "E-mail ontvangen" (info@statovgm.nl — 3×)
+ *   - "Succesvol ontvangen: Documenten n.a.v. …" (notifications@mail.blue10.com)
+ *
+ * These are noreply-style acknowledgements; not true OoO/away messages,
+ * but downstream treatment is identical (label + archive).
+ */
+const SUBJECT_ACKNOWLEDGEMENT =
+  /(ontvangstbevestiging|e[-\s]?mail\s+ontvangen|succesvol\s+ontvangen|receipt\s+confirmation|acknowledgement\s+of\s+receipt|successfully\s+received)/i;
+
+/**
+ * Ticket-acknowledgement subjects — vendor ticketing systems auto-respond
+ * with a case/ticket reference when our invoice email lands in their
+ * service desk. Observed:
+ *
+ *   - "[AAC#2026031910035] Ontvangstbevestiging" (also matches ACK above)
+ *   - "GCS0113543 is closed: 527656 - Rekeningoverzicht …" (CBRE BSO)
+ *   - "Ticket number :577195" (Minor Hotels)
+ *   - "Procesnummer C-10188753: …" (Rothenberger)
+ *   - "Aanmelding van melding C2603 00303: …" (Coop facilitair)
+ *
+ * Pattern is structured: bracket-prefix, colon, or "melding/ticket/process"
+ * literal followed by an identifier. Narrow enough to avoid catching plain
+ * dunning emails that happen to reference an invoice number.
+ */
+const SUBJECT_TICKET_REF =
+  /(\[[A-Z]{2,5}#?\d+\]|ticket\s+number|procesnummer|aanmelding\s+van\s+melding|\bis\s+closed[:\s]|\bGCS\d{4,}|melding\s+[CS]\d+|case\s+number)/i;
+
+/**
  * SUBJECT_PAYMENT is deliberately narrow: it must match only confirmation /
  * advice / receipt of payment, not the word "betaling" in any context. A
  * previous broader regex (just `betaling`) caught MR's own outbound dunning
