@@ -47,19 +47,20 @@ export function TerminalStream({ swarmId }: TerminalStreamProps) {
     pushMany(ascending);
   }, [ascending, pushMany]);
 
-  // Auto-scroll behavior.
+  // Auto-scroll behavior. Newest events render at the top so the user
+  // immediately sees what just happened; scrolling down reveals older
+  // activity. Follow-top = "stay pinned to newest".
   const scrollerRef = useRef<HTMLDivElement>(null);
-  const [followBottom, setFollowBottom] = useState(true);
+  const [followTop, setFollowTop] = useState(true);
   const [missedCount, setMissedCount] = useState(0);
   const lastSeenLengthRef = useRef(events.length);
 
   const handleScroll = () => {
     const el = scrollerRef.current;
     if (!el) return;
-    const distance = el.scrollHeight - el.scrollTop - el.clientHeight;
-    const atBottom = distance < NEAR_BOTTOM_PX;
-    setFollowBottom(atBottom);
-    if (atBottom) setMissedCount(0);
+    const atTop = el.scrollTop < NEAR_BOTTOM_PX;
+    setFollowTop(atTop);
+    if (atTop) setMissedCount(0);
   };
 
   useEffect(() => {
@@ -71,8 +72,8 @@ export function TerminalStream({ swarmId }: TerminalStreamProps) {
     const el = scrollerRef.current;
     if (!el) return;
 
-    if (followBottom) {
-      el.scrollTop = el.scrollHeight;
+    if (followTop) {
+      el.scrollTop = 0;
       setMissedCount(0);
       return;
     }
@@ -80,20 +81,21 @@ export function TerminalStream({ swarmId }: TerminalStreamProps) {
     if (delta > 0) {
       setMissedCount((c) => c + delta);
     } else if (delta < 0) {
-      // Buffer was cleared or evicted -- reset the counter.
       setMissedCount(0);
     }
-  }, [events.length, followBottom]);
+  }, [events.length, followTop]);
 
-  const jumpToBottom = () => {
+  const jumpToTop = () => {
     const el = scrollerRef.current;
     if (!el) return;
-    el.scrollTop = el.scrollHeight;
-    setFollowBottom(true);
+    el.scrollTop = 0;
+    setFollowTop(true);
     setMissedCount(0);
   };
 
-  const lastIndex = events.length - 1;
+  // Render newest-first: reverse a shallow copy so the underlying buffer
+  // (which pushMany appends to) stays untouched.
+  const rendered = useMemo(() => events.slice().reverse(), [events]);
 
   return (
     <GlassCard className="p-[18px] flex flex-col gap-3">
@@ -153,7 +155,7 @@ export function TerminalStream({ swarmId }: TerminalStreamProps) {
           aria-live={paused ? "off" : "polite"}
           aria-relevant="additions"
         >
-          {events.length === 0 ? (
+          {rendered.length === 0 ? (
             <div
               className="opacity-70"
               style={{ color: "#6f8ab1" }}
@@ -161,27 +163,27 @@ export function TerminalStream({ swarmId }: TerminalStreamProps) {
               &gt; Awaiting events...
             </div>
           ) : (
-            events.map((event, idx) => (
+            rendered.map((event, idx) => (
               <TerminalRow
                 key={event.id}
                 event={event}
-                isLatest={idx === lastIndex}
+                isLatest={idx === 0}
               />
             ))
           )}
         </div>
-        {missedCount > 0 && !followBottom && (
+        {missedCount > 0 && !followTop && (
           <button
             type="button"
-            onClick={jumpToBottom}
-            className="absolute right-3 bottom-3 px-3 py-[6px] rounded-[var(--v7-radius-pill)] text-[12px] leading-none border transition-transform"
+            onClick={jumpToTop}
+            className="absolute right-3 top-3 px-3 py-[6px] rounded-[var(--v7-radius-pill)] text-[12px] leading-none border transition-transform"
             style={{
               background: "var(--v7-teal-soft)",
               color: "var(--v7-teal)",
               borderColor: "var(--v7-teal)",
             }}
           >
-            {missedCount} new event{missedCount === 1 ? "" : "s"} {"\u2193"}
+            {missedCount} new event{missedCount === 1 ? "" : "s"} {"\u2191"}
           </button>
         )}
       </div>
