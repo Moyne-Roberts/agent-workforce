@@ -80,8 +80,10 @@ Progress: [████░░░░░░] 43% (3 of 7 V7.0 phases code-complete
 - Plan V3 milestones for Playwright and next project phase (planning)
 - Build Zapier analytics browser automation (automation)
 - Resolve PostgREST exposed-schemas for email_insights (database)
-- **Intent agent for unknown-bucket debtor mails** (automation) — LLM on top of existing regex classifier's `unknown` fall-through; routes to downstream handlers
-- **Automate copy-document responder for debtor and sales inboxes** (automation) — first concrete handler the intent agent routes to, ~45 req/mo, ~€2,500/yr savings
+- **Intent agent for unknown-bucket debtor mails** (automation) — LLM on top of existing regex classifier's `unknown` fall-through; routes to downstream sub-agents. **Debtor-only.**
+- **Copy-document sub-agent for debtor inbox** (automation) — dedicated sub-agent, drafts land in iController (Browserless+Playwright, no API), fetcher via Zapier SDK → NXT SQL + S3. **Debtor-only, invoice-first.**
+
+**Tomorrow's first pickup:** fill data samples into `.planning/briefs/2026-04-23-debtor-email-swarm-brief.md`, then invoke `/orq-agent` with the completed brief to produce the swarm spec.
 
 ## Session Continuity
 

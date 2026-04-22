@@ -1,12 +1,14 @@
 ---
 created: 2026-04-22T16:59:18.760Z
-title: Automate copy-document responder for debtor and sales inboxes
+title: Automate copy-document responder for debtor inbox (debtor-only scope)
 area: automation
 files:
   - web/debtor-email-analyzer/src/classify-copy-requests.ts
   - web/debtor-email-analyzer/src/find-copy-requests.ts
   - /tmp/copy-requests-classified.json
 ---
+
+> **Scope correction 2026-04-22:** debtor mailboxes only. Sales is out of scope. Earlier "debtor + sales" framing in body text is obsolete — read as "debtor" everywhere.
 
 ## Problem
 
@@ -34,6 +36,13 @@ Customers email `debiteuren@*` and sales inboxes asking for copies of business d
 **ROI:** ~45 req/month × ~8 min handling = ~72 hrs/yr ≈ **€2,800–3,600/yr** manual cost. Automation realistic coverage: ~40% full-auto (invoice + extractable ref), ~25% draft-assist. Net savings ~60 hrs/yr ≈ €2,500/yr. Modest on labor alone, but the pipeline (NXT SQL + S3 + email send) is reusable infrastructure.
 
 **Critical finding:** keyword filter has ~31% recall. Production classifier MUST use LLM, not keywords. Most missed pattern: `FW: Documenten n.a.v. uitgevoerde werkzaamheden. Factuur: NNNNNNNN` — customer forwards Smeba's auto-doc-mail to their own AP team.
+
+## Architecture decisions (2026-04-22)
+
+- **Copy-document is a dedicated sub-agent** in the debtor swarm, not just a function/tool. It has its own prompt, its own Zapier-SDK-backed tool set (NXT SQL lookup, S3 fetch), and its own success criteria. The intent agent routes `copy_document_request` → this sub-agent.
+- **Draft replies live in iController, not in our own system.** The copy-document sub-agent fetches the PDF via Zapier → NXT → S3, then creates a DRAFT reply inside iController with the PDF attached. Human debtor-team operators review and send from iController as they already do today.
+- **iController has no API** (per CLAUDE.md) — draft creation must go via Browserless.io + Playwright (`playwright-core`, shadow-DOM `.evaluate()` pattern, `waitUntil: 'domcontentloaded'` for SPA). Credentials from Supabase `credentials` table (acceptance first, production only on explicit confirmation). Pattern reference: `docs/browserless-patterns.md`.
+- **No direct email send from our system.** Reduces scope, removes email-auth surface, keeps the human-in-the-loop boundary exactly where the team already works.
 
 ## Solution
 
