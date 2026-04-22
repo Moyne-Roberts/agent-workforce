@@ -1,12 +1,16 @@
 import { inngest } from "@/lib/inngest/client";
-import { syncDebtorEmailBridge } from "@/lib/automations/debtor-email-bridge/sync";
+import { syncSwarmBridge } from "@/lib/automations/swarm-bridge/sync";
+import { SWARM_BRIDGE_CONFIGS } from "@/lib/automations/swarm-bridge/configs";
 
 /**
- * Syncs automation_runs (debtor-email-*) → swarm_jobs + agent_events every
- * minute so the V7 Agent OS shell stays in sync with the automation layer.
+ * Generic swarm-bridge cron. Syncs every registered swarm's
+ * automation_runs → swarm_jobs + agent_events every minute so the V7
+ * shell stays in sync with the automation layer.
  *
- * Idempotent: syncDebtorEmailBridge uses upsert on jobs and replace-all on
- * events. Per-swarm scope means other automations are unaffected.
+ * Kept under the old id `automations/debtor-email-bridge` to preserve
+ * Inngest run history. Despite the name, it now runs ALL bridge configs
+ * in `SWARM_BRIDGE_CONFIGS`. Each config is synced in its own step.run
+ * so one failing swarm does not block the others on retry.
  */
 export const syncDebtorEmailBridgeCron = inngest.createFunction(
   {
@@ -15,7 +19,13 @@ export const syncDebtorEmailBridgeCron = inngest.createFunction(
   },
   { cron: "*/1 * * * *" },
   async ({ step }) => {
-    const result = await step.run("sync", () => syncDebtorEmailBridge());
-    return result;
+    const results = [];
+    for (const config of SWARM_BRIDGE_CONFIGS) {
+      const result = await step.run(`sync:${config.swarmId}`, () =>
+        syncSwarmBridge(config),
+      );
+      results.push(result);
+    }
+    return { bridges: results };
   },
 );
