@@ -38,7 +38,7 @@ interface CategorizeResult {
 interface ICResult {
   stage: string;
   message_id: string;
-  icontroller?: "deleted" | "not_found" | "failed";
+  icontroller?: "deleted" | "not_found" | "failed" | "pending";
 }
 
 interface Row<T> {
