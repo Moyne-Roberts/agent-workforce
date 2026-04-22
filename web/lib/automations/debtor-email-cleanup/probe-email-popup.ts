@@ -20,13 +20,18 @@ import { connectWithSession, saveSession, captureScreenshot } from "@/lib/browse
 import { resolveCredentials } from "@/lib/credentials/proxy";
 import type { Page, BrowserContext } from "playwright-core";
 
-const ENV = "acceptance" as const;
-const URL_BASE = "https://test-walkerfire-testing.icontroller.billtrust.com";
-const CREDENTIAL_ID = "e9a9570e-5f0d-4d50-8b41-212fc6bdb78a";
-// No session reuse for probe — the cleanup automation shares
-// `icontroller_session` and if that got stored on a Billtrust error page
-// every subsequent run loads a bad session. Fresh login each time keeps
-// the probe independent.
+// Production mode enabled per Nick 2026-04-22 because acceptance has no mail.
+// STRICTLY READ-ONLY probe: open message, capture DOM, close tab. No clicks
+// that modify state, no delete, no send, no save-draft.
+const ENV = (process.env.ICONTROLLER_ENV === "production" ? "production" : "acceptance") as "production" | "acceptance";
+const URL_BASE = ENV === "production"
+  ? "https://walkerfire.icontroller.eu"
+  : "https://test-walkerfire-testing.icontroller.billtrust.com";
+const CREDENTIAL_ID = ENV === "production"
+  ? "dfae6b50-59dd-44e6-81ac-79d4f3511c3f"
+  : "e9a9570e-5f0d-4d50-8b41-212fc6bdb78a";
+// No session reuse for probe — fresh login each time keeps the probe
+// independent of any poisoned shared session.
 const SESSION_KEY: string | undefined = undefined;
 
 const OUT_DIR = resolve(__dirname, "../../../../.planning/briefs/artifacts");
@@ -145,7 +150,10 @@ async function waitForNewPage(context: BrowserContext, trigger: () => Promise<vo
 }
 
 async function main() {
-  console.log(`\n=== ENVIRONMENT: ${ENV.toUpperCase()} -- Credentials: iController acceptance ===\n`);
+  const banner = ENV === "production"
+    ? `PRODUCTION -- iController -- Actie: read-only DOM probe (open message subject → capture DOM → close tab, NO delete/send/save)`
+    : `ACCEPTANCE -- Credentials: iController acceptance`;
+  console.log(`\n=== ${banner} ===\n`);
   mkdirSync(OUT_DIR, { recursive: true });
 
   const { browser, context, page } = await connectWithSession(SESSION_KEY);
@@ -281,9 +289,195 @@ async function main() {
     // Dump HTML of whichever page hosts the composer
     const fullHtml = await composer.content();
     writeFileSync(resolve(OUT_DIR, "05-composer-page.html"), fullHtml);
-    writeFileSync(resolve(OUT_DIR, "06-probe-summary.json"), JSON.stringify(artifacts, null, 2));
     console.log(`\n✓ composer page HTML: ${fullHtml.length.toLocaleString()} bytes`);
-    console.log(`✓ summary JSON written to ${OUT_DIR}`);
+
+    // Close composer tab(s) so we return to the messages list fresh.
+    // But only if the composer actually opened in a new tab — closing the
+    // main page would kill Part 2.
+    if (newPage && newPage !== page) await newPage.close().catch(() => null);
+
+    // ── PART 2: click an existing email row's subject ──────────────────────
+    console.log("\n--- PART 2: click existing email row ---");
+    await page.goto(`${URL_BASE}/messages`, { waitUntil: "domcontentloaded" });
+    await page.waitForTimeout(3000);
+    await captureScreenshot(page, { automation: AUTOMATION, label: "10-messages-list-part2" });
+
+    // Acceptance inbox default-view is often empty. Try to find a company
+    // mailbox sidebar link with actual messages.
+    const mailboxLinks = await page.evaluate(() => {
+      const anchors = Array.from(document.querySelectorAll<HTMLAnchorElement>("a[href*='/messages/index/mailbox/']"));
+      return anchors.slice(0, 30).map((a) => ({ href: a.getAttribute("href"), text: (a.textContent || "").trim().replace(/^»\s*/, "").slice(0, 80) }));
+    });
+    artifacts.mailboxLinks = mailboxLinks;
+    console.log(`✓ mailbox sidebar links: ${mailboxLinks.length}`);
+    for (const m of mailboxLinks.slice(0, 8)) console.log(`  · ${m.text} → ${m.href}`);
+
+    // Walk up to 8 mailboxes looking for a non-empty inbox.
+    let foundRows = false;
+    for (const mb of mailboxLinks.slice(0, 8)) {
+      if (!mb.href) continue;
+      await page.goto(`${URL_BASE}${mb.href}`, { waitUntil: "domcontentloaded" });
+      await page.waitForTimeout(2500);
+      const rowCount = await page.evaluate(() => {
+        const rows = Array.from(document.querySelectorAll<HTMLTableRowElement>("#messages-list tbody tr"));
+        const hasPlaceholder = rows.some((r) => r.querySelector(".dataTables_empty"));
+        return hasPlaceholder ? 0 : rows.length;
+      });
+      console.log(`  mailbox "${mb.text}" rows: ${rowCount}`);
+      if (rowCount > 0) {
+        console.log(`✓ using mailbox "${mb.text}" for row-click probe`);
+        artifacts.probeMailbox = mb;
+        foundRows = true;
+        break;
+      }
+    }
+    if (!foundRows) {
+      console.log("! no mailbox with content found in acceptance sidebar");
+    }
+    await captureScreenshot(page, { automation: AUTOMATION, label: "10b-mailbox-with-rows" });
+
+    const rowShape = await page.evaluate(() => {
+      const rows = Array.from(document.querySelectorAll<HTMLTableRowElement>("#messages-list tbody tr"));
+      const first = rows[0];
+      if (!first) return { rowCount: 0 };
+      // Try to identify the subject cell and whatever is clickable inside the row
+      const clickableInside = Array.from(first.querySelectorAll<HTMLElement>("a[href], [onclick], [role='link'], .clickable, [data-action]")).map((el) => ({
+        tag: el.tagName,
+        text: (el.textContent || "").trim().slice(0, 100),
+        href: (el as HTMLAnchorElement).href || null,
+        onclick: el.getAttribute("onclick") || null,
+        dataAction: el.getAttribute("data-action") || null,
+        cls: (el.className?.toString() || "").slice(0, 120),
+      }));
+      return {
+        rowCount: rows.length,
+        rowOuter: first.outerHTML.slice(0, 4000),
+        rowCells: Array.from(first.querySelectorAll("td")).map((td) => ({ text: (td.textContent || "").trim().slice(0, 120), cls: (td.className?.toString() || "").slice(0, 80) })),
+        clickableInside,
+      };
+    });
+    artifacts.rowShape = rowShape;
+    console.log(`✓ rows: ${rowShape.rowCount}, clickables inside first row: ${(rowShape as any).clickableInside?.length ?? 0}`);
+    for (const c of ((rowShape as any).clickableInside ?? []).slice(0, 10)) {
+      console.log(`  · [${c.tag}] "${c.text}" href=${c.href} onclick=${!!c.onclick} data-action=${c.dataAction}`);
+    }
+
+    if (rowShape.rowCount === 0) {
+      console.log("! messages list empty — cannot probe row-click path");
+    } else {
+      // Click subject — prefer anchor, fall back to longest-text cell
+      const rowClickResult = await waitForNewPage(context, async () => {
+        await page.evaluate(() => {
+          const row = document.querySelector<HTMLTableRowElement>("#messages-list tbody tr");
+          if (!row) return;
+          const a = row.querySelector<HTMLAnchorElement>("a[href]");
+          if (a) { a.click(); return; }
+          // Longest-text cell (skip checkbox cell)
+          let best: HTMLElement | null = null; let bestLen = 0;
+          for (const td of Array.from(row.querySelectorAll<HTMLElement>("td"))) {
+            if (td.querySelector("input[type='checkbox']")) continue;
+            const len = (td.textContent || "").trim().length;
+            if (len > bestLen) { best = td; bestLen = len; }
+          }
+          best?.click();
+        });
+      });
+
+      const detail: Page = rowClickResult ?? page;
+      console.log(`✓ row click: ${rowClickResult ? "NEW TAB opened" : "same page (inline panel?)"} → ${detail.url()}`);
+      artifacts.rowClickOpenedInNewTab = !!rowClickResult;
+      artifacts.detailUrl = detail.url();
+
+      await detail.waitForLoadState("domcontentloaded", { timeout: 8000 }).catch(() => null);
+      await detail.waitForTimeout(3000);
+      await captureScreenshot(detail, { automation: AUTOMATION, label: "11-row-clicked-detail" });
+
+      // Capture: reply/forward actions, quoted-thread presence, and whether
+      // the composer is inline or requires another click.
+      const detailState = await detail.evaluate(() => {
+        const replyKw = /reply|answer|antwoord|beantwoord|forward|doorsturen|respond/i;
+        const actions = Array.from(
+          document.querySelectorAll<HTMLElement>("button, a, [role='button'], .btn, [data-action], [title]"),
+        )
+          .map((el) => {
+            const rect = el.getBoundingClientRect();
+            const text = (el.textContent || "").trim();
+            const title = el.getAttribute("title") || "";
+            const aria = el.getAttribute("aria-label") || "";
+            const combined = `${text} ${title} ${aria}`;
+            if (!replyKw.test(combined)) return null;
+            return {
+              tag: el.tagName,
+              text: (text || title || aria).slice(0, 100),
+              id: el.id || null,
+              cls: (el.className?.toString() || "").slice(0, 120),
+              visible: rect.width > 0 && rect.height > 0 && el.offsetParent !== null,
+            };
+          })
+          .filter(Boolean);
+
+        const hasIframeEditor = !!document.querySelector("iframe");
+        const hasFileInput = !!document.querySelector("input[type='file']");
+        const threadText = (document.body.innerText || "").slice(0, 2500);
+
+        return {
+          url: window.location.href,
+          title: document.title,
+          replyActions: actions,
+          hasIframeEditor,
+          hasFileInput,
+          threadTextSlice: threadText,
+        };
+      });
+      artifacts.detailState = detailState;
+      console.log(`✓ detail state: ${detailState.replyActions.length} reply/forward actions, iframe=${detailState.hasIframeEditor}, file input=${detailState.hasFileInput}`);
+      for (const a of detailState.replyActions.slice(0, 10)) {
+        console.log(`  · [${a.tag}] "${a.text}" visible=${a.visible} id=${a.id} cls="${(a.cls || "").slice(0, 50)}"`);
+      }
+
+      // If a visible Reply action exists, click it and capture the reply composer
+      const firstReply = detailState.replyActions.find((a) => a.visible && /reply|antwoord|beantwoord/i.test(a.text));
+      if (firstReply) {
+        console.log(`→ clicking reply: "${firstReply.text}"`);
+        const replyTab = await waitForNewPage(context, async () => {
+          await detail.evaluate(({ id, text }) => {
+            const byId = id ? document.getElementById(id) : null;
+            if (byId) return byId.click();
+            Array.from(document.querySelectorAll<HTMLElement>("button, a, [role='button'], .btn"))
+              .find((el) => (el.textContent || "").trim().slice(0, 100) === text)?.click();
+          }, { id: firstReply.id, text: firstReply.text });
+        });
+        const replyPage: Page = replyTab ?? detail;
+        console.log(`✓ reply composer: ${replyTab ? "NEW TAB" : "same page"} → ${replyPage.url()}`);
+        artifacts.replyOpenedInNewTab = !!replyTab;
+        artifacts.replyUrl = replyPage.url();
+        await captureScreenshot(replyPage, { automation: AUTOMATION, label: "12-reply-composer" });
+
+        const replyState = await dumpComposerState(replyPage);
+        artifacts.replyComposerState = replyState;
+        console.log(`✓ reply composer editors=${replyState.editors.length}, file inputs=${replyState.fileInputs.length}, form fields=${replyState.formFields.length}`);
+
+        const replyAttach = await scanActions(replyPage, ATTACH_KEYWORDS);
+        artifacts.replyAttachActions = replyAttach;
+        console.log(`✓ reply attach candidates: ${replyAttach.length}`);
+        for (const a of replyAttach.slice(0, 5)) console.log(`  · "${a.text}" visible=${a.visible}`);
+
+        const replyHtml = await replyPage.content();
+        writeFileSync(resolve(OUT_DIR, "13-reply-composer-page.html"), replyHtml);
+
+        if (replyTab) await replyTab.close().catch(() => null);
+      } else {
+        console.log("! no Reply button visible on detail view — check 11-row-clicked-detail screenshot; maybe reply is inline-auto");
+        // Dump the detail HTML for inspection
+        const detailHtml = await detail.content();
+        writeFileSync(resolve(OUT_DIR, "13-detail-no-reply-button.html"), detailHtml);
+      }
+
+      if (rowClickResult) await rowClickResult.close().catch(() => null);
+    }
+
+    writeFileSync(resolve(OUT_DIR, "06-probe-summary.json"), JSON.stringify(artifacts, null, 2));
+    console.log(`\n✓ summary JSON written to ${OUT_DIR}`);
 
     // No session save — probe runs fresh every time on purpose.
   } catch (err) {

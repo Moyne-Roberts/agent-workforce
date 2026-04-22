@@ -1,9 +1,23 @@
 {
-  "env": "acceptance",
-  "ts": "2026-04-22T17:42:54.746Z",
+  "env": "production",
+  "ts": "2026-04-22T17:51:26.014Z",
   "flow": "new-message",
   "newMsgCandidates": [],
   "newMsgCandidatesRetry": [
+    {
+      "tag": "A",
+      "text": "Opnieuw factureren (1)",
+      "id": null,
+      "cls": "",
+      "href": "https://walkerfire.icontroller.eu/messages/index/label/87",
+      "visible": true,
+      "rect": {
+        "x": 10,
+        "y": 977,
+        "w": 219,
+        "h": 27
+      }
+    },
     {
       "tag": "BUTTON",
       "text": "New message",
@@ -20,22 +34,331 @@
     }
   ],
   "chosenNewMsg": {
-    "tag": "BUTTON",
-    "text": "New message",
+    "tag": "A",
+    "text": "Opnieuw factureren (1)",
     "id": null,
-    "cls": "call-to-action compose",
-    "href": null,
+    "cls": "",
+    "href": "https://walkerfire.icontroller.eu/messages/index/label/87",
     "visible": true,
     "rect": {
-      "x": 279,
-      "y": 277,
-      "w": 148,
-      "h": 34
+      "x": 10,
+      "y": 977,
+      "w": 219,
+      "h": 27
     }
   },
-  "composerOpenedInNewTab": true,
-  "composerUrl": "https://test-walkerfire-testing.icontroller.billtrust.com/messages/compose?",
+  "composerOpenedInNewTab": false,
+  "composerUrl": "https://walkerfire.icontroller.eu/messages/index/label/87",
   "composerState": {
+    "editors": [
+      {
+        "tag": "TEXTAREA",
+        "name": null,
+        "id": "issue_context_attachment_assigner-duplicate_attachments",
+        "cls": "",
+        "placeholder": null,
+        "visible": false
+      }
+    ],
+    "fileInputs": [],
+    "formFields": [
+      {
+        "id": "ic-main-search-field",
+        "name": null,
+        "label": "Type to search...",
+        "visible": true
+      },
+      {
+        "id": null,
+        "name": "query-860261954",
+        "label": "Search in mails...",
+        "visible": true
+      },
+      {
+        "id": null,
+        "name": "advanced-search-label-1840396804",
+        "label": "Label:\n                    \n                        ---\n                        ",
+        "visible": false
+      },
+      {
+        "id": null,
+        "name": "advanced-search-debtor-1279223285",
+        "label": "Account:",
+        "visible": false
+      },
+      {
+        "id": null,
+        "name": "advanced-search-from-1767043761",
+        "label": "From:",
+        "visible": false
+      },
+      {
+        "id": null,
+        "name": "advanced-search-to-642877707",
+        "label": "To:",
+        "visible": false
+      },
+      {
+        "id": null,
+        "name": "advanced-search-include-words-1057583461",
+        "label": "Has the words:",
+        "visible": false
+      },
+      {
+        "id": null,
+        "name": "advanced-search-exclude-words-1708822886",
+        "label": "Doesn't have:",
+        "visible": false
+      }
+    ],
+    "url": "https://walkerfire.icontroller.eu/messages/index/label/87",
+    "title": "BT Collections - Messages"
+  },
+  "attachActions": [
+    {
+      "tag": "LABEL",
+      "text": "Has attachment",
+      "id": null,
+      "cls": "has-attachment",
+      "href": null,
+      "visible": true,
+      "rect": {
+        "x": 1040,
+        "y": 382,
+        "w": 25,
+        "h": 23
+      }
+    }
+  ],
+  "sendActions": [],
+  "draftActions": [],
+  "composerStateAfterAttach": {
+    "editors": [
+      {
+        "tag": "TEXTAREA",
+        "name": null,
+        "id": "issue_context_attachment_assigner-duplicate_attachments",
+        "cls": "",
+        "placeholder": null,
+        "visible": false
+      }
+    ],
+    "fileInputs": [],
+    "formFields": [
+      {
+        "id": "ic-main-search-field",
+        "name": null,
+        "label": "Type to search...",
+        "visible": true
+      },
+      {
+        "id": null,
+        "name": "query-860261954",
+        "label": "Search in mails...",
+        "visible": true
+      },
+      {
+        "id": null,
+        "name": "advanced-search-label-1840396804",
+        "label": "Label:\n                    \n                        ---\n                        ",
+        "visible": false
+      },
+      {
+        "id": null,
+        "name": "advanced-search-debtor-1279223285",
+        "label": "Account:",
+        "visible": false
+      },
+      {
+        "id": null,
+        "name": "advanced-search-from-1767043761",
+        "label": "From:",
+        "visible": false
+      },
+      {
+        "id": null,
+        "name": "advanced-search-to-642877707",
+        "label": "To:",
+        "visible": false
+      },
+      {
+        "id": null,
+        "name": "advanced-search-include-words-1057583461",
+        "label": "Has the words:",
+        "visible": false
+      },
+      {
+        "id": null,
+        "name": "advanced-search-exclude-words-1708822886",
+        "label": "Doesn't have:",
+        "visible": false
+      }
+    ],
+    "url": "https://walkerfire.icontroller.eu/messages/index/label/87",
+    "title": "BT Collections - Messages"
+  },
+  "mailboxLinks": [
+    {
+      "href": "/messages/index/mailbox/21",
+      "text": "A and A"
+    },
+    {
+      "href": "/messages/index/mailbox/2",
+      "text": "Apexfire"
+    },
+    {
+      "href": "/messages/index/mailbox/17",
+      "text": "Berki Brandbeveiliging"
+    },
+    {
+      "href": "/messages/index/mailbox/19",
+      "text": "Blackwood Fire"
+    },
+    {
+      "href": "/messages/index/mailbox/13",
+      "text": "Dowling Security Systems"
+    },
+    {
+      "href": "/messages/index/mailbox/10",
+      "text": "ETL Security LTD"
+    },
+    {
+      "href": "/messages/index/mailbox/12",
+      "text": "Fire Control"
+    },
+    {
+      "href": "/messages/index/mailbox/18",
+      "text": "Moyne Roberts Ireland Ltd"
+    },
+    {
+      "href": "/messages/index/mailbox/3",
+      "text": "Moyneroberts (Walkerfire)"
+    },
+    {
+      "href": "/messages/index/mailbox/11",
+      "text": "O'Mahony Security"
+    },
+    {
+      "href": "/messages/index/mailbox/15",
+      "text": "Sicli Fire Protection North BV"
+    },
+    {
+      "href": "/messages/index/mailbox/16",
+      "text": "Sicli Fire Protection South BV"
+    },
+    {
+      "href": "/messages/index/mailbox/14",
+      "text": "Tod Security Systems"
+    },
+    {
+      "href": "/messages/index/mailbox/1",
+      "text": "Walkerfire"
+    },
+    {
+      "href": "/messages/index/mailbox/6",
+      "text": "keyways"
+    },
+    {
+      "href": "/messages/index/mailbox/4",
+      "text": "smebabrandbeveiliging"
+    },
+    {
+      "href": "/messages/index/mailbox/5",
+      "text": "smebafire"
+    },
+    {
+      "href": "/messages/index/mailbox/7",
+      "text": "westmorland"
+    }
+  ],
+  "probeMailbox": {
+    "href": "/messages/index/mailbox/2",
+    "text": "Apexfire"
+  },
+  "rowShape": {
+    "rowCount": 23,
+    "rowOuter": "<tr role=\"row\" class=\"odd\"><td class=\" column-0 column-is-opened\"><input type=\"hidden\" class=\"is-opened-indicator\" data-message-id=\"1384673\" value=\"false\" style=\"\"></td><td class=\" column-1 column-select\"><input type=\"checkbox\" class=\"messages-list-selector\" name=\"message[]\" value=\"1384673\" style=\"\"></td><td class=\" column-2 column-is-done\"><label class=\"status-not-done\" title=\"To do\"></label></td><td class=\" column-messagesfrom column-from\"><span title=\"Ahern, Roisin (Contractor) - roisin.ahern@stryker.com\">Ahern, Roisin (Contractor)</span></td><td class=\" column-messagessubject column-subject-link\"><a href=\"#mail=1384673\" class=\"messages-mail-link\" ic=\"\" ic-window-popup=\"show_email\" ic-tooltip=\"Click to open this email\">Re: Re: Re: Re: Re: Re: Re: Re: Re: Fw: Payment Required</a></td><td class=\" column-messagescustomers column-debtors\"></td><td class=\" column-6 column-is-registered-email\"><label class=\"is-not-registered-email\"></label></td><td class=\" column-7 column-has-attachment\"><label class=\"has-no-attachment\"></label></td><td class=\"column-messagesreceived-at column-received-at sorting_1\">2026-04-22 18:11:09</td><td class=\" column-9 column-labels\"></td></tr>",
+    "rowCells": [
+      {
+        "text": "",
+        "cls": " column-0 column-is-opened"
+      },
+      {
+        "text": "",
+        "cls": " column-1 column-select"
+      },
+      {
+        "text": "",
+        "cls": " column-2 column-is-done"
+      },
+      {
+        "text": "Ahern, Roisin (Contractor)",
+        "cls": " column-messagesfrom column-from"
+      },
+      {
+        "text": "Re: Re: Re: Re: Re: Re: Re: Re: Re: Fw: Payment Required",
+        "cls": " column-messagessubject column-subject-link"
+      },
+      {
+        "text": "",
+        "cls": " column-messagescustomers column-debtors"
+      },
+      {
+        "text": "",
+        "cls": " column-6 column-is-registered-email"
+      },
+      {
+        "text": "",
+        "cls": " column-7 column-has-attachment"
+      },
+      {
+        "text": "2026-04-22 18:11:09",
+        "cls": "column-messagesreceived-at column-received-at sorting_1"
+      },
+      {
+        "text": "",
+        "cls": " column-9 column-labels"
+      }
+    ],
+    "clickableInside": [
+      {
+        "tag": "A",
+        "text": "Re: Re: Re: Re: Re: Re: Re: Re: Re: Fw: Payment Required",
+        "href": "https://walkerfire.icontroller.eu/messages/index/mailbox/2#mail=1384673",
+        "onclick": null,
+        "dataAction": null,
+        "cls": "messages-mail-link"
+      }
+    ]
+  },
+  "rowClickOpenedInNewTab": true,
+  "detailUrl": "https://walkerfire.icontroller.eu/messages/show?msg=1384673",
+  "detailState": {
+    "url": "https://walkerfire.icontroller.eu/messages/show?msg=1384673",
+    "title": "Re: Re: Re: Re: Re: Re: Re: Re: Re: Fw: Payment Required",
+    "replyActions": [
+      {
+        "tag": "A",
+        "text": "Reply",
+        "id": null,
+        "cls": "button reply",
+        "visible": true
+      },
+      {
+        "tag": "A",
+        "text": "Forward",
+        "id": null,
+        "cls": "button forward",
+        "visible": true
+      }
+    ],
+    "hasIframeEditor": false,
+    "hasFileInput": false,
+    "threadTextSlice": "Mark Done\nReply\nForward\nAR\nAhern, Roisin (Contractor) <roisin.ahern@stryker.com>\nTo:\nApexfire <accreceivable@apexfire.ie>\n2026-04-22 18:10:38\nAccounts\nLabels\nHi Michelle, \n\n\nI got onto our procurement team as you are blocked on my PO system. Unfortunately, they have removed ETL from our system as a preferred vendor. \nWe will not be continuing with the services this year, my sincerest apologies. \n\n\n\n\nRegards, \n\n\n\nRóisín Ahern\n\n \n\nAdministration,\n\nApleona HSG Limited,\n\nStryker,\n\nSpringhill Building,\n\nIDA Business & Technology Park,\n\nCork,\n\nIreland\n\nT45 HV12\n\n \n\nApleona Ireland Limited\n\nLandscape House\n\nLandscape Road\n\nChurchtown\n\nDublin 14\n\nIreland\n\n \n\nPhone +353 86 2035740\n\nroisin.ahern@stryker.com roisin.ahern-culbert@apleona.com\n\nwww.apleona.ie\n\n \n\n \n\n \n\n \n\n \n\n \n\n \n\n \n\nApleona Ireland  Limited – Company Registration No. 049363\n\nHeadquarters and Registered Office, Landscape House, Landscape Road, Churchtown, Dublin 14, Republic of Ireland.\n\n \n\nDisclaimer\n\nThis e-mail contains confidential or legally protected information. If you are not the intended recipient or have accidentally received this e-mail, please inform the sender immediately and destroy this e-mail. Any unauthorised copying forwarding of this e-mail to others is not permitted.\n\n \n\n \n\nFrom: Apexfire <accreceivable@apexfire.ie>\nSent: Tuesday, April 21, 2026 11:50 AM\nTo: Ahern, Roisin (Contractor) <roisin.ahern@stryker.com>\nSubject: Fwd: Re: Re: Re: Re: Re: Re: Re: Re: Fw: Payment Required\n \nEXTERNAL EMAIL\nHi Róisín\n\nCan you please provide an update for the attached invoice?\n\nKind regards,\n\nMichelle O'Dowd\nCredit Control\n\n \n\nPlease do not delete this line: bt-collections-8a2e96dce9589b24b76717b1b699abdb-000013207962\nFrom: Apexfire <accreceivable@apexfire.ie>\nReceived at: 2026-04-15 16:32:05\nTo: Ahern, Roisin (Contractor) <roisin.ahern@stryker.com>\nSubject: Re: Re: Re: Re: Re: Re: Re: Re: Fw: Payment Required\nHi Róisín\n\nThis invoice was generated from a subscription. No attendance as no services were carried out.\n\nIt is for the Annual Contracts for the following:\n\nMaintenance of the Gate System. Covering the period of 09.01.2026 - 09.01.2027.\nService of Intercom System. Covering the period of 09.01.2026 - 09.01.2027.\n\n\nKind regards,\n\nMichelle O'Dowd\nCredit Control\n\n \n\nPlease do not delete this line: bt-collections-8a2e96dce9589b24b76717b1b699abdb-000013207962\nFrom: Ahern, Roisin (Contractor) <roisin.ahern@stryker.com>\nReceived at: 2026-04-15 15:56:47\nTo: Apexfire <accreceivable@apexfire.ie>\nSubjec"
+  },
+  "replyOpenedInNewTab": true,
+  "replyUrl": "https://walkerfire.icontroller.eu/messages/compose/direction/reply/messageId/1384673",
+  "replyComposerState": {
     "editors": [
       {
         "tag": "TEXTAREA",
@@ -126,10 +449,10 @@
         "visible": true
       }
     ],
-    "url": "https://test-walkerfire-testing.icontroller.billtrust.com/messages/compose?",
+    "url": "https://walkerfire.icontroller.eu/messages/compose/direction/reply/messageId/1384673",
     "title": "New message - BT Collections"
   },
-  "attachActions": [
+  "replyAttachActions": [
     {
       "tag": "BUTTON",
       "text": "Add attachments",
@@ -138,122 +461,11 @@
       "href": null,
       "visible": true,
       "rect": {
-        "x": 263,
-        "y": 34,
+        "x": 472,
+        "y": 32,
         "w": 165,
         "h": 34
       }
     }
-  ],
-  "sendActions": [],
-  "draftActions": [
-    {
-      "tag": "BUTTON",
-      "text": "Save as draft",
-      "id": null,
-      "cls": "save-as-draft",
-      "href": null,
-      "visible": true,
-      "rect": {
-        "x": 121,
-        "y": 34,
-        "w": 138,
-        "h": 34
-      }
-    }
-  ],
-  "composerStateAfterAttach": {
-    "editors": [
-      {
-        "tag": "TEXTAREA",
-        "name": "message",
-        "id": null,
-        "cls": "",
-        "placeholder": null,
-        "visible": false
-      },
-      {
-        "tag": "IFRAME",
-        "name": null,
-        "id": null,
-        "cls": "cke_wysiwyg_frame cke_reset",
-        "placeholder": null,
-        "visible": true
-      }
-    ],
-    "fileInputs": [
-      {
-        "id": null,
-        "name": null,
-        "accept": null,
-        "multiple": true,
-        "cls": "dz-hidden-input",
-        "visible": true
-      }
-    ],
-    "formFields": [
-      {
-        "id": "mailbox",
-        "name": "mailbox",
-        "label": "From",
-        "visible": true
-      },
-      {
-        "id": "s2id_autogen4",
-        "name": null,
-        "label": "",
-        "visible": true
-      },
-      {
-        "id": null,
-        "name": "to",
-        "label": "",
-        "visible": true
-      },
-      {
-        "id": "s2id_autogen6",
-        "name": null,
-        "label": "",
-        "visible": false
-      },
-      {
-        "id": null,
-        "name": "cc",
-        "label": "",
-        "visible": false
-      },
-      {
-        "id": "s2id_autogen8",
-        "name": null,
-        "label": "",
-        "visible": false
-      },
-      {
-        "id": null,
-        "name": "bcc",
-        "label": "",
-        "visible": false
-      },
-      {
-        "id": null,
-        "name": "subject",
-        "label": "",
-        "visible": true
-      },
-      {
-        "id": "s2id_autogen2",
-        "name": null,
-        "label": "",
-        "visible": true
-      },
-      {
-        "id": null,
-        "name": "debtors",
-        "label": "",
-        "visible": true
-      }
-    ],
-    "url": "https://test-walkerfire-testing.icontroller.billtrust.com/messages/compose?",
-    "title": "New message - BT Collections"
-  }
+  ]
 }

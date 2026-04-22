@@ -1,0 +1,485 @@
+<!DOCTYPE html><html data-theme="billtrust"><head>
+        <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<meta name="title" content="BT Collections - Messages">
+<meta name="description" content="BT Collections v2 creditmanagement software">
+<meta name="keywords" content="billtrust, collections, credit, management, debt management">
+<meta name="language" content="nl">
+<meta name="robots" content="index, follow">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BT Collections - Messages</title>
+                <link rel="stylesheet" type="text/css" media="screen" href="/icv-2888700649/css/icontroller/olivar/main-billtrust.css">
+<link rel="stylesheet" type="text/css" media="print" href="/icv-2888700649/css/icontroller/olivar/print.css">
+<link rel="stylesheet" type="text/css" media="screen" href="/icv-2888700649/css/icontroller/module-messages.css">
+<link rel="stylesheet" type="text/css" media="print" href="/icv-2888700649/css/icontroller/module-messages-print.css">
+        
+<script type="text/javascript">
+    window.iController = window.iController || {};
+    iController.theme = "billtrust";
+    iController.versionHash = 2888700649;
+    iController.baseUrl = "/";
+    iController.translationLanguage = "en";
+    iController.userLanguage = "en";
+    iController.decimalSep = ",";
+    iController.thousandsSep = ".";
+    iController.dateFormat = "Y-m-d";
+    iController.timeFormat = "H:i:s";
+    iController.timeFormatWithoutSeconds = "H:i";
+    iController.jsDateFormat = "yy-mm-dd";
+    iController.jsTimeFormat = "HH:mm:ss";
+    iController.billtrustSessionExpire = null;
+    iController.pendo = iController.pendo || {};
+    iController.platformName = "walkerfire";
+    iController.pendo.apiToken = "8fcf125a-628f-4e5e-7918-a43b2f12e20e";
+    iController.pendo.trackingEnabled = false;
+    iController.pendo.actionAllCookies = "accept_all";
+    iController.pendo.actionConfigureCookies = "configure";
+    iController.pendo.categoryAnalytics = "analytics";
+</script>
+                <script type="text/javascript" src="/icv-2888700649/js/requirejs/require.js"></script>
+        <script type="text/javascript" src="/icv-2888700649/js/requirejs/domReady.js"></script>
+        <script type="text/javascript" src="/icv-2888700649/js/iController/dependencies.js"></script>
+        <script type="text/javascript">
+//<![CDATA[
+require(["jquery-ui","underscore","noty","iController\/general","iController\/messages","requirejs\/require","iController\/dependencies","iController\/olivar"]);
+//]]>
+</script>        <link rel="apple-touch-icon" sizes="180x180" href="/icv-2888700649/images/btcollections/common/favicon/apple-touch-icon.webp?v=4.0">
+<link rel="icon" type="image/x-icon" href="/icv-2888700649/images/btcollections/common/favicon/favicon.svg?v=4.0">
+<link rel="alternate icon" type="image/png" sizes="256x256" href="/icv-2888700649/images/btcollections/common/favicon/android-chrome-256x256.png?v=4.0">
+<link rel="alternate icon" type="image/png" sizes="192x192" href="/icv-2888700649/images/btcollections/common/favicon/android-chrome-192x192.webp?v=4.0">
+<link rel="alternate icon" type="image/png" sizes="96x96" href="/icv-2888700649/images/btcollections/common/favicon/favicon-96x96.webp?v=4.0">
+<link rel="alternate icon" type="image/png" sizes="32x32" href="/icv-2888700649/images/btcollections/common/favicon/favicon-32x32.webp?v=4.0">
+<link rel="alternate icon" type="image/png" sizes="16x16" href="/icv-2888700649/images/btcollections/common/favicon/favicon-16x16.webp?v=4.0">
+<link rel="manifest" href="/icv-2888700649/images/btcollections/common/favicon/site.webmanifest?v=4.0">
+<link rel="mask-icon" href="/icv-2888700649/images/btcollections/common/favicon/safari-pinned-tab.svg?v=4.0" color="#008658">
+<meta name="msapplication-TileColor" content="#00373b">
+<meta name="msapplication-TileImage" content="/icv-2888700649/images/btcollections/common/favicon/mstile-144x144.png?v=3.0">
+<meta name="theme-color" content="#008658">
+    <script type="text/javascript" charset="utf-8" async="" data-requirecontext="_" data-requiremodule="iController/general" src="/icv-2888700649/js/iController/general.js"></script><script type="text/javascript" charset="utf-8" async="" data-requirecontext="_" data-requiremodule="jquery-ui" src="/icv-2888700649/js/jquery-ui/jquery-ui.min.js"></script><script type="text/javascript" charset="utf-8" async="" data-requirecontext="_" data-requiremodule="underscore" src="/icv-2888700649/js/underscore/underscore.js"></script><script type="text/javascript" charset="utf-8" async="" data-requirecontext="_" data-requiremodule="iController/messages" src="/icv-2888700649/js/iController/messages.js"></script><script type="text/javascript" charset="utf-8" async="" data-requirecontext="_" data-requiremodule="requirejs/require" src="/icv-2888700649/js/requirejs/require.js"></script><script type="text/javascript" charset="utf-8" async="" data-requirecontext="_" data-requiremodule="iController/dependencies" src="/icv-2888700649/js/iController/dependencies.js"></script><script type="text/javascript" charset="utf-8" async="" data-requirecontext="_" data-requiremodule="iController/olivar" src="/icv-2888700649/js/iController/olivar.js"></script><script type="text/javascript" charset="utf-8" async="" data-requirecontext="_" data-requiremodule="common/bulk-action" src="/icv-2888700649/js/common/bulk-action.js"></script><script type="text/javascript" charset="utf-8" async="" data-requirecontext="_" data-requiremodule="common/url-safe-encoder" src="/icv-2888700649/js/common/url-safe-encoder.js"></script><script type="text/javascript" charset="utf-8" async="" data-requirecontext="_" data-requiremodule="jquery-public" src="/icv-2888700649/js/jquery/jquery.min.js"></script><script type="text/javascript" charset="utf-8" async="" data-requirecontext="_" data-requiremodule="datatables.net-load-as-you-swipe" src="/icv-2888700649/js/datatables10/load-as-you-swipe.js"></script><script type="text/javascript" charset="utf-8" async="" data-requirecontext="_" data-requiremodule="php-date-formatter" src="/icv-2888700649/js/php-date-formatter/php-date-formatter.min.js"></script><script type="text/javascript" charset="utf-8" async="" data-requirecontext="_" data-requiremodule="text" src="/icv-2888700649/js/requirejs/text.js"></script><script type="text/javascript" charset="utf-8" async="" data-requirecontext="_" data-requiremodule="datatables10/cached-count-paginator" src="/icv-2888700649/js/datatables10/cached-count-paginator.js"></script><script type="text/javascript" charset="utf-8" async="" data-requirecontext="_" data-requiremodule="datatables.net-buttons-colvis" src="/icv-2888700649/js/datatables10/buttons.colVis.js"></script><link type="text/css" rel="stylesheet" href="/icv-2888700649/css/datatables10/jquery.dataTables.min.css"><link type="text/css" rel="stylesheet" href="/icv-2888700649/css/datatables10/responsive.dataTables.min.css"><script type="text/javascript" charset="utf-8" async="" data-requirecontext="_" data-requiremodule="__id" src="/icv-2888700649/js/iController/__id/__id.js"></script><script type="text/javascript" charset="utf-8" async="" data-requirecontext="_" data-requiremodule="noty-public" src="/icv-2888700649/js/noty/packaged/jquery.noty.packaged.min.js"></script><script type="text/javascript" charset="utf-8" async="" data-requirecontext="_" data-requiremodule="datatables.net-untranslated" src="/icv-2888700649/js/datatables10/jquery.dataTables.min.js"></script><script type="text/javascript" charset="utf-8" async="" data-requirecontext="_" data-requiremodule="datatables.net-buttons" src="/icv-2888700649/js/datatables10/dataTables.buttons.js"></script><script type="text/javascript" charset="utf-8" async="" data-requirecontext="_" data-requiremodule="common/ajax-utils" src="/icv-2888700649/js/common/ajax-utils.js"></script><script type="text/javascript" charset="utf-8" async="" data-requirecontext="_" data-requiremodule="common/window-popup" src="/icv-2888700649/js/common/window-popup.js"></script><script type="text/javascript" charset="utf-8" async="" data-requirecontext="_" data-requiremodule="iController/pendo" src="/icv-2888700649/js/iController/pendo.js"></script><script type="text/javascript" charset="utf-8" async="" data-requirecontext="_" data-requiremodule="datatables.net-pagination-input" src="/icv-2888700649/js/datatables10/input.js"></script><script type="text/javascript" charset="utf-8" async="" data-requirecontext="_" data-requiremodule="common/global-header" src="/icv-2888700649/js/common/global-header.js"></script><script type="text/javascript" charset="utf-8" async="" data-requirecontext="_" data-requiremodule="common/main-navigation-global-header" src="/icv-2888700649/js/common/main-navigation-global-header.js"></script><script type="text/javascript" charset="utf-8" async="" data-requirecontext="_" data-requiremodule="common/search-as-you-type" src="/icv-2888700649/js/common/search-as-you-type.js"></script><script type="text/javascript" charset="utf-8" async="" data-requirecontext="_" data-requiremodule="common/user-queue" src="/icv-2888700649/js/common/user-queue.js"></script><script type="text/javascript" charset="utf-8" async="" data-requirecontext="_" data-requiremodule="common/tooltip" src="/icv-2888700649/js/common/tooltip.js"></script><script type="text/javascript" charset="utf-8" async="" data-requirecontext="_" data-requiremodule="common/table" src="/icv-2888700649/js/common/table.js"></script><script type="text/javascript" charset="utf-8" async="" data-requirecontext="_" data-requiremodule="json" src="/icv-2888700649/js/requirejs/json.js"></script><script type="text/javascript" charset="utf-8" async="" data-requirecontext="_" data-requiremodule="common/asynchronous-singleton-queue" src="/icv-2888700649/js/common/asynchronous-singleton-queue.js"></script></head>
+    <body class="module-messages action-index authenticated  global-header-enabled">
+        <script>
+            if (window.self !== window.top) {
+                document.body.classList.add("in-iframe");
+            }
+        </script>
+
+        
+        
+<header class="ic-global-header " ic="" ic-global-header="">
+    <a href="/" class="logo-link">
+        <logo></logo>
+    </a>
+
+    <nav class="applications">
+            <a href="/btMarketing/invoicing" class="nav-item ">Invoicing</a>
+        <a href="/btMarketing/bpn" class="nav-item ">Payments</a>
+        <a href="/btMarketing/cashapp" class="nav-item ">Cash App</a>
+        <a href="/" class="nav-item active">Collections</a>
+        <a href="/btMarketing/credit" class="nav-item ">Credit</a>
+        <a href="/btMarketing/disputes" class="nav-item ">Disputes</a>
+        </nav>
+
+    </header>
+
+<nav class="ic-main-navigation-global-header" ic="" ic-main-navigation-global-header="">
+    <i class="mobile-menu-icon"></i>
+    
+<div class="links">
+    <ul>
+  <li class="dashboard"><a href="/dashboard">Dashboard</a>
+  </li>
+  <li class="dynamic-reports"><a href="/rapporten/reports">Reports</a>
+  </li>
+  <li class="worksheet"><a href="/dynamicWorkspace">Worksheet</a>
+  </li>
+  <li class="clients"><a href="/debtorList">Accounts</a>
+  </li>
+  <li class="messages active"><a href="/messages">Messages<span class="amount zero">0</span></a>
+  </li>
+</ul></div>
+    
+<form class="search-container">
+    <div class="search full">
+        <input type="text" ic="" ic-search-as-you-type="" search-result-container="#ic-main-search-results" data-url="/search/generalSearchResults" id="ic-main-search-field" autocomplete="off" placeholder="Type to search..." style="">
+    </div>
+    <div class="search-results-container" id="ic-main-search-results"></div>
+</form>
+    <div class="app-switcher simptip-position-bottom" data-tooltip="App switcher">
+    <a class="tool-icon" href="#"></a>
+    <nav role="navigation" class="apps">
+        <h4>Switch to</h4>
+        <ul>
+                                            <li class="icontroller active">
+                    <a href="/dashboard" target="_blank">BT Collections</a>
+                </li>
+                                                            <li class="ibiller ">
+                    <a href="/ibiller" target="_blank">iBiller</a>
+                </li>
+                                    </ul>
+    </nav>
+</div>
+    <ul class="tools">
+        
+<li class="system-status  simptip-position-bottom" data-tooltip="Notifications">
+            <a class="tool-icon opener disabled" href="#"></a>
+        <div class="opener-target system-status-popup">
+        
+
+    </div>
+</li>
+        <li class="help simptip-position-bottom" data-tooltip="Help"><a class="tool-icon help" href="https://help.billtrust.com" target="_blank"></a></li>
+        <li class="collection-settings simptip-position-bottom" data-tooltip="Settings">
+            <a class="tool-icon" id="collection-settings" href="#" ic="" ic-user-queue=""></a>
+            <div class="nav-dropdown">
+                <div id="collection-settings-children" class="nav-dropdown-content hidden">
+                    <div class="nav-dropdown-content-wrapper">
+                        <ul>
+                            
+    <li class="current-user">
+                <a href="/users/addEdit/user/39">
+                    <div class="avatar"><img src="/icv-2888700649/images/default-avatar.png" class="user-avatar">
+</div>            <div class="details">
+                <strong class="username">IT support Moyne Roberts</strong>
+                <span class="email">ITsupport@moyneroberts.com</span>
+            </div>
+                </a>
+            </li>
+
+
+
+<li><a href="/settings">Settings</a>
+</li><li><a href="#" class="" ic="" ic-user-queue="workspace_refresh">Refresh worksheet</a>
+</li><li><a href="/manualImport">Manual import</a>
+</li><li class="group-separator"></li><li class="logout"><a href="/logout">Log out</a>
+</li>                        </ul>
+                    </div>
+                </div>
+            </div>
+        </li><li>
+    </li></ul>
+</nav>
+
+                    <div class="sub-navigation open">
+                <div class="trigger">
+                    <div class="hitzone"></div>
+                </div>
+
+                
+                <div class="content">
+                    <h3>Messages</h3><ul>
+  <li class="active"><a href="/messages">Inbox</a>
+  </li>
+  <li class="mailbox"><a href="/messages/index/mailbox/21">» A and A</a>
+  </li>
+  <li class="mailbox"><a href="/messages/index/mailbox/2">» Apexfire</a>
+  </li>
+  <li class="mailbox"><a href="/messages/index/mailbox/17">» Berki Brandbeveiliging</a>
+  </li>
+  <li class="mailbox"><a href="/messages/index/mailbox/19">» Blackwood Fire</a>
+  </li>
+  <li class="mailbox"><a href="/messages/index/mailbox/13">» Dowling Security Systems</a>
+  </li>
+  <li class="mailbox"><a href="/messages/index/mailbox/9">» ETL Security</a>
+  </li>
+  <li class="mailbox"><a href="/messages/index/mailbox/10">» ETL Security LTD</a>
+  </li>
+  <li class="mailbox"><a href="/messages/index/mailbox/12">» Fire Control</a>
+  </li>
+  <li class="mailbox"><a href="/messages/index/mailbox/18">» Moyne Roberts Ireland Ltd</a>
+  </li>
+  <li class="mailbox"><a href="/messages/index/mailbox/3">» Moyneroberts (Walkerfire)</a>
+  </li>
+  <li class="mailbox"><a href="/messages/index/mailbox/11">» O'Mahony Security</a>
+  </li>
+  <li class="mailbox"><a href="/messages/index/mailbox/8">» Omahony</a>
+  </li>
+  <li class="mailbox"><a href="/messages/index/mailbox/15">» Sicli Fire Protection North BV</a>
+  </li>
+  <li class="mailbox"><a href="/messages/index/mailbox/16">» Sicli Fire Protection South BV</a>
+  </li>
+  <li class="mailbox"><a href="/messages/index/mailbox/14">» Tod Security Systems</a>
+  </li>
+  <li class="mailbox"><a href="/messages/index/mailbox/1">» Walkerfire</a>
+  </li>
+  <li class="mailbox"><a href="/messages/index/mailbox/6">» keyways</a>
+  </li>
+  <li class="mailbox"><a href="/messages/index/mailbox/4">» smebabrandbeveiliging</a>
+  </li>
+  <li class="mailbox"><a href="/messages/index/mailbox/5">» smebafire</a>
+  </li>
+  <li class="mailbox"><a href="/messages/index/mailbox/7">» westmorland</a>
+  </li>
+  <li class=""><a href="/messages/sent">Sent</a>
+  </li>
+  <li class=""><a href="/messages/undelivered">Undelivered</a>
+  </li>
+  <li class=""><a href="/messages/archive">Archive</a>
+  </li>
+</ul><h3 class="labels">Labels<a href="#" class="action new-label" ic="" ic-tooltip="New label"><i class="logo" aria-hidden=""></i></a>
+</h3><h3 class="special-folders">Folders</h3><ul>
+  <li class=""><a href="/messages/drafts">Drafts (3)</a>
+  </li>
+  <li class=""><a href="/messages/trash">Trash (0)</a>
+  </li>
+  <li class=""><a href="/messages/spam">Spam (0)</a>
+  </li>
+</ul><h3 class="messages-templates"><a href="/messages/messageTemplateList">Message templates</a>
+</h3>                </div>
+            </div>
+                <div class="main-content ">
+            
+<script type="text/javascript">
+            
+</script>
+
+            
+<nav role="navigation" class="breadcrumb"><ol>
+    <li><a href="/messages">Messages</a>
+    </li>
+    <li class="active">Inbox</li></ol></nav>
+<h2 class="page-title">Messages</h2>
+
+<div class="search-container">
+        <input class="query ui-autocomplete-input" placeholder="Search in mails..." autocomplete="off" name="query-462561050" type="text" style="">
+</div>
+
+
+
+<section class="module-messages component-list">
+    <form class="ic-table">
+        <div class="table-actions">
+                        <button ic="" ic-window-popup="compose_email" class="call-to-action compose" ic-tooltip="Click to compose a new email">
+                New message            </button>
+
+                            <button class="done button bulk-action" href="/messages/bulkDone/_token/bc8b9ffb079a11ce4937042b0347dab947232461" data-success-message="The selected message is marked as done">
+                    Mark Done                </button>
+            
+                                        <button class="delete-bulk bulk-action" ic="" ic-tooltip="Delete selected messages" href="/messages/bulkDelete/_token/365d264c05d4cba26df7a7de157f4178b2ce5cfa" data-restore-url="/messages/bulkRestore/_token/1076021e33c893e7cff3e023ed2bbe90a3c7b857" data-success-message="Message(s) deleted successfully. [link]Undo[/link]">
+                </button>
+                                            </div>
+
+        <div class="search-box">
+            <div class="advanced-search-button"></div>
+            <div class="advanced-search-container">
+                <label>
+                    Label:
+                    <select class="advanced-search-label" name="advanced-search-label-398907764">
+                        <option>---</option>
+                                            </select>
+                </label>
+                <label>Account: <input type="text" autocomplete="off" class="advanced-search-debtor ui-autocomplete-input" name="advanced-search-debtor-1136528684" style=""></label>
+                                <label>From: <input type="text" autocomplete="off" class="advanced-search-from ui-autocomplete-input" name="advanced-search-from-498381479" style=""></label>
+                <label>To: <input type="text" autocomplete="off" class="advanced-search-to ui-autocomplete-input" name="advanced-search-to-1067802411" style=""></label>
+                <label>Has the words: <input type="text" autocomplete="off" class="advanced-search-include-words" name="advanced-search-include-words-1828408288" style=""></label>
+                <label>Doesn't have: <input type="text" autocomplete="off" class="advanced-search-exclude-words" name="advanced-search-exclude-words-1789482034" style=""></label>
+                <label><input type="checkbox" autocomplete="off" class="advanced-search-has-attachment" name="advanced-search-has-attachment-798330796" style=""> Has attachment</label>
+                <label><input type="checkbox" autocomplete="off" class="advanced-search-is-todo" name="advanced-search-is-todo-1184115584" style=""> To do</label>
+                <label><input type="checkbox" autocomplete="off" class="advanced-search-not-linked-to-debtor" name="advanced-search-not-linked-to-debtor-425828610" style=""> Not linked to account</label>
+
+                <button class="search-button">Search</button>
+            </div>
+        </div>
+
+        <div id="messages-list_wrapper" class="dataTables_wrapper no-footer olivar text-search-disabled"><table id="messages-list" ic="" ic-table="" class="datatable selectable-table dataTable no-footer big-table" role="grid">
+<thead>
+<tr role="row"><th align="left" class="column- column-0 column-is-opened sorting_disabled" rowspan="1" colspan="1" aria-label=""><label title="" class="outer-overflow-fix"><div class="inner-overflow-fix"></div></label></th><th align="left" class="column- column-1 column-select sorting_disabled" rowspan="1" colspan="1" aria-label=""><label title="" class="outer-overflow-fix"><div class="inner-overflow-fix"><input type="checkbox" ic="" ic-master-checkbox-for="messages-list-selector" style=""></div></label></th><th align="left" class="column- column-2 column-is-done sorting_disabled" rowspan="1" colspan="1" aria-label=""><label title="" class="outer-overflow-fix"><div class="inner-overflow-fix"></div></label></th><th align="left" class="column-messagesfrom column-from sorting" tabindex="0" aria-controls="messages-list" rowspan="1" colspan="1" aria-label="From: activate to sort column ascending"><label title="From" class="outer-overflow-fix"><div class="inner-overflow-fix">From</div></label></th><th align="left" class="column-messagessubject column-subject-link sorting" tabindex="0" aria-controls="messages-list" rowspan="1" colspan="1" aria-label="Subject: activate to sort column ascending"><label title="Subject" class="outer-overflow-fix"><div class="inner-overflow-fix">Subject</div></label></th><th align="left" class="column-messagescustomers column-debtors sorting" tabindex="0" aria-controls="messages-list" rowspan="1" colspan="1" aria-label="Accounts: activate to sort column ascending"><label title="Accounts" class="outer-overflow-fix"><div class="inner-overflow-fix">Accounts</div></label></th><th align="left" class="column-messagesmailbox column-mailbox sorting_disabled" rowspan="1" colspan="1" aria-label="Mailbox"><label title="Mailbox" class="outer-overflow-fix"><div class="inner-overflow-fix">Mailbox</div></label></th><th align="left" class="column- column-7 column-is-registered-email sorting_disabled" rowspan="1" colspan="1" aria-label=""><label title="" class="outer-overflow-fix"><div class="inner-overflow-fix"></div></label></th><th align="left" class="column- column-8 column-has-attachment sorting_disabled" rowspan="1" colspan="1" aria-label=""><label title="" class="outer-overflow-fix"><div class="inner-overflow-fix"></div></label></th><th align="left" class="column-messagesreceived-at column-received-at sorting_desc" tabindex="0" aria-controls="messages-list" rowspan="1" colspan="1" aria-label="Received at: activate to sort column ascending" aria-sort="descending"><label title="Received at" class="outer-overflow-fix"><div class="inner-overflow-fix">Received at</div></label></th><th align="left" class="column- column-10 column-labels sorting_disabled" rowspan="1" colspan="1" aria-label=""><label title="" class="outer-overflow-fix"><div class="inner-overflow-fix"></div></label></th></tr>
+</thead>
+<tbody><tr class="odd"><td valign="top" colspan="11" class="dataTables_empty">No data available in table</td></tr></tbody></table></div>
+        <script type="text/javascript">
+        require([
+            "common/bulk-action",
+            "common/url-safe-encoder",
+            "jquery",
+            "datatables.net-load-as-you-swipe",
+            "php-date-formatter",
+            "datatables.net",
+            "datatables10/cached-count-paginator",
+            "datatables.net-buttons-colvis",
+            'datatables10/themes/default',
+            "datatables10/olivar",
+            "datatables.net-pagination-input",
+            "domReady!",
+        ], function(bulkAction, encoder, jQuery, loadAsYouSwipe, DateFormatter) {
+            jQuery.fn.dataTable.ext.type.order['ic-date-pre'] = function (d) {
+                return (new DateFormatter()).parseDate(d, iController.dateFormat);
+            };
+            jQuery.fn.dataTable.ext.type.order['ic-date-time-pre'] = function (d) {
+                return (new DateFormatter()).parseDate(d, iController.dateFormat + ' ' + iController.timeFormat);
+            };
+            jQuery.fn.dataTable.ext.type.order['ic-timestamp-pre'] = function (d) {
+                return (new DateFormatter()).parseDate(d, iController.dateFormat + ' ' + iController.timeFormat);
+            };
+            jQuery.fn.dataTable.ext.type.order['ic-denomination-pre'] = function (d) {
+                return parseFloat(d.split(iController.thousandsSep).join("").split(iController.decimalSep).join("."));
+            };
+            jQuery.fn.dataTable.ext.type.order['ic-money-pre'] = function (d) {
+                return parseFloat(d.split(iController.thousandsSep).join("").split(iController.decimalSep).join(".").replace(/[^0-9.\-]/g,''));
+            };
+
+            // Following segment resolves race condition in DataTables library https://billtrust.atlassian.net/browse/PRM-2408
+            setTimeout(function() {
+                $("#messages-list").parent()
+                    .find(".buttons-collection").each(function(i, button){
+                        if ($(button).length === 0) {
+                            return;
+                        }
+                        var oldHandler = $._data(button, "events").click[0].handler;
+                        $(button).off();
+                        $(button).on('click', function(e) {
+                            e.stopPropagation();
+                            var colvisButtons = $(button).parent().find('.dt-button-collection');
+                            if($(colvisButtons).length) {
+                                if ($(colvisButtons).is(':visible')) {
+                                    $(colvisButtons).fadeOut();
+                                } else {
+                                    $(colvisButtons).fadeIn()
+                                }
+                                return;
+                            }
+                            oldHandler(e);
+                        })
+                    })
+                }, 300);
+
+            var buttons = [
+                                ,
+                {}
+            ].slice(0, -1);
+
+            $("#messages-list").on("init.dt", function(){
+                var $wrapper = $(this).parent();
+                $wrapper
+                    .find(".dt-button.buttons-colvis")
+                    .attr("title", "Choose columns");
+                $wrapper
+                    .find(".dt-button.export")
+                    .attr("title", "Export all data in table");
+            });
+            var visibleColumnCount = null;
+            $("#messages-list").dataTable({
+                lengthMenu: [10,25,50,100,1000],
+                                serverSide: true,
+                searchDelay: 400,
+                createdRow: function( row, data ) {
+                    if (data['rowAttributes'] !== undefined) {
+                        $.each(data['rowAttributes'], function(name,value){
+                            $(row).attr(name, value);
+                        });
+                    }
+                },
+                ajax: {
+                    url: "",
+                    data:  {"table_data_tables_data_render":true,"dataTableId":"messages-list"},
+                    type: "POST"
+                },
+                                                order: [[9,"desc"]],
+                                columnDefs: [{"orderable":false,"targets":[0,1,2,6,7,8,10]},{"type":"ic-money","targets":[]},{"type":"ic-denomination","targets":[]},{"type":"ic-date","targets":[]},{"type":"ic-date-time","targets":[9]},{"type":"ic-timestamp","targets":[]},{"type":"ic-boolean","targets":[]},{"data-is-sortable":false,"className":"column-0 column-is-opened","targets":0},{"data-is-sortable":true,"className":"column-1 column-select","targets":1},{"data-is-sortable":false,"className":"column-2 column-is-done","targets":2},{"data-is-sortable":false,"className":"column-messagesfrom column-from","targets":3},{"data-is-sortable":false,"className":"column-messagessubject column-subject-link","targets":4},{"data-is-sortable":false,"className":"column-messagescustomers column-debtors","targets":5},{"data-is-sortable":true,"className":"column-messagesmailbox column-mailbox","targets":6},{"data-is-sortable":false,"className":"column-7 column-is-registered-email","targets":7},{"data-is-sortable":false,"className":"column-8 column-has-attachment","targets":8},{"data-is-sortable":false,"className":"column-messagesreceived-at column-received-at","targets":9},{"data-is-sortable":true,"className":"column-10 column-labels","targets":10}].concat([{
+                    render: function (d, type, row) {
+                        var maxLength = 25;
+                        if (null === visibleColumnCount) {
+                            // this is slow so we cache it
+                            visibleColumnCount = $("#messages-list").DataTable().columns(':visible').count();
+                            setTimeout(function() { visibleColumnCount = null; }, 200);
+                        }
+                        if (visibleColumnCount <= 9) {
+                            return d;
+                        }
+                        if (typeof d !== "string" || d.indexOf('<') != -1) {
+                            return d;
+                        }
+                        if (d.length <= maxLength) {
+                            return d;
+                        }
+                        var content = $("<root>").html(d).text();
+                        if (content.length <= maxLength) {
+                            return d;
+                        }
+                        var $label = $("<label>").attr("title", content).text(content.substr(0, maxLength));
+                        return $("<root>").append($label).html() + "&#8230;";
+                    },
+                    targets: "_all"
+                }]),
+                autoWidth: false,
+                pageLength: 25,
+                pagingType: "input",
+                buttons: buttons,
+                stateSave: true,
+                stateSaveParams: function(settings, data) {
+                    var idNameMap = {"0":"isOpened","2":"isDone","3":"from","4":"subjectLink","5":"debtors","7":"isRegisteredEmail","8":"hasAttachment","9":"receivedAt"};
+                    data.order = data.order.map(function (column) {
+                        return [
+                            this[column[0]],
+                            column[1]
+                        ]
+                    }, idNameMap);
+                },
+                stateDuration: 0, // no time limit, use localStorage,
+                // Store state using the table id and a generated column name hash.
+                stateLoadCallback: function(settings) {
+                    try {
+                        return JSON.parse(
+                            (settings.iStateDuration === -1 ? sessionStorage : localStorage).getItem(
+                                'DataTables_'+settings.sInstance+'_'+"9554604d4af29fa52ad631d819b79fd1"                            )
+                        );
+                    } catch (e) {}
+                },
+                stateSaveCallback: function(settings, data) {
+                    try {
+                        (settings.iStateDuration === -1 ? sessionStorage : localStorage).setItem(
+                            'DataTables_'+settings.sInstance+'_'+"9554604d4af29fa52ad631d819b79fd1",
+                            JSON.stringify(data)
+                        );
+                        if (undefined !== data.order) {
+                            var orderData = data.order[0];
+                            bulkAction.addFilterAndSortAsParamsToButton({
+                                order: 'order[column]=' + encoder.encode(orderData[0]) + '&order[direction]=' + encoder.encode(orderData[1]),
+                            })
+                        }
+                    } catch (e) {}
+                },
+                // Always allow filtering even if searchbox is hidden (e.g. via other controls)
+                filter: true,
+                // Hide search field label and make use of a placeholder instead
+                language: {
+                    search: '',
+                    searchPlaceholder: "Type to search..."                },
+                // Disable search query in state, this prevents the query carrying over to refreshed pages
+                stateLoadParams: function(settings, data) {
+                    data.search.search = '';
+                    try{
+                        var nameIdMap = {"isOpened":0,"isDone":2,"from":3,"subjectLink":4,"debtors":5,"isRegisteredEmail":7,"hasAttachment":8,"receivedAt":9};
+                        data.order = data.order.filter(
+                            function (column) {
+                                return this.hasOwnProperty(column[0])
+                            },
+                            nameIdMap
+                        ).map(function (column) {
+                            return [
+                                this[column[0]],
+                                column[1]
+                            ]
+                        }, nameIdMap);
+                    } catch(ignoredError){
+                        data.order = [] // if we can't resolve it, throw it out
+                    }
+                },
+                initComplete: function() {
+                    $("#messages-list").trigger("entryReady");
+                },
+                drawCallback: function(){
+                    $(this).trigger('new-element');
+                },
+                dom: 't' + (buttons.length > 0 && 0 ? '<"ic-paging"<"left"li>B<"right"p>>' : '')
+            }).parent().addClass('olivar').addClass("text-search-disabled");
+            $("#messages-list").DataTable().on("draw column-visibility", function() {
+                $(this).toggleClass("big-table", $(this).DataTable().columns(':visible').count() > 9);
+            });
+                        $("#messages-list").toggleClass("big-table", $("#messages-list").DataTable().columns(':visible').count() > 9);
+            loadAsYouSwipe.init($("#messages-list"), { enabledIf: function($table) { return $table.css("content").indexOf("mobile") !== -1; } });
+                    });
+        </script>
+            </form>
+</section>
+        </div>
+            
+
+<ul id="ui-id-1" tabindex="0" class="ui-menu ui-widget ui-widget-content ui-autocomplete ui-front module-messages main-autocomplete" unselectable="on" style="display: none;"></ul><div role="status" aria-live="assertive" aria-relevant="additions" class="ui-helper-hidden-accessible"></div><ul id="ui-id-2" tabindex="0" class="ui-menu ui-widget ui-widget-content ui-autocomplete ui-front" unselectable="on" style="display: none;"></ul><div role="status" aria-live="assertive" aria-relevant="additions" class="ui-helper-hidden-accessible"></div><ul id="ui-id-3" tabindex="0" class="ui-menu ui-widget ui-widget-content ui-autocomplete ui-front" unselectable="on" style="display: none;"></ul><div role="status" aria-live="assertive" aria-relevant="additions" class="ui-helper-hidden-accessible"></div><ul id="ui-id-4" tabindex="0" class="ui-menu ui-widget ui-widget-content ui-autocomplete ui-front" unselectable="on" style="display: none;"></ul><div role="status" aria-live="assertive" aria-relevant="additions" class="ui-helper-hidden-accessible"></div></body></html>
