@@ -70,6 +70,15 @@ export async function POST(request: NextRequest) {
     console.log("[smeba/write-analysis] Created new email_pipeline row:", supabaseEmailId);
   }
 
+  // Map agent-supplied draft_status to DB-allowed values: none | pending | approved | rejected | skipped
+  const VALID_STATUSES = new Set(["none", "pending", "approved", "rejected", "skipped"]);
+  const rawStatus = body.draft_status ?? "none";
+  const draft_status = VALID_STATUSES.has(rawStatus)
+    ? rawStatus
+    : body.draft_response
+    ? "pending"
+    : "none";
+
   const { error } = await supabase
     .schema("sales")
     .from("email_analysis")
@@ -82,7 +91,7 @@ export async function POST(request: NextRequest) {
         urgency: body.urgency ?? null,
         requires_action: body.requires_action ?? body.requires_human_review ?? false,
         draft_response: body.draft_response ?? null,
-        draft_status: body.draft_status ?? "skipped",
+        draft_status,
       },
       { onConflict: "email_id", ignoreDuplicates: false }
     );
