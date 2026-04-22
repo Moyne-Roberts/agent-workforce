@@ -64,8 +64,29 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const { sender_email } = body as { sender_email: string };
+  const { sender_email, _debug } = body as { sender_email: string; _debug?: boolean };
   const domain = extractDomain(sender_email);
+
+  // Debug mode: return first 3 accounts from CRM to verify connection + data structure
+  if (_debug) {
+    const zapier = createZapierSdk();
+    try {
+      const { data } = await withTimeout(
+        zapier.runAction({
+          app: "SugarCRMCLIAPI",
+          actionType: "read",
+          action: "get_records",
+          connectionId: SUGARCRM_CONNECTION_ID,
+          inputs: { module: "Accounts" },
+          maxItems: 3,
+        }),
+        ZAPIER_CALL_TIMEOUT_MS
+      );
+      return NextResponse.json({ _debug: true, accounts: data ?? [] });
+    } catch (e) {
+      return NextResponse.json({ _debug: true, error: String(e) });
+    }
+  }
 
   if (!domain) {
     return NextResponse.json(
