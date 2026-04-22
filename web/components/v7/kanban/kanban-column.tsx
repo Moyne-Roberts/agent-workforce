@@ -180,11 +180,12 @@ function ExpandableJobRow({ job }: { job: SwarmJob }) {
                   </span>
                   <div className="flex-1 min-w-0">
                     <div className="text-[var(--v7-text)]">
-                      <span className="font-medium">{entry.agent}</span>
+                      <span className="font-medium">{entry.stage_label}</span>
                       <span className="text-[var(--v7-faint)]"> · </span>
-                      <span className="font-mono text-[11px]">
-                        {entry.automation}
-                      </span>
+                      <span className="text-[11px]">{entry.agent}</span>
+                    </div>
+                    <div className="text-[11px] text-[var(--v7-faint)] font-mono">
+                      {entry.automation}
                     </div>
                     <div className="text-[11px] text-[var(--v7-faint)]">
                       {formatDateTime(entry.created_at)}
