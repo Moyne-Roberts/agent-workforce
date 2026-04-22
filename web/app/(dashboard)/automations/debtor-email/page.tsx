@@ -6,5 +6,5 @@ import { redirect } from "next/navigation";
  * bookmarks from the first iteration of the feature.
  */
 export default function DebtorEmailRedirectPage() {
-  redirect("/swarm/60c730a3-be04-4b59-87e8-d9698b468fc9");
+  redirect("/projects/60c730a3-be04-4b59-87e8-d9698b468fc9");
 }

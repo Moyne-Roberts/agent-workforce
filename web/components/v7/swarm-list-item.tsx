@@ -30,7 +30,7 @@ export function SwarmListItem({
 
   return (
     <Link
-      href={`/swarm/${swarm.id}`}
+      href={`/projects/${swarm.id}`}
       className={`${baseClass} ${stateClass}`}
       aria-current={isActive ? "page" : undefined}
     >

@@ -38,22 +38,41 @@ export default async function DebtorEmailReviewPage({ searchParams }: PageProps)
   const olderCursor =
     messages.length === FETCH_LIMIT ? messages[messages.length - 1]?.receivedAt : null;
 
-  const predictions = messages.map((m) => {
-    const r = classify({ subject: m.subject, from: m.from, bodySnippet: m.bodyPreview });
-    return {
-      id: m.id,
-      subject: m.subject,
-      from: m.from,
-      fromName: m.fromName,
-      receivedAt: m.receivedAt,
-      bodyPreview: m.bodyPreview.slice(0, 240),
-      category: r.category,
-      confidence: r.confidence,
-      matchedRule: r.matchedRule,
-      confidenceBand: bandFor(r.confidence),
-      alreadyCategorized: m.categories.length > 0,
-    };
-  });
+  // Items die al een van onze eigen categorie-labels hebben zijn al
+  // afgehandeld (door automation OF door een eerdere hand-label uit deze
+  // UI). ooo_permanent en unknown-handpicks blijven in de inbox (om NXT-
+  // update / verificatie mogelijk te maken), dus zonder deze filter
+  // komen ze bij elke page-load terug in de Onbekend-groep. Andere
+  // Outlook-categorieën (persoonlijke vlag van een gebruiker) worden
+  // genegeerd — alleen onze 4 triggeren de skip.
+  const MR_LABELS = new Set([
+    "Auto-Reply",
+    "OoO — Temporary",
+    "OoO — Permanent",
+    "Payment Admittance",
+  ]);
+  const alreadyHandled = messages.filter((m) =>
+    m.categories.some((c) => MR_LABELS.has(c)),
+  ).length;
+
+  const predictions = messages
+    .filter((m) => !m.categories.some((c) => MR_LABELS.has(c)))
+    .map((m) => {
+      const r = classify({ subject: m.subject, from: m.from, bodySnippet: m.bodyPreview });
+      return {
+        id: m.id,
+        subject: m.subject,
+        from: m.from,
+        fromName: m.fromName,
+        receivedAt: m.receivedAt,
+        bodyPreview: m.bodyPreview.slice(0, 240),
+        category: r.category,
+        confidence: r.confidence,
+        matchedRule: r.matchedRule,
+        confidenceBand: bandFor(r.confidence),
+        alreadyCategorized: m.categories.length > 0,
+      };
+    });
 
   // Group by (category, band).
   const groupMap = new Map<string, typeof predictions>();
@@ -101,6 +120,7 @@ export default async function DebtorEmailReviewPage({ searchParams }: PageProps)
       fetchError={fetchError}
       beforeCursor={before ?? null}
       olderCursor={olderCursor}
+      alreadyHandled={alreadyHandled}
     />
   );
 }

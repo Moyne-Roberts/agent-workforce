@@ -9,7 +9,9 @@ import { InviteMemberModal } from "@/components/invite-member-modal";
 import { RunListLive } from "@/components/dashboard/run-list-live";
 import { SwarmGraph } from "@/components/graph/swarm-graph";
 import { ProjectCredentialLinker } from "@/components/credentials/project-credential-linker";
-import { ChevronRight, Calendar, Play, Plus, Network } from "lucide-react";
+import { ChevronRight, Calendar, Play, Plus, Network, Activity } from "lucide-react";
+import { getAutomationBackingForSwarm } from "@/lib/automations/swarm-registry";
+import { AgentRunBoard } from "@/components/automations/agent-run-board";
 
 interface PageProps {
   params: Promise<{ id: string }>;
@@ -95,6 +97,7 @@ export default async function ProjectDetailPage({ params }: PageProps) {
   );
 
   const pipelineRuns = runs ?? [];
+  const automationBacking = getAutomationBackingForSwarm(id);
 
   return (
     <div className="p-5">
@@ -134,13 +137,32 @@ export default async function ProjectDetailPage({ params }: PageProps) {
       </div>
 
       {/* Tabbed content */}
-      <Tabs defaultValue="runs" className="mt-8">
+      <Tabs
+        defaultValue={automationBacking ? "live" : "runs"}
+        className="mt-8"
+      >
         <TabsList>
+          {automationBacking && (
+            <TabsTrigger value="live">
+              <Activity className="mr-1.5 size-3.5" />
+              Live Runs
+            </TabsTrigger>
+          )}
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="runs">Creations</TabsTrigger>
           <TabsTrigger value="swarm-graph">Swarm Graph</TabsTrigger>
           <TabsTrigger value="settings">Settings</TabsTrigger>
         </TabsList>
+
+        {automationBacking && (
+          <TabsContent value="live" className="mt-4">
+            <AgentRunBoard
+              title={project.name}
+              prefix={automationBacking.prefix}
+              description={automationBacking.hint}
+            />
+          </TabsContent>
+        )}
 
         {/* Overview tab -- members */}
         <TabsContent value="overview">

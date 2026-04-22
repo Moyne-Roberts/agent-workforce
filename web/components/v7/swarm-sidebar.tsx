@@ -189,11 +189,13 @@ export function SwarmSidebar({
 
   const pathname = usePathname();
   const activeId = useMemo(() => {
-    if (!pathname || !pathname.startsWith("/swarm/")) return null;
-    return pathname.split("/")[2] ?? null;
+    if (!pathname) return null;
+    if (pathname.startsWith("/projects/")) return pathname.split("/")[2] ?? null;
+    if (pathname.startsWith("/swarm/")) return pathname.split("/")[2] ?? null;
+    return null;
   }, [pathname]);
 
-  // Swarms collapsed by default; auto-open if the user is already on a /swarm/* route.
+  // Swarms collapsed by default; auto-open if the user is already on a project/swarm route.
   const [swarmsOpen, setSwarmsOpen] = useState(() => !!activeId);
   const [swarmFilter, setSwarmFilter] = useState("");
 

@@ -99,6 +99,9 @@ interface Props {
   // Oldest receivedAt in the current window — cursor for the next older page.
   // Null when fewer than fetchLimit items were returned (end of inbox).
   olderCursor: string | null;
+  // Count of messages in this window that were hidden because they already
+  // carry one of our MR category labels.
+  alreadyHandled: number;
 }
 
 export function BulkReview(props: Props) {
@@ -283,7 +286,12 @@ export function BulkReview(props: Props) {
         <h1 className="text-2xl font-bold">Debiteuren e-mail — bulkreview</h1>
         <p className="text-muted-foreground text-sm">
           Mailbox: <code>{props.mailbox}</code> · {props.totalFetched} e-mails geclassificeerd
-          {props.totalFetched === props.fetchLimit ? ` (venster: ${props.fetchLimit})` : ""}
+          {props.alreadyHandled > 0
+            ? ` · ${props.alreadyHandled} al afgehandeld (verborgen)`
+            : ""}
+          {props.totalFetched + props.alreadyHandled === props.fetchLimit
+            ? ` · venster: ${props.fetchLimit}`
+            : ""}
           {props.beforeCursor
             ? ` · ouder dan ${new Date(props.beforeCursor).toLocaleString("nl-NL")}`
             : " · nieuwste venster"}
