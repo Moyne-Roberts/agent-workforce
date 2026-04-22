@@ -37,12 +37,19 @@ Customers email `debiteuren@*` and sales inboxes asking for copies of business d
 
 ## Solution
 
-**Phased build:**
+**Sequencing (decided 2026-04-22):** Build the **document fetcher tool FIRST** as a standalone Vercel API route + Orq.ai tool registration, then plug it into the Debtor Team / Sales Team swarms. Reasons: fetcher is the high-risk piece (NXT SQL patterns, S3 structure, multi-entity routing, Zapier SDK payload limits for PDFs); ~45 copy-requests/month is a gentle pilot volume; swarm integration becomes a trivial tool-registration step once the fetcher works. DO NOT build a swarm on non-copy emails first — that's the harder intent space (disputes, address changes, complaints need judgment) and building it without the mechanical plumbing proven is backwards.
 
-1. **MVP — invoice-only** (highest volume + highest auto-ref-extraction rate = cleanest win)
-2. Measure precision/recall over 4 weeks on real traffic
-3. Extend to work_order, contract, quote if MVP holds up
-4. Skip certificate / location_sheet / order_confirmation (too low volume, <5/yr each)
+**Pre-flight spike (1 hour, do this before anything else):** Log into Zapier, find the NXT S3 connection, fetch ONE real document by hand via the Zapier SDK. If that works, rest is a straight build. If it doesn't (e.g. no S3 app linked to NXT account, or Zapier payload limit blocks PDFs), surface immediately — whole plan may need replanning.
+
+**Phased build (after spike):**
+
+1. **MVP — invoice-only fetcher** (highest volume + highest auto-ref-extraction rate). Exposed as `fetchDocument({ docType: 'invoice', reference, entity })`.
+2. Wire into a minimal email responder as the first consumer — validates end-to-end flow.
+3. Measure precision/recall over 4 weeks on real traffic.
+4. Extend fetcher to work_order, contract, quote. Register each as the swarms start consuming them.
+5. Skip certificate / location_sheet / order_confirmation (too low volume, <5/yr each — human-handle).
+
+**Retire the keyword classifier:** the current `find-copy-requests.ts` keyword filter has ~31% recall and was a scaffolding step, not a production component. The Debtor/Sales swarms will LLM-classify *all* inbound emails (the existing `debtor.email_analysis` and `sales.email_analysis` tables already do this for routing) — copy-request detection happens there, not in a separate filter. The classification script stays useful only as an eval set for iterating the swarms' prompts.
 
 **Architecture note — decouple the fetcher:**
 
