@@ -81,17 +81,18 @@ function extractTitle(run: AutomationRun): string {
       | Record<string, unknown>
       | undefined;
     const category =
+      ((r as Record<string, unknown>).applied_category as string | undefined) ??
       (prediction?.category as string | undefined) ??
       ((r as Record<string, unknown>).override_category as string | undefined) ??
       ((r as Record<string, unknown>).target_category as string | undefined);
     if (typeof decision === "string" && category) {
-      return `Review: ${decision} → ${category}`;
+      return `${category} · ${decision}`;
     }
     if (typeof decision === "string") {
-      return `Review: ${decision}`;
+      return `Review · ${decision}`;
     }
     if (category) {
-      return `Categorized as ${category}`;
+      return `Categorized: ${category}`;
     }
     const stage = (r as Record<string, unknown>).stage;
     if (typeof stage === "string") return stage.replace(/_/g, " ");

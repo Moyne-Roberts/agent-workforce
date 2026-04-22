@@ -131,10 +131,10 @@ export function BriefingPanel({ swarmId }: BriefingPanelProps) {
 
       {parsed ? (
         <>
-          <h2 className="relative font-[var(--font-cabinet)] text-[20px] leading-[1.2] font-bold text-[var(--v7-text)] mt-2 max-w-[40ch]">
+          <h2 className="relative font-[var(--font-cabinet)] text-[20px] leading-[1.2] font-bold text-[var(--v7-text)] mt-2">
             {parsed.headline}
           </h2>
-          <p className="relative text-[13px] leading-[1.5] text-[var(--v7-muted)] max-w-[72ch] line-clamp-3">
+          <p className="relative text-[13px] leading-[1.5] text-[var(--v7-muted)] line-clamp-3">
             {parsed.summary}
           </p>
           {parsed.alerts.length > 0 && (
