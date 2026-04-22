@@ -68,23 +68,118 @@ const ACTIONABLE_CATEGORIES: Category[] = [
 // with the new contact address first.
 const LABEL_ONLY_CATEGORIES = new Set<Category>(["ooo_permanent"]);
 
+// Leesbare Nederlandse beschrijving per classifier-regel. De technische
+// naam (rule.matchedRule string uit classify()) blijft de key; de label is
+// wat de reviewer ziet. Elke plek in de UI waar we een regel tonen
+// (filter-chips, hint-dropdown, event. group-header) gebruikt deze map.
+const RULE_META: Record<string, { label: string; category: Category }> = {
+  // Payment-admittance rules
+  subject_paid_marker: {
+    label: "Klant heeft factuur als Betaald gemarkeerd",
+    category: "payment_admittance",
+  },
+  payment_subject: {
+    label: "Betalingsbevestiging in onderwerp (Zahlungsavis, Payment Advice, etc.)",
+    category: "payment_admittance",
+  },
+  "payment_sender+subject": {
+    label: "Payment-role afzender + betaling-onderwerp",
+    category: "payment_admittance",
+  },
+  "payment_system_sender+body": {
+    label: "Noreply-afzender + betalingstekst in body",
+    category: "payment_admittance",
+  },
+  "payment_sender+hint+body": {
+    label: "Role/system-afzender + betaling-hint + body-bevestiging",
+    category: "payment_admittance",
+  },
+  "payment_sender+body": {
+    label: "Payment-role afzender + body-bevestiging (geen onderwerp)",
+    category: "payment_admittance",
+  },
+  // Auto-reply rules
+  subject_autoreply: {
+    label: '"Automatisch antwoord" / "Out of Office" in onderwerp',
+    category: "auto_reply",
+  },
+  subject_acknowledgement: {
+    label: "Ontvangstbevestiging in onderwerp",
+    category: "auto_reply",
+  },
+  subject_ticket_ref: {
+    label: "Ticket-/procesnummer in onderwerp",
+    category: "auto_reply",
+  },
+  "reply_prefix+system_sender": {
+    label: "RE:/FW: van noreply@ afzender",
+    category: "auto_reply",
+  },
+  "reply_prefix+ap_automation_sender": {
+    label: "RE:/FW: van AP-systeem (Basware/Blue10/Tradeshift/Inditex)",
+    category: "auto_reply",
+  },
+  // OoO temporary
+  "subject_autoreply+body_temporary": {
+    label: "Auto-reply + body zegt tijdelijk weg",
+    category: "ooo_temporary",
+  },
+  "body_temporary+human_sender": {
+    label: "Body zegt tijdelijk weg + mens-afzender",
+    category: "ooo_temporary",
+  },
+  "subject_autoreply+body_ooo_generic+human_sender": {
+    label: "Auto-reply + generieke OoO + mens-afzender",
+    category: "ooo_temporary",
+  },
+  // OoO permanent
+  "subject_autoreply+body_mailbox_retired": {
+    label: "Auto-reply + mailbox retired (stuur naar ander adres)",
+    category: "ooo_permanent",
+  },
+  "subject_autoreply+body_permanent": {
+    label: "Auto-reply + persoon heeft bedrijf verlaten",
+    category: "ooo_permanent",
+  },
+  "body_permanent+human_sender": {
+    label: "Body zegt permanent weg + mens-afzender",
+    category: "ooo_permanent",
+  },
+  // Blocks / unknown
+  blocked_submission_rejected: {
+    label: "Vendor-systeem wijst onze factuur af (heractie nodig)",
+    category: "unknown",
+  },
+  payment_blocked_request_template: {
+    label: "Eigen herinnering/verzoek (of reply erop)",
+    category: "unknown",
+  },
+  payment_blocked_refund: {
+    label: "Creditnota / refund (geen betalingsbevestiging)",
+    category: "unknown",
+  },
+  payment_blocked_by_dispute: {
+    label: "Dispuut/klacht over betaling",
+    category: "unknown",
+  },
+  no_match: {
+    label: "Geen regel matched — handmatige review",
+    category: "unknown",
+  },
+};
+
+function ruleLabel(rule: string): string {
+  return RULE_META[rule]?.label ?? rule;
+}
+
 // Lijst van bestaande classifier-regels waarnaar de reviewer bij een
-// Onbekend hand-pick kan hinten ("deze mail zou onder deze regel
-// moeten vallen maar de regex miste 'm"). Gebruikt voor gerichte
-// classifier-uitbreiding — zie telemetry result.rule_hint.
+// Onbekend hand-pick kan hinten. Gegenereerd uit RULE_META plus een
+// "nieuwe regel nodig" fallback. Gefilterd op gekozen categorie in de UI.
 const RULE_HINTS: Array<{ value: string; label: string; cat: Category }> = [
-  { value: "subject_acknowledgement", label: "subject_acknowledgement (ack/ontvangstbevestiging)", cat: "auto_reply" },
-  { value: "subject_ticket_ref", label: "subject_ticket_ref (ticketnummer / procesnummer)", cat: "auto_reply" },
-  { value: "reply_prefix+system_sender", label: "reply_prefix+system_sender (RE:/FW: van noreply@)", cat: "auto_reply" },
-  { value: "reply_prefix+ap_automation_sender", label: "reply_prefix+ap_automation_sender (Basware/Blue10/Tradeshift)", cat: "auto_reply" },
-  { value: "subject_autoreply", label: "subject_autoreply (Automatisch antwoord / OoO subject)", cat: "auto_reply" },
-  { value: "subject_autoreply+body_temporary", label: "subject_autoreply+body_temporary (tijdelijk weg)", cat: "ooo_temporary" },
-  { value: "subject_autoreply+body_mailbox_retired", label: "body_mailbox_retired (mailbox retired / nieuw adres)", cat: "ooo_permanent" },
-  { value: "payment_subject", label: "payment_subject (Betalingsbevestiging / Zahlungsavis)", cat: "payment_admittance" },
-  { value: "payment_sender+subject", label: "payment_sender+subject (role-sender + payment-subject)", cat: "payment_admittance" },
-  { value: "subject_paid_marker", label: "subject_paid_marker (gemarkeerd als Betaald)", cat: "payment_admittance" },
-  { value: "blocked_submission_rejected", label: "blocked_submission_rejected (systeem wijst submit af)", cat: "unknown" },
-  { value: "NEW_RULE_NEEDED", label: "⚠ Nieuwe regel nodig (geen bestaande past)", cat: "unknown" },
+  ...Object.entries(RULE_META)
+    .filter(([, meta]) => meta.category !== "unknown")
+    .map(([value, meta]) => ({ value, label: meta.label, cat: meta.category })),
+  { value: "NEW_RULE_NEEDED", label: "⚠ Nieuwe regel nodig (geen bestaande past)", cat: "unknown" as Category },
 ];
 
 const BAND_COLOR: Record<string, string> = {
@@ -366,7 +461,10 @@ export function BulkReview(props: Props) {
               </h2>
               {props.ruleFilter ? (
                 <GlassCard className="p-3 flex items-center gap-3 border-amber-500/40 bg-amber-500/5">
-                  <code className="text-sm font-mono">{props.ruleFilter}</code>
+                  <div className="flex flex-col">
+                    <span className="text-sm">{ruleLabel(props.ruleFilter)}</span>
+                    <code className="text-[11px] font-mono text-muted-foreground">{props.ruleFilter}</code>
+                  </div>
                   <span className="text-sm text-muted-foreground">
                     — toont alleen items die deze regel matchen
                   </span>
@@ -387,9 +485,11 @@ export function BulkReview(props: Props) {
                       <a
                         key={rule}
                         href={`?${qs.toString()}`}
-                        className="text-xs font-mono px-2 py-1 rounded border border-border hover:border-foreground hover:bg-muted/50 transition-colors"
+                        title={rule}
+                        className="text-xs px-2.5 py-1.5 rounded border border-border hover:border-foreground hover:bg-muted/50 transition-colors flex items-center gap-2"
                       >
-                        {rule} <span className="text-muted-foreground">·</span> {count}
+                        <span>{ruleLabel(rule)}</span>
+                        <span className="font-mono text-muted-foreground">· {count}</span>
                       </a>
                     );
                   })}
@@ -600,10 +700,12 @@ export function BulkReview(props: Props) {
                             Kon mail niet ophalen: {bodies[item.id].error}
                           </p>
                         )}
-                        <div className="flex items-center gap-2 flex-wrap text-[11px] text-muted-foreground font-mono">
-                          <span>rule: {item.matchedRule}</span>
+                        <div className="flex items-center gap-2 flex-wrap text-[11px] text-muted-foreground">
+                          <span title={item.matchedRule}>
+                            regel: <span className="text-foreground/80">{ruleLabel(item.matchedRule)}</span>
+                          </span>
                           <span>·</span>
-                          <span>conf {item.confidence.toFixed(2)}</span>
+                          <span className="font-mono">conf {item.confidence.toFixed(2)}</span>
                           <span>·</span>
                           <button
                             type="button"
