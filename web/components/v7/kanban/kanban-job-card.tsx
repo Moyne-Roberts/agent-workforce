@@ -56,6 +56,16 @@ function deriveTags(job: SwarmJob): DerivedTag[] {
     for (const raw of job.tags) {
       if (typeof raw !== "string") continue;
       const lower = raw.toLowerCase();
+      // next:<stage> — written by the swarm bridge for cards whose
+      // review is resolved but still have downstream work. Render as a
+      // teal "Next: <stage>" pill so the user sees what's coming up.
+      if (lower.startsWith("next:")) {
+        out.push({
+          label: `Next: ${raw.slice(5).replace(/_/g, " ")}`,
+          variant: "ok",
+        });
+        continue;
+      }
       let variant: JobTagVariant = "default";
       if (RISK_TAG_TOKENS.has(lower)) variant = "risk";
       else if (OK_TAG_TOKENS.has(lower)) variant = "ok";
@@ -64,6 +74,20 @@ function deriveTags(job: SwarmJob): DerivedTag[] {
   }
 
   return out;
+}
+
+function formatCardTime(iso: string | null | undefined): string {
+  if (!iso) return "";
+  const then = new Date(iso).getTime();
+  if (!Number.isFinite(then)) return "";
+  const diffSec = Math.max(0, Math.round((Date.now() - then) / 1000));
+  if (diffSec < 60) return `${diffSec}s`;
+  const diffMin = Math.round(diffSec / 60);
+  if (diffMin < 60) return `${diffMin}m`;
+  const diffHr = Math.round(diffMin / 60);
+  if (diffHr < 24) return `${diffHr}u`;
+  const diffDay = Math.round(diffHr / 24);
+  return `${diffDay}d`;
 }
 
 export function KanbanJobCard({ job, isDragOverlay }: KanbanJobCardProps) {
@@ -113,9 +137,17 @@ export function KanbanJobCard({ job, isDragOverlay }: KanbanJobCardProps) {
           : "var(--v7-glass-shadow)",
       }}
     >
-      <h4 className="font-[var(--font-cabinet)] text-[15.5px] leading-[1.3] font-bold text-[var(--v7-text)] m-0">
-        {job.title}
-      </h4>
+      <div className="flex items-start justify-between gap-2">
+        <h4 className="font-[var(--font-cabinet)] text-[15.5px] leading-[1.3] font-bold text-[var(--v7-text)] m-0 flex-1 min-w-0">
+          {job.title}
+        </h4>
+        <span
+          className="shrink-0 text-[11px] leading-[1.4] text-[var(--v7-faint)] tabular-nums"
+          title={job.updated_at ?? job.created_at}
+        >
+          {formatCardTime(job.updated_at ?? job.created_at)}
+        </span>
+      </div>
       {(() => {
         // `description` may contain either:
         //   - A plain-text error/info message (legacy shape) → show as-is

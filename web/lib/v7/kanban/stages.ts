@@ -7,11 +7,15 @@
 
 import type { SwarmJobStage } from "@/lib/v7/types";
 
+// Column order reflects urgency/flow left→right: un-triaged → human
+// decision (blocks everything else) → queued for a worker → active →
+// terminal. Human review sits before Ready because it's the only lane
+// that needs a person and is the bottleneck for anything downstream.
 export const KANBAN_STAGES: SwarmJobStage[] = [
   "backlog",
+  "review",
   "ready",
   "progress",
-  "review",
   "done",
 ];
 

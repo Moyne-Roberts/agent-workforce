@@ -296,11 +296,33 @@ export async function syncSwarmBridge(
     const extraTags = config.deriveTags?.(groupRuns) ?? [];
     const tags = [...extraTags];
     if (hasError && !tags.includes("error")) tags.push("error");
-    if (
-      groupRuns.some((r) => r.status === "feedback") &&
-      !tags.includes("needs-review")
-    ) {
-      tags.push("needs-review");
+
+    // `needs-review` only applies when the card is actually sitting in
+    // the Review lane — i.e. a feedback run is the most recent and
+    // nothing has superseded it. Once downstream work lands (deferred,
+    // pending, completed, failed), the review is resolved and we
+    // instead surface a "next:<stage>" hint pulled from the newest
+    // non-terminal run's result.stage so the card advertises what's
+    // actually coming next (e.g. "next:icontroller_delete").
+    if (stage === "review") {
+      if (!tags.includes("needs-review")) tags.push("needs-review");
+    } else {
+      const nextRun = groupRuns
+        .slice()
+        .filter(
+          (r) =>
+            r.status === "deferred" ||
+            r.status === "pending" ||
+            r.status === "feedback",
+        )
+        .sort((a, b) => b.created_at.localeCompare(a.created_at))[0];
+      const nextStage =
+        nextRun &&
+        typeof (nextRun.result as Record<string, unknown> | null)?.stage ===
+          "string"
+          ? ((nextRun.result as Record<string, unknown>).stage as string)
+          : null;
+      if (nextStage) tags.push(`next:${nextStage}`);
     }
 
     const description = JSON.stringify({
