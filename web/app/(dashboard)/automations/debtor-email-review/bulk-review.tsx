@@ -18,7 +18,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { executeReviewDecisions, type ExecuteResult, type ReviewDecision } from "./actions";
+import {
+  executeReviewDecisions,
+  fetchReviewEmailBody,
+  type ExecuteResult,
+  type ReviewDecision,
+} from "./actions";
 import type { Category } from "@/lib/debtor-email/classify";
 
 interface Prediction {
@@ -92,6 +97,22 @@ export function BulkReview(props: Props) {
   const [executing, startExecute] = useTransition();
   const [executionResult, setExecutionResult] = useState<ExecuteResult | null>(null);
   const [executedGroups, setExecutedGroups] = useState<Set<string>>(new Set());
+  const [bodies, setBodies] = useState<
+    Record<string, { loading: boolean; text?: string; error?: string }>
+  >({});
+
+  const loadBody = (id: string) => {
+    if (bodies[id]?.text || bodies[id]?.loading) return;
+    setBodies((prev) => ({ ...prev, [id]: { loading: true } }));
+    fetchReviewEmailBody(id).then((res) => {
+      setBodies((prev) => ({
+        ...prev,
+        [id]: res.ok
+          ? { loading: false, text: res.bodyText || "(leeg)" }
+          : { loading: false, error: res.error },
+      }));
+    });
+  };
 
   const getRow = (id: string): RowState =>
     rowStates[id] ?? { include: true, override: "", notes: "" };
@@ -99,9 +120,17 @@ export function BulkReview(props: Props) {
   const patchRow = (id: string, patch: Partial<RowState>) =>
     setRowStates((prev) => ({ ...prev, [id]: { ...getRow(id), ...patch } }));
 
-  // Sample of 15 items chosen deterministically by group key.
+  const isUnknownGroup = openGroup?.category === "unknown";
+
+  // For unknown groups: show all items so the reviewer can hand-pick the ones
+  // worth labeling (to train the classifier). For rule-matched groups: a
+  // deterministic 15-sample is enough to spot-check before bulk-approving.
   const sample = useMemo(
-    () => (openGroup ? shuffle(openGroup.items, openGroup.key).slice(0, 15) : []),
+    () => {
+      if (!openGroup) return [];
+      if (openGroup.category === "unknown") return openGroup.items;
+      return shuffle(openGroup.items, openGroup.key).slice(0, 15);
+    },
     [openGroup],
   );
 
@@ -112,33 +141,70 @@ export function BulkReview(props: Props) {
       recat = 0;
     for (const item of openGroup.items) {
       const s = getRow(item.id);
-      if (!s.include) exclude++;
-      else if (s.override && s.override !== item.category) recat++;
-      else approve++;
+      if (openGroup.category === "unknown") {
+        // Unknown group semantics: "approve" is a no-op, so only count
+        // recategorizations (real-category overrides) as actions.
+        if (s.override && s.override !== "unknown") recat++;
+      } else {
+        if (!s.include) exclude++;
+        else if (s.override && s.override !== item.category) recat++;
+        else approve++;
+      }
     }
     return { approve, exclude, recat };
   }, [openGroup, rowStates]);
 
   const submit = (group: Group) => {
-    const decisions: ReviewDecision[] = group.items.map((item) => {
+    const isUnknown = group.category === "unknown";
+    const decisions: ReviewDecision[] = group.items.flatMap((item) => {
       const s = getRow(item.id);
+
+      if (isUnknown) {
+        // Only send items where the reviewer explicitly assigned a real
+        // category. Everything else stays untouched (no log, no action).
+        if (!s.override || s.override === "unknown") return [];
+        return [
+          {
+            id: item.id,
+            subject: item.subject,
+            from: item.from,
+            bodyPreview: item.bodyPreview,
+            receivedAt: item.receivedAt,
+            predictedCategory: item.category,
+            predictedConfidence: item.confidence,
+            predictedRule: item.matchedRule,
+            decision: "recategorize" as const,
+            overrideCategory: s.override as Category,
+            notes: s.notes || undefined,
+            // Label only — keep in inbox for manual verification. No
+            // archive, no iController delete.
+            labelOnly: true,
+          },
+        ];
+      }
+
       let decision: ReviewDecision["decision"];
       if (!s.include) decision = "exclude";
+      // "Onbekend (overslaan)" in the dropdown means skip — the backend has
+      // no Outlook label for `unknown`, so treat it as an explicit exclude.
+      else if (s.override === "unknown") decision = "exclude";
       else if (s.override && s.override !== item.category) decision = "recategorize";
       else decision = "approve";
-      return {
-        id: item.id,
-        subject: item.subject,
-        from: item.from,
-        bodyPreview: item.bodyPreview,
-        receivedAt: item.receivedAt,
-        predictedCategory: item.category,
-        predictedConfidence: item.confidence,
-        predictedRule: item.matchedRule,
-        decision,
-        overrideCategory: decision === "recategorize" ? (s.override as Category) : undefined,
-        notes: s.notes || undefined,
-      };
+      return [
+        {
+          id: item.id,
+          subject: item.subject,
+          from: item.from,
+          bodyPreview: item.bodyPreview,
+          receivedAt: item.receivedAt,
+          predictedCategory: item.category,
+          predictedConfidence: item.confidence,
+          predictedRule: item.matchedRule,
+          decision,
+          overrideCategory: decision === "recategorize" ? (s.override as Category) : undefined,
+          notes: s.notes || undefined,
+        },
+      ];
     });
     startExecute(async () => {
       const res = await executeReviewDecisions(decisions);
@@ -190,7 +256,9 @@ export function BulkReview(props: Props) {
                         <span className="text-muted-foreground text-sm">{g.count} e-mails</span>
                       </div>
                       <p className="text-sm text-muted-foreground mt-1">
-                        Actie bij goedkeuring: labelen en archiveren in Outlook
+                        {g.category === "unknown"
+                          ? "Vallen buiten de huidige regels — bekijk en label handmatig om de classifier te trainen"
+                          : "Actie bij goedkeuring: labelen en archiveren in Outlook"}
                       </p>
                     </div>
                     {done ? (
@@ -199,7 +267,7 @@ export function BulkReview(props: Props) {
                       </Badge>
                     ) : (
                       <Button disabled={executing} onClick={() => setOpenGroup(g)}>
-                        Beoordeel & goedkeuren
+                        {g.category === "unknown" ? "Bekijk & label" : "Beoordeel & goedkeuren"}
                       </Button>
                     )}
                   </GlassCard>
@@ -207,15 +275,6 @@ export function BulkReview(props: Props) {
               })}
             </div>
           </section>
-
-          {props.unknownCount > 0 && (
-            <GlassCard className="p-4 text-sm">
-              <div className="font-semibold mb-1">Onbekend: {props.unknownCount}</div>
-              <div className="text-muted-foreground">
-                Vallen buiten de huidige regels — handmatige triage (Fase C). Geen batch-actie hier.
-              </div>
-            </GlassCard>
-          )}
 
           {executionResult && (
             <GlassCard className="p-4 border-emerald-500/40 bg-emerald-500/5">
@@ -262,64 +321,93 @@ export function BulkReview(props: Props) {
             </DialogHeader>
 
             <div className="text-sm text-muted-foreground">
-              Controleer {sample.length} willekeurige voorbeelden. Vink e-mails uit die je wilt
-              overslaan, of wijzig het label voor correctie. De rest wordt gelabeld en
-              gearchiveerd in Outlook. Je feedback wordt opgeslagen zodat de classifier beter
-              wordt.
+              {isUnknownGroup
+                ? `Blader door alle ${openGroup.count} onbekende e-mails en kies een
+                   categorie voor de items die de classifier zou moeten herkennen.
+                   Gelabelde items krijgen alleen het Outlook-label en blijven in de
+                   inbox staan voor verificatie — ze worden niet gearchiveerd. Items
+                   die je op "Onbekend" laat staan blijven volledig onaangeroerd.`
+                : `Controleer ${sample.length} willekeurige voorbeelden. Vink e-mails uit die je wilt
+                   overslaan, of wijzig het label voor correctie. De rest wordt gelabeld en
+                   gearchiveerd in Outlook. Je feedback wordt opgeslagen zodat de classifier beter
+                   wordt.`}
             </div>
 
             <div className="flex items-center gap-4 text-sm p-2 rounded-md bg-muted/50">
-              <span>
-                <strong className="text-emerald-700 dark:text-emerald-300">
-                  {liveStats.approve}
-                </strong>{" "}
-                goedkeuren
-              </span>
-              {liveStats.recat > 0 && (
-                <span>
-                  <strong className="text-amber-700 dark:text-amber-300">
-                    {liveStats.recat}
-                  </strong>{" "}
-                  hercategoriseren
-                </span>
+              {isUnknownGroup ? (
+                <>
+                  <span>
+                    <strong className="text-amber-700 dark:text-amber-300">
+                      {liveStats.recat}
+                    </strong>{" "}
+                    labelen
+                  </span>
+                  <span className="text-muted-foreground">
+                    <strong>{openGroup.count - liveStats.recat}</strong> blijven staan
+                  </span>
+                </>
+              ) : (
+                <>
+                  <span>
+                    <strong className="text-emerald-700 dark:text-emerald-300">
+                      {liveStats.approve}
+                    </strong>{" "}
+                    goedkeuren
+                  </span>
+                  {liveStats.recat > 0 && (
+                    <span>
+                      <strong className="text-amber-700 dark:text-amber-300">
+                        {liveStats.recat}
+                      </strong>{" "}
+                      hercategoriseren
+                    </span>
+                  )}
+                  {liveStats.exclude > 0 && (
+                    <span>
+                      <strong className="text-rose-700 dark:text-rose-300">
+                        {liveStats.exclude}
+                      </strong>{" "}
+                      uitgesloten
+                    </span>
+                  )}
+                  <span className="text-muted-foreground ml-auto">
+                    (Keuzes gelden voor de hele groep van {openGroup.count})
+                  </span>
+                </>
               )}
-              {liveStats.exclude > 0 && (
-                <span>
-                  <strong className="text-rose-700 dark:text-rose-300">
-                    {liveStats.exclude}
-                  </strong>{" "}
-                  uitgesloten
-                </span>
-              )}
-              <span className="text-muted-foreground ml-auto">
-                (Keuzes gelden voor de hele groep van {openGroup.count})
-              </span>
             </div>
 
             <div className="overflow-y-auto flex-1 space-y-2 pr-2">
               {sample.map((item) => {
                 const s = getRow(item.id);
                 const isRecat = !!s.override && s.override !== item.category;
-                const showNotes = !s.include || isRecat;
+                const isLabeled = isUnknownGroup && !!s.override && s.override !== "unknown";
+                const showNotes = (!isUnknownGroup && !s.include) || (isRecat && !isUnknownGroup) || isLabeled;
                 return (
                   <div
                     key={item.id}
                     className={`rounded-md border p-3 space-y-2 ${
-                      !s.include
-                        ? "opacity-60 border-rose-500/30 bg-rose-500/5"
-                        : isRecat
+                      isUnknownGroup
+                        ? isLabeled
                           ? "border-amber-500/30 bg-amber-500/5"
                           : "border-border"
+                        : !s.include
+                          ? "opacity-60 border-rose-500/30 bg-rose-500/5"
+                          : isRecat
+                            ? "border-amber-500/30 bg-amber-500/5"
+                            : "border-border"
                     }`}
                   >
                     <div className="flex gap-3">
-                      <input
-                        type="checkbox"
-                        checked={s.include}
-                        onChange={(e) => patchRow(item.id, { include: e.target.checked })}
-                        className="mt-1 h-4 w-4"
-                        aria-label="Opnemen in batch"
-                      />
+                      {!isUnknownGroup && (
+                        <input
+                          type="checkbox"
+                          checked={s.include}
+                          onChange={(e) => patchRow(item.id, { include: e.target.checked })}
+                          className="mt-1 h-4 w-4"
+                          aria-label="Opnemen in batch"
+                        />
+                      )}
                       <div className="flex-1 min-w-0 space-y-1">
                         <div className="font-semibold text-sm break-words">
                           {item.subject || "(geen onderwerp)"}
@@ -328,13 +416,47 @@ export function BulkReview(props: Props) {
                           {item.fromName ? `${item.fromName} <${item.from}>` : item.from} ·{" "}
                           {new Date(item.receivedAt).toLocaleString("nl-NL")}
                         </div>
-                        <p className="text-xs text-muted-foreground break-words line-clamp-3">
-                          {item.bodyPreview}
-                        </p>
+                        {bodies[item.id]?.text ? (
+                          <pre className="text-xs text-muted-foreground whitespace-pre-wrap break-words bg-muted/40 rounded p-2 max-h-80 overflow-y-auto">
+                            {bodies[item.id].text}
+                          </pre>
+                        ) : (
+                          <p className="text-xs text-muted-foreground break-words line-clamp-3">
+                            {item.bodyPreview}
+                          </p>
+                        )}
+                        {bodies[item.id]?.error && (
+                          <p className="text-xs text-rose-600 dark:text-rose-400">
+                            Kon mail niet ophalen: {bodies[item.id].error}
+                          </p>
+                        )}
                         <div className="flex items-center gap-2 flex-wrap text-[11px] text-muted-foreground font-mono">
                           <span>rule: {item.matchedRule}</span>
                           <span>·</span>
                           <span>conf {item.confidence.toFixed(2)}</span>
+                          <span>·</span>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (bodies[item.id]?.text) {
+                                setBodies((prev) => {
+                                  const next = { ...prev };
+                                  delete next[item.id];
+                                  return next;
+                                });
+                              } else {
+                                loadBody(item.id);
+                              }
+                            }}
+                            className="underline hover:text-foreground disabled:opacity-50"
+                            disabled={bodies[item.id]?.loading}
+                          >
+                            {bodies[item.id]?.loading
+                              ? "laden…"
+                              : bodies[item.id]?.text
+                                ? "toon preview"
+                                : "toon volledige e-mail"}
+                          </button>
                         </div>
                       </div>
                       <div className="w-48 shrink-0">
@@ -375,7 +497,7 @@ export function BulkReview(props: Props) {
                   </div>
                 );
               })}
-              {openGroup.count > sample.length && (
+              {!isUnknownGroup && openGroup.count > sample.length && (
                 <div className="text-xs text-muted-foreground p-2">
                   Steekproef van {sample.length} van {openGroup.count}. Je keuzes hierboven gelden
                   alleen voor deze zichtbare rijen — alle overige {openGroup.count - sample.length}{" "}
@@ -388,10 +510,15 @@ export function BulkReview(props: Props) {
               <Button variant="outline" onClick={() => setOpenGroup(null)}>
                 Annuleer
               </Button>
-              <Button disabled={executing} onClick={() => submit(openGroup)}>
+              <Button
+                disabled={executing || (isUnknownGroup && liveStats.recat === 0)}
+                onClick={() => submit(openGroup)}
+              >
                 {executing
                   ? "Bezig…"
-                  : `Voer uit: ${liveStats.approve + liveStats.recat} acties, ${liveStats.exclude} uitgesloten`}
+                  : isUnknownGroup
+                    ? `Label ${liveStats.recat} e-mails`
+                    : `Voer uit: ${liveStats.approve + liveStats.recat} acties, ${liveStats.exclude} uitgesloten`}
               </Button>
             </DialogFooter>
           </DialogContent>

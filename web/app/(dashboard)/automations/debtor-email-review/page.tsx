@@ -74,10 +74,7 @@ export default async function DebtorEmailReviewPage() {
       const cb = catOrder[b.category] ?? 5;
       if (ca !== cb) return ca - cb;
       return (bandOrder[a.confidenceBand] ?? 9) - (bandOrder[b.confidenceBand] ?? 9);
-    })
-    // Hide `unknown` groups from the action list — those go to human
-    // triage, not bulk approval. We show them in a summary at the bottom.
-    .filter((g) => g.category !== "unknown");
+    });
 
   const unknownCount = predictions.filter((p) => p.category === "unknown").length;
 

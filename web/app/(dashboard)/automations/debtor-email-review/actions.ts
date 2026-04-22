@@ -1,6 +1,6 @@
 "use server";
 
-import { categorizeEmail, archiveEmail } from "@/lib/outlook";
+import { categorizeEmail, archiveEmail, fetchMessageBody } from "@/lib/outlook";
 import { classify } from "@/lib/debtor-email/classify";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { deleteEmailFromIController } from "@/lib/automations/debtor-email-cleanup/browser";
@@ -45,6 +45,11 @@ export interface ReviewDecision {
   // action override: we will categorize+archive with this label AND log it.
   overrideCategory?: string;
   notes?: string;
+  // When true: apply the Outlook label only. Skip archive + iController
+  // delete. Used for items hand-picked from the Onbekend bucket — we want
+  // those labeled for classifier training but kept in the inbox for manual
+  // verification before the classifier learns to auto-action them.
+  labelOnly?: boolean;
 }
 
 /**
@@ -111,10 +116,20 @@ export async function executeReviewDecisions(
     const categoryLabel = CATEGORY_LABEL[targetCategoryKey];
     if (!categoryLabel) {
       result.failed++;
-      result.errors.push({
-        messageId: d.id,
-        subject: d.subject,
-        error: `no Outlook category configured for ${targetCategoryKey}`,
+      const errMsg = `no Outlook category configured for ${targetCategoryKey}`;
+      result.errors.push({ messageId: d.id, subject: d.subject, error: errMsg });
+      await admin.from("automation_runs").insert({
+        automation: "debtor-email-review",
+        status: "failed",
+        result: {
+          stage: "no_category_configured",
+          message_id: d.id,
+          target_category: targetCategoryKey,
+          decision: d.decision,
+        },
+        error_message: errMsg,
+        triggered_by: "bulk-review:ui",
+        completed_at: isoNow,
       });
       continue;
     }
@@ -163,6 +178,31 @@ export async function executeReviewDecisions(
         status: "failed",
         result: { stage: "categorize", message_id: d.id, category: categoryLabel },
         error_message: catRes.error ?? null,
+        triggered_by: "bulk-review:ui",
+        completed_at: isoNow,
+      });
+      continue;
+    }
+
+    // labelOnly: hand-picked from the Onbekend bucket. Stop after applying
+    // the Outlook label — keep the mail in the inbox so the reviewer can
+    // verify classifier-training inputs before the classifier learns to
+    // auto-action this pattern. Skips archive + iController delete.
+    if (d.labelOnly) {
+      result.executed++;
+      result.succeeded++;
+      if (d.decision === "recategorize") result.recategorized++;
+      await admin.from("automation_runs").insert({
+        automation: "debtor-email-review",
+        status: "completed",
+        result: {
+          stage: "categorize_only",
+          message_id: d.id,
+          applied_category: categoryLabel,
+          decision: d.decision,
+          source: "unknown_group",
+        },
+        error_message: null,
         triggered_by: "bulk-review:ui",
         completed_at: isoNow,
       });
@@ -262,4 +302,21 @@ export async function executeReviewDecisions(
   }
 
   return result;
+}
+
+/**
+ * On-demand fetch of a single message body for the review UI. Reviewers
+ * only expand a few items per batch — cheaper than fetching bodies for all
+ * 300 on page load.
+ */
+export async function fetchReviewEmailBody(messageId: string): Promise<
+  | { ok: true; bodyText: string; bodyHtml: string; bodyType: "text" | "html" }
+  | { ok: false; error: string }
+> {
+  try {
+    const body = await fetchMessageBody(MAILBOX, messageId);
+    return { ok: true, ...body };
+  } catch (err) {
+    return { ok: false, error: String(err) };
+  }
 }

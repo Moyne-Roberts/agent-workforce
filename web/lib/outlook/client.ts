@@ -137,6 +137,52 @@ export async function listInboxMessages(
 }
 
 /**
+ * Fetch the full body of a single message. Returns plain text (stripped) and
+ * raw HTML — UI decides which to render. `bodyType` reports Graph's original
+ * content type so the caller can fall back to html when text is empty.
+ */
+export async function fetchMessageBody(
+  mailbox: string,
+  messageId: string,
+): Promise<{ bodyText: string; bodyHtml: string; bodyType: "text" | "html" }> {
+  const res = await graphFetch(
+    `/users/${mailbox}/messages/${messageId}?$select=body,uniqueBody`,
+  );
+  if (!res.ok) {
+    throw new Error(`fetchMessageBody ${res.status}: ${await res.text()}`);
+  }
+  const data = (await res.json()) as {
+    body?: { contentType?: "text" | "html"; content?: string };
+    uniqueBody?: { contentType?: "text" | "html"; content?: string };
+  };
+  // Prefer uniqueBody (the part the sender wrote, quoted replies stripped).
+  const b = data.uniqueBody?.content ? data.uniqueBody : data.body;
+  const contentType = (b?.contentType ?? "text") as "text" | "html";
+  const content = b?.content ?? "";
+  if (contentType === "html") {
+    return { bodyText: stripHtml(content), bodyHtml: content, bodyType: "html" };
+  }
+  return { bodyText: content, bodyHtml: "", bodyType: "text" };
+}
+
+function stripHtml(html: string): string {
+  return html
+    .replace(/<style[\s\S]*?<\/style>/gi, "")
+    .replace(/<script[\s\S]*?<\/script>/gi, "")
+    .replace(/<br\s*\/?>/gi, "\n")
+    .replace(/<\/p>/gi, "\n\n")
+    .replace(/<[^>]+>/g, "")
+    .replace(/&nbsp;/g, " ")
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
+/**
  * Categorize an email by adding a category label.
  * Categories must exist in the mailbox — Graph API creates them on first use.
  */
