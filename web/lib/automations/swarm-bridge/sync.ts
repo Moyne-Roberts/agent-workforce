@@ -56,14 +56,19 @@ function deriveEntityStage(runs: AutomationRun[]): {
   stage: string;
   hasError: boolean;
 } {
-  // `feedback` runs are audit records. Once a later completed/skipped run
-  // lands on the same entity, the review is resolved — the feedback row
-  // stays for audit but must not pin the kanban at stage "review".
+  // `feedback` runs are audit records. Once a later non-feedback run
+  // lands on the same entity (any terminal or downstream state: completed,
+  // skipped_idempotent, deferred, failed), the review is resolved — the
+  // feedback row stays for audit but must not pin the kanban at "review".
+  //
+  // IMPORTANT: compare on `created_at` (actual insert time), NOT
+  // `completed_at`. Several callers batch-insert multiple rows reusing
+  // the same precomputed isoNow for `completed_at`, so that column can
+  // end up identical — or even EARLIER than a later row's created_at.
+  // created_at is DB-assigned at insert and always monotonic.
   const latestResolvedAt = runs.reduce<string | null>((acc, r) => {
-    if (r.status !== "completed" && r.status !== "skipped_idempotent") {
-      return acc;
-    }
-    const ts = r.completed_at ?? r.created_at;
+    if (r.status === "feedback") return acc;
+    const ts = r.created_at;
     if (!acc || ts.localeCompare(acc) > 0) return ts;
     return acc;
   }, null);
