@@ -54,6 +54,25 @@ async function supaGet<T>(path: string): Promise<T[]> {
   return res.json() as Promise<T[]>;
 }
 
+/**
+ * Paginated fetch via offset — PostgREST cap is 1000 per request. With
+ * thousands of review decisions in history we need to walk the full
+ * result set or we'll miss old icontroller_delete rows and re-process
+ * messages that were already deleted on a previous run.
+ */
+async function supaGetAll<T>(baseQuery: string, pageSize = 1000): Promise<T[]> {
+  const out: T[] = [];
+  let offset = 0;
+  while (true) {
+    const sep = baseQuery.includes("?") ? "&" : "?";
+    const page = await supaGet<T>(`${baseQuery}${sep}limit=${pageSize}&offset=${offset}`);
+    out.push(...page);
+    if (page.length < pageSize) break;
+    offset += pageSize;
+  }
+  return out;
+}
+
 async function supaInsert(path: string, row: unknown): Promise<void> {
   const res = await fetch(`${SUPA_URL}/rest/v1/${path}`, {
     method: "POST",
@@ -75,14 +94,17 @@ async function main() {
     `[catchup] mode=${execute ? "EXECUTE" : "DRY-RUN"}${retryNotFound ? " (retry not_found)" : ""}`,
   );
 
-  const feedback = await supaGet<Row<FeedbackResult>>(
-    "automation_runs?automation=eq.debtor-email-review&status=eq.feedback&order=completed_at.desc&limit=1000",
+  const feedback = await supaGetAll<Row<FeedbackResult>>(
+    "automation_runs?automation=eq.debtor-email-review&status=eq.feedback&order=completed_at.desc",
   );
-  const completedArchive = await supaGet<Row<CategorizeResult>>(
-    "automation_runs?automation=eq.debtor-email-review&status=eq.completed&order=completed_at.desc&limit=1000",
+  const completedArchive = await supaGetAll<Row<CategorizeResult>>(
+    "automation_runs?automation=eq.debtor-email-review&status=eq.completed&order=completed_at.desc",
   );
-  const icRows = await supaGet<Row<ICResult>>(
-    "automation_runs?automation=eq.debtor-email-review&order=completed_at.desc&limit=1000",
+  const icRows = await supaGetAll<Row<ICResult>>(
+    "automation_runs?automation=eq.debtor-email-review&order=completed_at.desc",
+  );
+  console.log(
+    `[catchup] loaded feedback=${feedback.length} completed=${completedArchive.length} all_rows=${icRows.length}`,
   );
 
   // message_id → full email data (from most recent approve/recategorize row)
@@ -105,16 +127,19 @@ async function main() {
   }
 
   // message_ids already processed on the iController side.
-  // `failed` rows are NOT counted as done — transient errors
-  // (Browserless hiccup, token issue, selector break) should retry.
+  // `failed` rows are NOT counted as done — transient errors should retry.
+  // `pending` rows are NOT counted as done — introduced 2026-04-22 when
+  //   iController was moved out of the synchronous server action. Those
+  //   rows exist SPECIFICALLY so this catchup picks them up.
   // `not_found` rows are counted as done UNLESS --retry-not-found is
-  // passed — after a findEmail improvement (v2: search-box + ±60s
-  // tolerance) prior not_found rulings need re-evaluation.
+  //   passed — after a findEmail improvement (v2: search-box + ±60s
+  //   tolerance) prior not_found rulings need re-evaluation.
   const alreadyDone = new Set<string>();
   for (const r of icRows) {
     const res = r.result;
     if (!res || res.stage !== "icontroller_delete" || !res.message_id) continue;
     if (res.icontroller === "failed") continue;
+    if (res.icontroller === "pending") continue;
     if (res.icontroller === "not_found" && retryNotFound) continue;
     alreadyDone.add(res.message_id);
   }
