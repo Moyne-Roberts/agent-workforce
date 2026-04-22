@@ -76,7 +76,11 @@ Progress: [████░░░░░░] 43% (3 of 7 V7.0 phases code-complete
 
 ### Pending Todos
 
-None yet.
+4 pending (see `.planning/todos/pending/`):
+- Plan V3 milestones for Playwright and next project phase (planning)
+- Build Zapier analytics browser automation (automation)
+- Resolve PostgREST exposed-schemas for email_insights (database)
+- **Automate copy-document responder for debtor and sales inboxes** (automation) — ~45 req/mo, ~€2,500/yr savings, invoice-first MVP
 
 ## Session Continuity
 
