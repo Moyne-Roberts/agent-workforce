@@ -1,0 +1,8 @@
+{
+  "env": "acceptance",
+  "ts": "2026-04-22T17:40:17.130Z",
+  "flow": "new-message",
+  "newMsgCandidates": [],
+  "newMsgCandidatesRetry": [],
+  "error": "Error: No visible New-Message button found; inspect artifacts to identify it"
+}

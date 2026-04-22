@@ -1,0 +1,87 @@
+[
+  {
+    "tag": "A",
+    "text": "collections-support@billtrust.com",
+    "title": null,
+    "aria": null,
+    "dataAction": null,
+    "id": null,
+    "cls": "",
+    "href": "mailto:collections-support@billtrust.com",
+    "rect": {
+      "x": 96,
+      "y": 346,
+      "w": 288,
+      "h": 21
+    },
+    "innerHtml": "collections-support@billtrust.com"
+  },
+  {
+    "tag": "A",
+    "text": "Go Back",
+    "title": null,
+    "aria": null,
+    "dataAction": null,
+    "id": null,
+    "cls": "button previous-page",
+    "href": "javascript:history.back()",
+    "rect": {
+      "x": 96,
+      "y": 467,
+      "w": 113,
+      "h": 36
+    },
+    "innerHtml": "Go Back"
+  },
+  {
+    "tag": "A",
+    "text": "Take me home",
+    "title": null,
+    "aria": null,
+    "dataAction": null,
+    "id": null,
+    "cls": "button call-to-action",
+    "href": "https://test-walkerfire-testing.icontroller.billtrust.com/dashboard",
+    "rect": {
+      "x": 214,
+      "y": 467,
+      "w": 138,
+      "h": 36
+    },
+    "innerHtml": "Take me home"
+  },
+  {
+    "tag": "A",
+    "text": "Documentation",
+    "title": null,
+    "aria": null,
+    "dataAction": null,
+    "id": null,
+    "cls": "external-link",
+    "href": "https://icontroller.eu/resources/support/",
+    "rect": {
+      "x": 96,
+      "y": 543,
+      "w": 137,
+      "h": 20
+    },
+    "innerHtml": "Documentation"
+  },
+  {
+    "tag": "A",
+    "text": "Support",
+    "title": null,
+    "aria": null,
+    "dataAction": null,
+    "id": null,
+    "cls": "external-link",
+    "href": "https://icontroller.eu/contact/",
+    "rect": {
+      "x": 96,
+      "y": 603,
+      "w": 83,
+      "h": 20
+    },
+    "innerHtml": "Support"
+  }
+]

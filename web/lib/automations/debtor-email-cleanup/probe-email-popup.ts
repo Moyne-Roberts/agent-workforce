@@ -1,12 +1,11 @@
 /**
- * DOM probe for iController email-detail popup.
+ * DOM probe for iController "New Message" composer — focus on the attachment flow.
  *
- * Purpose: prep-work for the debtor-email drafter sub-agent. We need to know
- * what the DOM looks like when you click an email row's subject — what
- * reply-composer lives inside, which buttons are available, how attachments
- * are added, what selectors we'll rely on.
+ * Shortcut (per Nick 2026-04-22): skip opening an existing email; just click
+ * "New Message" and capture whatever composer opens (likely in a new tab).
  *
- * Read-only. Runs against ACCEPTANCE. No data modified.
+ * Read-only. Runs against ACCEPTANCE. Composer opened, DOM + screenshots
+ * captured, tab closed without sending or saving.
  *
  * Usage:
  *   npx tsx web/lib/automations/debtor-email-cleanup/probe-email-popup.ts
@@ -19,6 +18,7 @@ config({ path: resolve(__dirname, "../../../.env.local") });
 
 import { connectWithSession, saveSession, captureScreenshot } from "@/lib/browser";
 import { resolveCredentials } from "@/lib/credentials/proxy";
+import type { Page, BrowserContext } from "playwright-core";
 
 const ENV = "acceptance" as const;
 const URL_BASE = "https://test-walkerfire-testing.icontroller.billtrust.com";
@@ -28,171 +28,256 @@ const SESSION_KEY = "icontroller_session";
 const OUT_DIR = resolve(__dirname, "../../../../.planning/briefs/artifacts");
 const AUTOMATION = "debtor-email-drafter-probe";
 
+const ATTACH_KEYWORDS = /attach|bijlage|bijvoegen|upload|paperclip/i;
+const NEW_MESSAGE_KEYWORDS = /new\s*message|nieuw(?:\s*bericht)?|compose|write|opstellen/i;
+const SEND_KEYWORDS = /^send$|verstuur|verzend/i;
+const SAVE_DRAFT_KEYWORDS = /save\s*(?:as\s*)?draft|concept\s*opslaan|opslaan/i;
+
+type ActionCandidate = {
+  tag: string;
+  text: string;
+  id: string | null;
+  cls: string | null;
+  href: string | null;
+  visible: boolean;
+  rect: { x: number; y: number; w: number; h: number } | null;
+};
+
+async function ensureLoggedIn(page: Page) {
+  await page.goto(URL_BASE, { waitUntil: "domcontentloaded" });
+  await page.waitForTimeout(2000);
+  const needsLogin = await page.locator("#login-username").isVisible({ timeout: 3000 }).catch(() => false);
+  if (!needsLogin) {
+    console.log("✓ session reused");
+    return;
+  }
+  const creds = await resolveCredentials(CREDENTIAL_ID);
+  await page.fill("#login-username", creds.username);
+  await page.fill("#login-password", creds.password);
+  await page.click("#login-submit");
+  await page.waitForLoadState("domcontentloaded");
+  await page.waitForTimeout(2000);
+  console.log("✓ logged in");
+}
+
+async function scanActions(page: Page, keyword: RegExp): Promise<ActionCandidate[]> {
+  return page.evaluate((pattern) => {
+    const re = new RegExp(pattern.source, pattern.flags);
+    const candidates = Array.from(
+      document.querySelectorAll<HTMLElement>(
+        "button, a, [role='button'], input[type='submit'], input[type='file'], .btn, [data-action], [title]",
+      ),
+    );
+    const out = [];
+    for (const el of candidates) {
+      const text = (el.textContent || "").trim();
+      const title = el.getAttribute("title") || "";
+      const aria = el.getAttribute("aria-label") || "";
+      const action = el.getAttribute("data-action") || "";
+      const combined = `${text} ${title} ${aria} ${action}`;
+      if (!re.test(combined)) continue;
+      const rect = el.getBoundingClientRect();
+      out.push({
+        tag: el.tagName,
+        text: (text || title || aria || action).slice(0, 100),
+        id: el.id || null,
+        cls: (el.className?.toString() || "").slice(0, 120),
+        href: (el as HTMLAnchorElement).href || null,
+        visible: rect.width > 0 && rect.height > 0 && el.offsetParent !== null,
+        rect: rect.width > 0 ? { x: Math.round(rect.x), y: Math.round(rect.y), w: Math.round(rect.width), h: Math.round(rect.height) } : null,
+      });
+    }
+    return out;
+  }, { source: keyword.source, flags: keyword.flags });
+}
+
+async function dumpComposerState(page: Page) {
+  return page.evaluate(() => {
+    const editors = Array.from(
+      document.querySelectorAll<HTMLElement>("[contenteditable='true'], textarea, iframe"),
+    ).map((el) => ({
+      tag: el.tagName,
+      name: el.getAttribute("name") || null,
+      id: el.id || null,
+      cls: (el.className?.toString() || "").slice(0, 120),
+      placeholder: el.getAttribute("placeholder") || null,
+      visible: el.offsetParent !== null,
+    }));
+    const fileInputs = Array.from(document.querySelectorAll<HTMLInputElement>("input[type='file']")).map((el) => ({
+      id: el.id || null,
+      name: el.name || null,
+      accept: el.accept || null,
+      multiple: el.multiple,
+      cls: (el.className?.toString() || "").slice(0, 120),
+      visible: el.offsetParent !== null,
+    }));
+    const formFields = Array.from(document.querySelectorAll<HTMLInputElement>("input[type='text'], input[type='email'], input:not([type]), select")).map((el) => ({
+      id: el.id || null,
+      name: el.name || null,
+      label: (el.labels?.[0]?.textContent || el.getAttribute("placeholder") || el.getAttribute("aria-label") || "").trim().slice(0, 80),
+      visible: el.offsetParent !== null,
+    }));
+    return { editors, fileInputs, formFields, url: window.location.href, title: document.title };
+  });
+}
+
+async function waitForNewPage(context: BrowserContext, trigger: () => Promise<void>, timeoutMs = 8000): Promise<Page | null> {
+  const newPagePromise = context.waitForEvent("page", { timeout: timeoutMs }).catch(() => null);
+  await trigger();
+  const newPage = await newPagePromise;
+  if (newPage) {
+    await newPage.waitForLoadState("domcontentloaded", { timeout: 8000 }).catch(() => null);
+    await newPage.waitForTimeout(2500);
+  }
+  return newPage;
+}
+
 async function main() {
   console.log(`\n=== ENVIRONMENT: ${ENV.toUpperCase()} -- Credentials: iController acceptance ===\n`);
   mkdirSync(OUT_DIR, { recursive: true });
 
   const { browser, context, page } = await connectWithSession(SESSION_KEY);
+  const artifacts: Record<string, unknown> = { env: ENV, ts: new Date().toISOString(), flow: "new-message" };
+
   try {
-    // Login (skips if session still valid)
-    await page.goto(URL_BASE, { waitUntil: "domcontentloaded" });
-    await page.waitForTimeout(2000);
-    const needsLogin = await page.locator("#login-username").isVisible({ timeout: 3000 }).catch(() => false);
-    if (needsLogin) {
-      const creds = await resolveCredentials(CREDENTIAL_ID);
-      await page.fill("#login-username", creds.username);
-      await page.fill("#login-password", creds.password);
-      await page.click("#login-submit");
-      await page.waitForLoadState("domcontentloaded");
-      await page.waitForTimeout(2000);
-      console.log("✓ logged in");
-    } else {
-      console.log("✓ session reused");
+    await ensureLoggedIn(page);
+    await captureScreenshot(page, { automation: AUTOMATION, label: "00-post-login" });
+    console.log(`✓ landing url: ${page.url()}`);
+
+    // Scan the whole logged-in shell for anything that says New Message.
+    const newMsgCandidates = await scanActions(page, NEW_MESSAGE_KEYWORDS);
+    artifacts.newMsgCandidates = newMsgCandidates;
+    console.log(`✓ new-message candidates: ${newMsgCandidates.length}`);
+    for (const a of newMsgCandidates.slice(0, 15)) {
+      console.log(`  · [${a.tag}] "${a.text}" visible=${a.visible} id=${a.id} href=${a.href}`);
     }
 
-    // Navigate to dashboard first, then try messages. Acceptance sometimes 500s on
-    // direct /messages without dashboard context established.
-    await page.goto(`${URL_BASE}/dashboard`, { waitUntil: "domcontentloaded" });
-    await page.waitForTimeout(2000);
-    await captureScreenshot(page, { automation: AUTOMATION, label: "00-dashboard" });
-
-    // Try /messages, retry via sidebar company-link if it errors.
-    await page.goto(`${URL_BASE}/messages`, { waitUntil: "domcontentloaded" });
-    await page.waitForTimeout(2500);
-    let listHtml = await page.content();
-    if (/page is temporarily unavailable|Sorry!/.test(listHtml)) {
-      console.log("! /messages returned error page, trying sidebar mailbox link from dashboard...");
-      await page.goto(`${URL_BASE}/dashboard`, { waitUntil: "domcontentloaded" });
+    const visibleNewMsg = newMsgCandidates.find((a) => a.visible);
+    if (!visibleNewMsg) {
+      // Maybe behind a menu — try hovering nav items or visiting /messages.
+      console.log("! no visible New-Message button on landing; trying /messages");
+      await page.goto(`${URL_BASE}/messages`, { waitUntil: "domcontentloaded" });
       await page.waitForTimeout(2500);
-      const mailboxHref = await page.evaluate(() => {
-        const links = Array.from(document.querySelectorAll<HTMLAnchorElement>("a[href*='/messages/']"));
-        return links[0]?.getAttribute("href") ?? null;
-      });
-      if (mailboxHref) {
-        console.log(`  sidebar link found: ${mailboxHref}`);
-        await page.goto(`${URL_BASE}${mailboxHref}`, { waitUntil: "domcontentloaded" });
-        await page.waitForTimeout(3000);
-        listHtml = await page.content();
-      } else {
-        console.log("  no sidebar /messages link found");
+      await captureScreenshot(page, { automation: AUTOMATION, label: "01-messages-page" });
+      const retry = await scanActions(page, NEW_MESSAGE_KEYWORDS);
+      artifacts.newMsgCandidatesRetry = retry;
+      console.log(`✓ retry candidates on /messages: ${retry.length}`);
+      for (const a of retry.slice(0, 10)) {
+        console.log(`  · [${a.tag}] "${a.text}" visible=${a.visible} id=${a.id} href=${a.href}`);
       }
+      const hit = retry.find((a) => a.visible);
+      if (!hit) {
+        // Dump ALL visible clickable elements so we can eyeball the button.
+        const everything = await page.evaluate(() => {
+          const els = Array.from(document.querySelectorAll<HTMLElement>("button, a, [role='button'], .btn, [data-action]"));
+          return els
+            .map((el) => {
+              const rect = el.getBoundingClientRect();
+              const visible = rect.width > 0 && rect.height > 0 && el.offsetParent !== null;
+              return visible ? {
+                tag: el.tagName,
+                text: (el.textContent || "").trim().slice(0, 100),
+                title: el.getAttribute("title") || null,
+                aria: el.getAttribute("aria-label") || null,
+                dataAction: el.getAttribute("data-action") || null,
+                id: el.id || null,
+                cls: (el.className?.toString() || "").slice(0, 120),
+                href: (el as HTMLAnchorElement).href || null,
+                rect: { x: Math.round(rect.x), y: Math.round(rect.y), w: Math.round(rect.width), h: Math.round(rect.height) },
+                innerHtml: el.innerHTML.slice(0, 200),
+              } : null;
+            })
+            .filter(Boolean);
+        });
+        writeFileSync(resolve(OUT_DIR, "07-all-visible-clickables.json"), JSON.stringify(everything, null, 2));
+        console.log(`  dumped ${everything.length} visible clickables to 07-all-visible-clickables.json`);
+        await captureScreenshot(page, { automation: AUTOMATION, label: "02-messages-page-no-newmsg" });
+        throw new Error("No visible New-Message button found; inspect artifacts to identify it");
+      }
+      artifacts.chosenNewMsg = hit;
+    } else {
+      artifacts.chosenNewMsg = visibleNewMsg;
     }
 
-    const listShot = await captureScreenshot(page, { automation: AUTOMATION, label: "01-messages-list" });
-    console.log(`✓ messages list screenshot: ${listShot.url ?? listShot.path}`);
-    console.log(`  page size: ${listHtml.length.toLocaleString()} bytes`);
+    const chosen = artifacts.chosenNewMsg as ActionCandidate;
+    console.log(`→ clicking: "${chosen.text}" (id=${chosen.id}, href=${chosen.href})`);
 
-    // Capture the FIRST email row's raw HTML so we know how subject cells render
-    const firstRowHtml = await page.evaluate(() => {
-      const row = document.querySelector<HTMLTableRowElement>("#messages-list tbody tr");
-      if (!row) return null;
-      return {
-        outerHtml: row.outerHTML.slice(0, 4000),
-        cellTexts: Array.from(row.querySelectorAll("td")).map((td) => (td.textContent || "").trim().slice(0, 120)),
-      };
-    });
-    writeFileSync(resolve(OUT_DIR, "01-first-row.json"), JSON.stringify(firstRowHtml, null, 2));
-    console.log(`✓ first-row snapshot written`);
-
-    // Click the most clickable element in the first row (likely a link in subject cell)
-    const clickOutcome = await page.evaluate(() => {
-      const row = document.querySelector<HTMLTableRowElement>("#messages-list tbody tr");
-      if (!row) return { clicked: false, reason: "no row" };
-      // Priority: <a> inside row → clickable cell with onclick → row itself
-      const link = row.querySelector<HTMLAnchorElement>("a[href]");
-      if (link) {
-        link.click();
-        return { clicked: true, via: "anchor", href: link.getAttribute("href") };
-      }
-      const clickable = row.querySelector<HTMLElement>("[onclick], [data-toggle], .clickable");
-      if (clickable) {
-        clickable.click();
-        return { clicked: true, via: "onclick-element" };
-      }
-      // Fallback: click the cell with the longest text (usually subject)
-      let best: HTMLElement | null = null;
-      let bestLen = 0;
-      for (const td of Array.from(row.querySelectorAll<HTMLElement>("td"))) {
-        const len = (td.textContent || "").trim().length;
-        if (len > bestLen) { best = td; bestLen = len; }
-      }
-      if (best) { best.click(); return { clicked: true, via: "longest-cell" }; }
-      return { clicked: false, reason: "nothing clickable" };
-    });
-    console.log(`✓ click outcome:`, clickOutcome);
-
-    await page.waitForTimeout(3500); // popup animation + content load
-
-    const afterClickShot = await captureScreenshot(page, { automation: AUTOMATION, label: "02-after-click" });
-    console.log(`✓ post-click screenshot: ${afterClickShot.url ?? afterClickShot.path}`);
-
-    // Capture: URL (maybe SPA route changed), any modal element, and the full-page DOM slice around message/email keywords
-    const snapshot = await page.evaluate(() => {
-      const modalSelectors = [
-        ".modal.show",
-        ".modal.in",
-        ".modal[style*='display: block']",
-        "[role='dialog']",
-        ".email-detail",
-        ".message-detail",
-        ".preview-pane",
-        "#message-modal",
-        "#email-modal",
-      ];
-      const foundModals = modalSelectors
-        .map((sel) => {
-          const el = document.querySelector<HTMLElement>(sel);
-          return el ? { selector: sel, outerHtml: el.outerHTML.slice(0, 20_000), visible: el.offsetParent !== null } : null;
-        })
-        .filter(Boolean);
-
-      // Buttons/actions anywhere on the page that look like reply/draft/attach
-      const actionKeywords = /reply|answer|antwoord|beantwoord|draft|concept|compose|attach|bijlage|send|verstuur|forward|doorsturen/i;
-      const actions = Array.from(document.querySelectorAll<HTMLElement>("button, a, [role='button'], input[type='submit']"))
-        .map((el) => ({
-          tag: el.tagName,
-          text: (el.textContent || "").trim().slice(0, 80),
-          id: el.id || null,
-          cls: el.className?.toString().slice(0, 120) || null,
-          href: (el as HTMLAnchorElement).href || null,
-        }))
-        .filter((a) => a.text && actionKeywords.test(a.text));
-
-      return {
-        url: window.location.href,
-        title: document.title,
-        modals: foundModals,
-        bodyTextSlice: document.body.innerText.slice(0, 2000),
-        candidateActions: actions.slice(0, 50),
-      };
+    // Click and watch for a new page/tab. Fall back to same-page nav.
+    const newPage = await waitForNewPage(context, async () => {
+      await page.evaluate(({ id, text, href }) => {
+        const byId = id ? document.getElementById(id) : null;
+        if (byId) return byId.click();
+        const all = Array.from(document.querySelectorAll<HTMLElement>("button, a, [role='button'], .btn"));
+        const byText = all.find((el) => (el.textContent || "").trim().slice(0, 100) === text);
+        if (byText) return byText.click();
+        const byHref = href ? document.querySelector<HTMLAnchorElement>(`a[href="${href}"]`) : null;
+        if (byHref) return byHref.click();
+      }, { id: chosen.id, text: chosen.text, href: chosen.href });
     });
 
-    writeFileSync(resolve(OUT_DIR, "02-after-click-snapshot.json"), JSON.stringify(snapshot, null, 2));
-    console.log(`✓ snapshot JSON written`);
+    const composer: Page = newPage ?? page;
+    console.log(`✓ composer page: ${newPage ? "NEW TAB opened" : "same page navigated"} → ${composer.url()}`);
+    artifacts.composerOpenedInNewTab = !!newPage;
+    artifacts.composerUrl = composer.url();
 
-    // Full page HTML dump (may be large — truncated per serializer)
-    const fullHtml = await page.content();
-    writeFileSync(resolve(OUT_DIR, "03-full-page.html"), fullHtml);
-    console.log(`✓ full page HTML written (${fullHtml.length.toLocaleString()} bytes)`);
+    await captureScreenshot(composer, { automation: AUTOMATION, label: "02-composer" });
 
-    // Summary print
-    console.log("\n--- SUMMARY ---");
-    console.log(`URL:      ${snapshot.url}`);
-    console.log(`Title:    ${snapshot.title}`);
-    console.log(`Modals:   ${snapshot.modals.length} found`);
-    for (const m of snapshot.modals) {
-      console.log(`  · ${m!.selector}  visible=${m!.visible}  (${m!.outerHtml.length} bytes)`);
+    const composerState = await dumpComposerState(composer);
+    artifacts.composerState = composerState;
+    console.log(`✓ composer editors=${composerState.editors.length}, file inputs=${composerState.fileInputs.length}, form fields=${composerState.formFields.length}`);
+    for (const ed of composerState.editors.slice(0, 5)) {
+      console.log(`  · editor [${ed.tag}] name=${ed.name} id=${ed.id} visible=${ed.visible}`);
     }
-    console.log(`Actions:  ${snapshot.candidateActions.length} reply/draft/attach candidates`);
-    for (const a of snapshot.candidateActions.slice(0, 15)) {
-      console.log(`  · [${a.tag}]  "${a.text}"  id=${a.id}  cls="${(a.cls || "").slice(0, 60)}"`);
+    for (const fi of composerState.fileInputs) {
+      console.log(`  · file input name=${fi.name} id=${fi.id} accept=${fi.accept} multiple=${fi.multiple} visible=${fi.visible}`);
     }
-    console.log(`\nArtifacts in: ${OUT_DIR}`);
+
+    // Scan attach actions on composer
+    const attachActions = await scanActions(composer, ATTACH_KEYWORDS);
+    artifacts.attachActions = attachActions;
+    console.log(`✓ attach-keyword candidates: ${attachActions.length}`);
+    for (const a of attachActions.slice(0, 15)) {
+      console.log(`  · [${a.tag}] "${a.text}" visible=${a.visible} id=${a.id} cls="${(a.cls || "").slice(0, 60)}"`);
+    }
+
+    const sendActions = await scanActions(composer, SEND_KEYWORDS);
+    const draftActions = await scanActions(composer, SAVE_DRAFT_KEYWORDS);
+    artifacts.sendActions = sendActions;
+    artifacts.draftActions = draftActions;
+    console.log(`✓ send-keyword candidates: ${sendActions.length}`);
+    console.log(`✓ save-draft candidates: ${draftActions.length}`);
+    for (const a of sendActions.slice(0, 5)) console.log(`  send · [${a.tag}] "${a.text}" id=${a.id}`);
+    for (const a of draftActions.slice(0, 5)) console.log(`  draft · [${a.tag}] "${a.text}" id=${a.id}`);
+
+    // If an attach button is visible, CLICK it (without uploading anything) to see what surface reveals
+    const firstAttach = attachActions.find((a) => a.visible);
+    if (firstAttach) {
+      console.log(`→ clicking attach: "${firstAttach.text}"`);
+      await composer.evaluate(({ id, text }) => {
+        const byId = id ? document.getElementById(id) : null;
+        if (byId) return byId.click();
+        Array.from(document.querySelectorAll<HTMLElement>("button, a, [role='button'], .btn"))
+          .find((el) => (el.textContent || "").trim().slice(0, 100) === text)?.click();
+      }, { id: firstAttach.id, text: firstAttach.text });
+      await composer.waitForTimeout(2000);
+      await captureScreenshot(composer, { automation: AUTOMATION, label: "03-after-attach-click" });
+      const postAttach = await dumpComposerState(composer);
+      artifacts.composerStateAfterAttach = postAttach;
+      console.log(`✓ after attach click: file inputs=${postAttach.fileInputs.length}`);
+    }
+
+    // Dump HTML of whichever page hosts the composer
+    const fullHtml = await composer.content();
+    writeFileSync(resolve(OUT_DIR, "05-composer-page.html"), fullHtml);
+    writeFileSync(resolve(OUT_DIR, "06-probe-summary.json"), JSON.stringify(artifacts, null, 2));
+    console.log(`\n✓ composer page HTML: ${fullHtml.length.toLocaleString()} bytes`);
+    console.log(`✓ summary JSON written to ${OUT_DIR}`);
 
     await saveSession(context, SESSION_KEY);
   } catch (err) {
     console.error("Fatal:", err);
     await captureScreenshot(page, { automation: AUTOMATION, label: "error" }).catch(() => null);
+    writeFileSync(resolve(OUT_DIR, "06-probe-summary.json"), JSON.stringify({ ...artifacts, error: String(err) }, null, 2));
     process.exitCode = 1;
   } finally {
     await browser.close();
