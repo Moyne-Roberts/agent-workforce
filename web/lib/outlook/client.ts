@@ -145,6 +145,38 @@ export async function listInboxMessages(
 }
 
 /**
+ * Fetch lightweight metadata for a single message — used by the Zapier
+ * ingest webhook to classify a new mail without pulling the full inbox.
+ * Throws when Graph returns non-2xx (typically 404 when the message has
+ * been deleted between Zapier trigger and our POST).
+ */
+export async function getMessageMeta(
+  mailbox: string,
+  messageId: string,
+): Promise<{ subject: string; from: string; fromName: string; receivedAt: string; categories: string[] }> {
+  const fields = "id,subject,from,receivedDateTime,categories";
+  const res = await graphFetch(
+    `/users/${mailbox}/messages/${messageId}?$select=${fields}`,
+  );
+  if (!res.ok) {
+    throw new Error(`getMessageMeta ${res.status}: ${await res.text()}`);
+  }
+  const data = (await res.json()) as {
+    subject?: string;
+    from?: { emailAddress: { address: string; name?: string } };
+    receivedDateTime?: string;
+    categories?: string[];
+  };
+  return {
+    subject: data.subject ?? "",
+    from: data.from?.emailAddress.address ?? "",
+    fromName: data.from?.emailAddress.name ?? "",
+    receivedAt: data.receivedDateTime ?? "",
+    categories: data.categories ?? [],
+  };
+}
+
+/**
  * Fetch the full body of a single message. Returns plain text (stripped) and
  * raw HTML — UI decides which to render. `bodyType` reports Graph's original
  * content type so the caller can fall back to html when text is empty.
