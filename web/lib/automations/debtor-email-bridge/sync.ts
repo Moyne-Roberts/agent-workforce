@@ -17,22 +17,71 @@ import { createAdminClient } from "@/lib/supabase/admin";
 const DEBTOR_EMAIL_SWARM_ID = "60c730a3-be04-4b59-87e8-d9698b468fc9";
 const PREFIX = "debtor-email";
 
-/** automation_runs.automation → swarm_agents.agent_name */
-const AGENT_MAP: Record<string, string> = {
-  "debtor-email-review": "Classifier Orchestrator",
-  "debtor-email-cleanup": "AutoReplyHandler",
+/**
+ * Map an automation_run to its sub-agent:
+ *
+ *   - debtor-email-review runs are FIRED by the Classifier Orchestrator.
+ *     Within the orchestrator, one of 5 RegEx rule-agents "matches" a
+ *     category (auto_reply / ooo_temporary / ooo_permanent /
+ *     payment_admittance / unknown). Each run is attributed to the
+ *     specific rule-agent so the delegation graph shows which rule is
+ *     carrying the load.
+ *
+ *   - debtor-email-cleanup runs are the AutoReplyHandler acting on the
+ *     output of the classifier (iController delete + Outlook archive).
+ */
+
+const RULE_AGENTS: Record<string, string> = {
+  auto_reply: "Rule · auto_reply",
+  ooo_temporary: "Rule · ooo_temporary",
+  ooo_permanent: "Rule · ooo_permanent",
+  payment_admittance: "Rule · payment_admittance",
+  unknown: "Rule · unknown",
 };
 
-function resolveAgent(automation: string): string {
-  if (AGENT_MAP[automation]) return AGENT_MAP[automation];
-  // Fall back to derived name (e.g. debtor-email-ooo-handler → OOOHandler)
-  const suffix = automation.startsWith(`${PREFIX}-`)
-    ? automation.slice(PREFIX.length + 1)
-    : automation;
-  return suffix
-    .split(/[-_]/)
-    .map((s) => s.charAt(0).toUpperCase() + s.slice(1))
-    .join("");
+function extractCategory(run: AutomationRun): string | null {
+  const r = run.result;
+  if (!r || typeof r !== "object") return null;
+  const rec = r as Record<string, unknown>;
+  // Completed flow: applied_category is set once Outlook categorization succeeds
+  const applied = rec.applied_category;
+  if (typeof applied === "string") return normalizeCategory(applied);
+  // Feedback flow: predicted.{category,rule} or override_category
+  const predicted = rec.predicted as Record<string, unknown> | undefined;
+  const override = rec.override_category;
+  if (typeof override === "string" && override.length > 0) return override;
+  if (predicted && typeof predicted.category === "string") {
+    return predicted.category as string;
+  }
+  // Older shape
+  const prediction = rec.prediction as Record<string, unknown> | undefined;
+  if (prediction && typeof prediction.category === "string") {
+    return prediction.category as string;
+  }
+  if (typeof rec.target_category === "string") return rec.target_category;
+  return null;
+}
+
+function normalizeCategory(raw: string): string {
+  // Orq Outlook categorization uses display names like "Auto-Reply".
+  const slug = raw.toLowerCase().replace(/[\s-]+/g, "_");
+  if (slug.startsWith("auto_reply") || slug.startsWith("auto-reply")) return "auto_reply";
+  if (slug.includes("ooo_temp") || slug === "ooo_temporary") return "ooo_temporary";
+  if (slug.includes("ooo_perm") || slug === "ooo_permanent") return "ooo_permanent";
+  if (slug.includes("payment")) return "payment_admittance";
+  if (slug.includes("unknown")) return "unknown";
+  return slug;
+}
+
+function resolveAgent(run: AutomationRun): string {
+  if (run.automation === "debtor-email-cleanup") return "AutoReplyHandler";
+  if (run.automation === "debtor-email-review") {
+    const category = extractCategory(run);
+    if (category && RULE_AGENTS[category]) return RULE_AGENTS[category];
+    return "Classifier Orchestrator";
+  }
+  // Future automations: fall back to orchestrator.
+  return "Classifier Orchestrator";
 }
 
 type AutomationRun = {
@@ -144,7 +193,7 @@ export async function syncDebtorEmailBridge(): Promise<BridgeResult> {
     description: run.error_message ?? null,
     stage: stageFromStatus(run.status),
     priority: run.status === "failed" ? "high" : "normal",
-    assigned_agent: resolveAgent(run.automation),
+    assigned_agent: resolveAgent(run),
     tags: tagsFor(run),
     position: 0,
     updated_at: run.completed_at ?? run.created_at,
@@ -170,7 +219,7 @@ export async function syncDebtorEmailBridge(): Promise<BridgeResult> {
   }> = [];
 
   for (const run of runRows) {
-    const agent = resolveAgent(run.automation);
+    const agent = resolveAgent(run);
     const endIso = run.completed_at ?? run.created_at;
 
     events.push({
