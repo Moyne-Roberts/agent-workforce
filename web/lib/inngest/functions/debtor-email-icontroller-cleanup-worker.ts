@@ -44,14 +44,20 @@ type Outcome = {
 export const cleanupIControllerShardWorker = inngest.createFunction(
   {
     id: "automations/debtor-email-icontroller-shard-worker",
-    retries: 1,
-    // CEL expression wrapped in string() so a numeric workerIndex (0,1,2)
-    // yields three distinct string keys ("0","1","2") instead of collapsing
-    // into a single bucket — which is what Inngest appears to do when the
-    // key expression returns a number. Observed 2026-04-23: without this
-    // wrap, 3 emitted shard events ran sequentially (1 running + 2 queued)
-    // instead of all three in parallel.
-    concurrency: { limit: 1, key: "string(event.data.workerIndex)" },
+    // retries: 0 — Browserless connect failures cascade badly with
+    // retries. A failed w0 that retries holds its concurrency slot for
+    // 2× the timeout (~10m), and that blocks the NEXT tick's w0 event
+    // for the same 10m. Observed 2026-04-23: w0 zombie runs of 10m+
+    // queued the following w0 behind them indefinitely. Failing fast
+    // just means the next cron tick (5 min later) re-dispatches the
+    // same rows — same cost as a retry, but the slot frees sooner.
+    retries: 0,
+    // No concurrency limit. Dispatcher-level concurrency:{limit:1}
+    // already prevents two dispatcher runs from colliding, so we
+    // don't need worker-level fencing. Keeping a per-workerIndex limit
+    // caused zombie-chaining (see above). Rows are the unit of
+    // idempotency — flip-to-pending + id-based update makes duplicate
+    // processing harmless.
   },
   { event: "icontroller/cleanup.shard.requested" },
   async ({ event, step }) => {
