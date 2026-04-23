@@ -1,0 +1,47 @@
+name: Inngest sync after Vercel deploy
+
+# Vercel's built-in Inngest integration is supposed to PUT /api/inngest after
+# every production deploy so Inngest cloud picks up new functions / crons.
+# It occasionally misses the webhook (observed 2026-04-23: dispatcher+worker
+# deployed but Inngest had no record, cron ticks silently skipped for ~20 min).
+# This workflow is a belt-and-braces sync that runs on every push to main.
+#
+# It waits a bit for the Vercel production deploy to go live, then PUTs the
+# endpoint with retries until we get a 200. Works even if the Vercel build
+# is slow — each retry is 30s apart, 5 attempts = up to 2.5 min of backoff
+# on top of the initial 90s wait.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch: # allow manual trigger from GitHub UI
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Wait for Vercel deploy to go live
+        # Vercel production deploys typically finish in 60-120s. 90s covers
+        # the common case; the retry loop below absorbs slower builds.
+        run: sleep 90
+
+      - name: PUT /api/inngest with retry
+        env:
+          ENDPOINT: https://agent-workforce-eosin.vercel.app/api/inngest
+        run: |
+          set -u
+          for attempt in 1 2 3 4 5; do
+            echo "Attempt $attempt: PUT $ENDPOINT"
+            response=$(curl -s -o /tmp/body.json -w "%{http_code}" -X PUT "$ENDPOINT" || echo "000")
+            echo "HTTP $response"
+            cat /tmp/body.json || true
+            echo
+            if [ "$response" = "200" ]; then
+              echo "Sync OK"
+              exit 0
+            fi
+            echo "Not ready, waiting 30s"
+            sleep 30
+          done
+          echo "Sync failed after 5 attempts" >&2
+          exit 1
