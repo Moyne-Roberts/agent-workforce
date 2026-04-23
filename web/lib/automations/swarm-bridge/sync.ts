@@ -37,7 +37,7 @@ function stageFromStatus(status: string): string {
     case "skipped_idempotent":
       return "done";
     case "failed":
-      return "done";
+      return "backlog";
     default:
       return "backlog";
   }
@@ -93,7 +93,7 @@ function deriveEntityStage(runs: AutomationRun[]): {
       best = stage;
     }
   }
-  return { stage: best === "failed" ? "done" : best, hasError };
+  return { stage: best === "failed" ? "backlog" : best, hasError };
 }
 
 function runTitle(run: AutomationRun): string | null {
