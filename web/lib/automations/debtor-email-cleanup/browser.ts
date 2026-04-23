@@ -44,9 +44,15 @@ export interface CleanupResult {
  *
  * Match rule:
  *   sender email in search box → for each result row, require FULL subject
- *   equality AND received_at within ±60 s of ours (covers 3–5 s delivery
- *   drift between Outlook and iController's timestamp). Multiple rows that
- *   satisfy both → ambiguous, return -2 so the caller can log and skip.
+ *   equality AND received_at within ±15 s of ours (covers 3–5 s delivery
+ *   drift between Outlook and iController's timestamp).
+ *
+ *   If multiple rows satisfy both, pick the first. Rationale: vendors
+ *   like Lidl and Unica batch-insert N identical payment-notification
+ *   emails within 1-2s of each other; our inbox holds N identical
+ *   copies to delete. Any 1:1 pairing is correct — set semantics, not
+ *   row identity. The previous "ambiguous → skip" policy left these
+ *   permanently stuck.
  */
 async function findEmailViaSearch(
   page: Page,
@@ -170,8 +176,9 @@ async function findEmailViaSearch(
 
     for (const c of pageCandidates) debugCandidates.push(c);
 
-    if (hits.length === 1) return hits[0];
-    if (hits.length > 1) return -2;
+    // Any hit is good enough — pick the first. See match rule in the
+    // function's top comment for why multi-hit is now treated as OK.
+    if (hits.length >= 1) return hits[0];
 
     const advanced = await page.evaluate(() => {
       const btn = document.querySelector<HTMLElement>(
@@ -334,20 +341,6 @@ export async function findAndPreviewEmail(
 
   try {
     const rowIndex = await findEmailViaSearch(page, email);
-    if (rowIndex === -2) {
-      const shot = await captureScreenshot(page, {
-        automation: AUTOMATION_NAME,
-        label: `preview-ambiguous`,
-      });
-      return {
-        success: false,
-        emailFound: false,
-        rowIndex: -1,
-        rowPreview: null,
-        screenshot: shot,
-        error: `Ambiguous match: multiple rows with subject "${email.subject}" within ±15s of ${email.receivedAt}`,
-      };
-    }
     if (rowIndex === -1) {
       const debug = await readSearchDebug(page);
       const shot = await captureScreenshot(page, {
@@ -417,18 +410,6 @@ export async function deleteEmailOnPage(
       .catch(() => null);
 
     const rowIndex = await findEmailViaSearch(page, email);
-    if (rowIndex === -2) {
-      const errorScreenshot = await captureScreenshot(page, {
-        automation: AUTOMATION_NAME,
-        label: "ambiguous-match",
-      });
-      return {
-        success: false,
-        emailFound: false,
-        screenshots: { before: errorScreenshot, after: null },
-        error: `Ambiguous match: multiple rows with subject "${email.subject}" within ±15s of ${email.receivedAt}`,
-      };
-    }
     if (rowIndex === -1) {
       const debug = await readSearchDebug(page);
       const errorScreenshot = await captureScreenshot(page, {
