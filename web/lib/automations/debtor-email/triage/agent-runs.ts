@@ -108,7 +108,7 @@ export async function findCachedOutput<T = Record<string, unknown>>(
   email_id: string,
   version_field: "intent_version" | "body_version",
   version_value: string,
-  output_field: "tool_outputs" | "body_html" | "draft_url",
+  output_field: "tool_outputs" | "draft_url",
 ): Promise<T | null> {
   const { data, error } = await supabase
     .schema("debtor")

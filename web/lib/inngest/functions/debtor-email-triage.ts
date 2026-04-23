@@ -247,22 +247,11 @@ export const debtorEmailTriage = inngest.createFunction(
     const body = await step.run("generate-body", async () => {
       await updateRun(supabase, agent_run_id, { status: "generating_body" });
 
-      const cachedHtml = await findCachedOutput<string>(
-        supabase,
-        email_id,
-        "body_version",
-        BODY_VERSION,
-        "body_html",
-      );
-      if (cachedHtml) {
-        // Replay-safe: already generated earlier. Rehydrate via Zod-validated
-        // re-fetch would be nicer, but cached HTML is enough for downstream.
-        return {
-          body_html: cachedHtml,
-          detected_tone: emotion.match ? "de-escalation" : "neutral",
-          body_version: BODY_VERSION,
-        } as const;
-      }
+      // NB: we previously tried a findCachedOutput against a non-existent
+      // `agent_runs.body_html` column (it lives inside tool_outputs.body).
+      // Inngest's own step memoization already handles replay-safety within
+      // a function invocation, so a cross-invocation body cache is not
+      // needed for phase-1 shadow mode.
 
       const input = {
         email_id,
