@@ -149,14 +149,14 @@ export const debtorEmailTriage = inngest.createFunction(
     if (!route.auto) {
       await step.run("human-queue", async () => {
         await updateRun(supabase, agent_run_id, {
-          status: "copy_document_needs_review",
+          status: "routed_human_queue",
           completed_at: new Date().toISOString(),
         });
       });
       return {
         agent_run_id,
         email_id,
-        status: "copy_document_needs_review" as const,
+        status: "routed_human_queue" as const,
       };
     }
 
