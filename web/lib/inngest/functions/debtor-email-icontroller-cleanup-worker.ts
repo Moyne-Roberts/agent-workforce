@@ -65,6 +65,15 @@ export const cleanupIControllerShardWorker = inngest.createFunction(
     return step.run("process-shard", async () => {
       const out: Outcome[] = [];
 
+      // Stagger worker start so 3 parallel shards don't all hit Browserless
+      // within the same millisecond. Observed 2026-04-23: simultaneous
+      // connectOverCDP calls from the same dispatch caused w0 + w2 to hang
+      // until Vercel's 300s cap while w1 succeeded — classic thundering
+      // herd. 1.5s × workerIndex gives workers 0/1/2 a 0/1.5/3s offset.
+      if (workerIndex > 0) {
+        await new Promise((r) => setTimeout(r, workerIndex * 1500));
+      }
+
       const session = await openIControllerSession("production", workerIndex);
       try {
         for (const row of rows) {

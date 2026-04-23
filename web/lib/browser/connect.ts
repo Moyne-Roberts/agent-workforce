@@ -16,7 +16,21 @@ export async function connectWithSession(sessionKey?: string): Promise<{
   const token = process.env.BROWSERLESS_API_TOKEN;
   if (!token) throw new Error("BROWSERLESS_API_TOKEN not configured");
   const wsEndpoint = `wss://production-ams.browserless.io?token=${token}&timeout=600000`;
-  const browser = await chromium.connectOverCDP(wsEndpoint, { timeout: 120_000 });
+
+  // CDP connect is flaky when multiple workers hit Browserless within the
+  // same second (observed 2026-04-23: 3 parallel shard workers, 1 succeeds
+  // and 2 hang at connectOverCDP until Vercel's 300s maxDuration kills
+  // them — no error written to DB because the crash is before any flip).
+  // One retry with 2s backoff covers this race; 120s per attempt keeps the
+  // total worst case at ~242s, still under the Vercel cap.
+  let browser: Browser;
+  try {
+    browser = await chromium.connectOverCDP(wsEndpoint, { timeout: 120_000 });
+  } catch (err) {
+    console.warn(`[connectWithSession] first connect failed, retrying: ${String(err).slice(0, 200)}`);
+    await new Promise((r) => setTimeout(r, 2000));
+    browser = await chromium.connectOverCDP(wsEndpoint, { timeout: 120_000 });
+  }
 
   let storageState: string | undefined;
 
