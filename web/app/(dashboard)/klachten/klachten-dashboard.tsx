@@ -54,8 +54,8 @@ type Klacht = {
   id: string;
   received_at: string;
   klantnaam: string;
-  klant_email: string | null;
-  klant_telefoon: string | null;
+  naam: string | null;
+  email: string | null;
   categorie: string;
   subcategorie: string | null;
   prioriteit: string | null;
@@ -64,6 +64,7 @@ type Klacht = {
   status: string;
   behandelaar: string | null;
   bron: string | null;
+  reactie_front_office: string | null;
 };
 
 function toIsoDate(d: Date) {
@@ -96,7 +97,7 @@ export function KlachtenDashboard({ initialCategories }: { initialCategories: st
       let q = supabase
         .from("klachten")
         .select(
-          "id, received_at, klantnaam, klant_email, klant_telefoon, categorie, subcategorie, prioriteit, onderwerp, omschrijving, status, behandelaar, bron"
+          "id, received_at, klantnaam, naam, email, categorie, subcategorie, prioriteit, onderwerp, omschrijving, status, behandelaar, bron, reactie_front_office"
         )
         .gte("received_at", fromDate.toISOString())
         .lte("received_at", toDate.toISOString())
@@ -191,14 +192,15 @@ export function KlachtenDashboard({ initialCategories }: { initialCategories: st
     const headers = [
       "received_at",
       "klantnaam",
-      "klant_email",
-      "klant_telefoon",
+      "naam",
+      "email",
       "categorie",
       "subcategorie",
       "prioriteit",
       "status",
       "onderwerp",
       "omschrijving",
+      "reactie_front_office",
       "behandelaar",
       "bron",
     ] as const;
@@ -421,52 +423,57 @@ export function KlachtenDashboard({ initialCategories }: { initialCategories: st
                     <TableHead>Datum</TableHead>
                     <TableHead>Klant</TableHead>
                     <TableHead>Categorie</TableHead>
-                    <TableHead>Onderwerp</TableHead>
-                    <TableHead>Prioriteit</TableHead>
+                    <TableHead>Klacht</TableHead>
+                    <TableHead>Ingediend door</TableHead>
                     <TableHead>Status</TableHead>
-                    <TableHead>Behandelaar</TableHead>
+                    <TableHead>FO-reactie</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {rows.map((r) => (
                     <TableRow key={r.id}>
-                      <TableCell className="whitespace-nowrap text-sm">
+                      <TableCell className="whitespace-nowrap text-sm align-top">
                         {format(new Date(r.received_at), "d MMM yyyy", { locale: nl })}
                       </TableCell>
-                      <TableCell className="text-sm">
+                      <TableCell className="text-sm align-top">
                         <div className="font-medium" style={{ color: CURA.navy }}>
                           {r.klantnaam}
                         </div>
-                        {r.klant_email && (
-                          <div className="text-xs text-muted-foreground">{r.klant_email}</div>
-                        )}
                       </TableCell>
-                      <TableCell className="text-sm">
+                      <TableCell className="text-sm align-top">
                         <span
                           className="inline-flex px-2 py-0.5 rounded text-xs font-medium"
                           style={{ backgroundColor: "#FEF9E7", color: CURA.navy }}
                         >
                           {r.categorie}
                         </span>
-                        {r.subcategorie && (
-                          <div className="text-xs text-muted-foreground mt-1">{r.subcategorie}</div>
-                        )}
                       </TableCell>
-                      <TableCell className="text-sm max-w-md">
-                        <div className="font-medium truncate" style={{ color: CURA.navy }}>
+                      <TableCell className="text-sm max-w-md align-top">
+                        <div className="font-medium" style={{ color: CURA.navy }}>
                           {r.onderwerp ?? "—"}
                         </div>
-                        <div className="text-xs text-muted-foreground line-clamp-2">
+                        <div className="text-xs text-muted-foreground line-clamp-3 mt-0.5">
                           {r.omschrijving}
                         </div>
                       </TableCell>
-                      <TableCell className="text-sm">
-                        <PriorityBadge value={r.prioriteit} />
+                      <TableCell className="text-sm align-top">
+                        <div>{r.naam ?? "—"}</div>
+                        {r.email && (
+                          <div className="text-xs text-muted-foreground">{r.email}</div>
+                        )}
                       </TableCell>
-                      <TableCell className="text-sm">
+                      <TableCell className="text-sm align-top">
                         <StatusBadge value={r.status} />
                       </TableCell>
-                      <TableCell className="text-sm">{r.behandelaar ?? "—"}</TableCell>
+                      <TableCell className="text-sm max-w-xs align-top">
+                        {r.reactie_front_office ? (
+                          <div className="text-xs line-clamp-3">{r.reactie_front_office}</div>
+                        ) : (
+                          <span className="text-xs text-muted-foreground italic">
+                            geen reactie
+                          </span>
+                        )}
+                      </TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
