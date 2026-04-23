@@ -38,6 +38,7 @@ export default async function proxy(request: NextRequest) {
     !request.nextUrl.pathname.startsWith("/auth") &&
     !request.nextUrl.pathname.startsWith("/api/inngest") &&
     !request.nextUrl.pathname.startsWith("/api/automations") &&
+    !request.nextUrl.pathname.startsWith("/api/klachten") &&
     !request.nextUrl.pathname.startsWith("/rijtijden")
   ) {
     const originalPath = request.nextUrl.pathname + request.nextUrl.search;
