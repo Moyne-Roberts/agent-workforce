@@ -20,7 +20,8 @@ import {
 } from "@/lib/inngest/functions/heeren-oefeningen";
 import { refreshBriefings } from "@/lib/inngest/functions/briefing-refresh";
 import { syncDebtorEmailBridgeCron } from "@/lib/inngest/functions/debtor-email-bridge";
-import { cleanupIControllerPending } from "@/lib/inngest/functions/debtor-email-icontroller-cleanup";
+import { cleanupIControllerDispatch } from "@/lib/inngest/functions/debtor-email-icontroller-cleanup-dispatcher";
+import { cleanupIControllerShardWorker } from "@/lib/inngest/functions/debtor-email-icontroller-cleanup-worker";
 
 export const { GET, POST, PUT } = serve({
   client: inngest,
@@ -37,6 +38,7 @@ export const { GET, POST, PUT } = serve({
     createMonthlyInvoiceDrafts,
     refreshBriefings,
     syncDebtorEmailBridgeCron,
-    cleanupIControllerPending,
+    cleanupIControllerDispatch,
+    cleanupIControllerShardWorker,
   ],
 });

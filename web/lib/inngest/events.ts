@@ -138,6 +138,24 @@ export type Events = {
     };
   };
 
+  // iController cleanup fan-out (dispatcher → shard worker)
+  "icontroller/cleanup.shard.requested": {
+    data: {
+      workerIndex: number;
+      rows: Array<{
+        id: string;
+        result: {
+          stage: string;
+          message_id: string;
+          from: string;
+          subject: string;
+          received_at: string;
+          icontroller?: string;
+        };
+      }>;
+    };
+  };
+
   // Uren controle automation
   // Supports two file delivery modes — exactly one of contentBase64 or downloadUrl must be set:
   //   downloadUrl: SharePoint pre-authenticated signed URL (simpler Zapier setup, no base64 step)

@@ -1,33 +1,15 @@
 import { type Page } from "playwright-core";
-import { connectWithSession, saveSession, captureBeforeAfter, captureScreenshot } from "@/lib/browser";
-import { resolveCredentials } from "@/lib/credentials/proxy";
+import { captureBeforeAfter, captureScreenshot } from "@/lib/browser";
+import {
+  openIControllerSession,
+  closeIControllerSession,
+  type IControllerEnv,
+  type EnvConfig,
+} from "@/lib/automations/icontroller/session";
+
+export type { IControllerEnv, EnvConfig };
 
 const AUTOMATION_NAME = "debtor-email-cleanup";
-
-export type IControllerEnv = "acceptance" | "production";
-
-export interface EnvConfig {
-  url: string;
-  credentialId: string;
-  sessionKey: string;
-}
-
-function resolveEnv(env: IControllerEnv | undefined): EnvConfig {
-  const resolved: IControllerEnv =
-    env ?? (process.env.ICONTROLLER_ENV === "production" ? "production" : "acceptance");
-  if (resolved === "production") {
-    return {
-      url: "https://walkerfire.icontroller.eu",
-      credentialId: "dfae6b50-59dd-44e6-81ac-79d4f3511c3f",
-      sessionKey: "icontroller_session_prod",
-    };
-  }
-  return {
-    url: "https://test-walkerfire-testing.icontroller.billtrust.com",
-    credentialId: "e9a9570e-5f0d-4d50-8b41-212fc6bdb78a",
-    sessionKey: "icontroller_session",
-  };
-}
 
 export interface EmailIdentifiers {
   /** Company name as shown in iController sidebar */
@@ -48,137 +30,6 @@ export interface CleanupResult {
     after: { path: string; url: string | null } | null;
   };
   error?: string;
-}
-
-/**
- * Login to iController. Skips if already logged in via session reuse.
- * Selectors: #login-username (type=text), #login-password, #login-submit
- */
-async function login(page: Page, cfg: EnvConfig): Promise<void> {
-  await page.goto(cfg.url, { waitUntil: "domcontentloaded" });
-
-  // Race: either we land on a login form (session invalid) or we land on
-  // the authenticated shell where #messages-nav / the sidebar is present.
-  // Waiting on whichever appears first beats a blind 2s sleep.
-  await Promise.race([
-    page.waitForSelector("#login-username", { timeout: 4000 }),
-    page.waitForSelector("#messages-nav, .sidebar, #messages-list", { timeout: 4000 }),
-  ]).catch(() => null);
-
-  const hasLoginForm = await page.locator('#login-username')
-    .isVisible({ timeout: 500 })
-    .catch(() => false);
-
-  if (!hasLoginForm) return; // Already logged in via session
-
-  const creds = await resolveCredentials(cfg.credentialId);
-
-  await page.fill('#login-username', creds.username);
-  await page.fill('#login-password', creds.password);
-
-  // Click + wait for post-login navigation signal (any sidebar element)
-  // rather than a blind 2s sleep.
-  await Promise.all([
-    page
-      .waitForSelector("#messages-nav, .sidebar, #messages-list", { timeout: 10_000 })
-      .catch(() => null),
-    page.click('#login-submit'),
-  ]);
-}
-
-/**
- * Navigate directly to Messages inbox via URL.
- * Collections is already the active section after login.
- */
-async function navigateToMessages(page: Page, cfg: EnvConfig): Promise<void> {
-  await page.goto(`${cfg.url}/messages`, { waitUntil: "domcontentloaded" });
-  await page
-    .waitForSelector("#messages-list", { timeout: 8000 })
-    .catch(() => null);
-}
-
-/**
- * Select a company mailbox from the sidebar.
- * Sidebar is a <ul> with <a> links, format "» CompanyName",
- * href = /messages/index/mailbox/{id}. Navigate directly via URL for reliability.
- */
-async function selectCompanyMailbox(page: Page, cfg: EnvConfig, company: string): Promise<boolean> {
-  const mailboxHref = await page.evaluate((name) => {
-    const links = Array.from(document.querySelectorAll('a'));
-    for (const a of links) {
-      const text = a.textContent?.trim().replace(/^»\s*/, '') || '';
-      if (text.toLowerCase() === name.toLowerCase()) return a.getAttribute('href');
-    }
-    for (const a of links) {
-      const text = a.textContent?.trim().toLowerCase() || '';
-      if (text.includes(name.toLowerCase())) return a.getAttribute('href');
-    }
-    return null;
-  }, company);
-
-  if (!mailboxHref) return false;
-
-  await page.goto(`${cfg.url}${mailboxHref}`, { waitUntil: "domcontentloaded" });
-  await page.waitForTimeout(2000);
-  return true;
-}
-
-/**
- * Find a specific email in the messages table, paginating forward.
- * Primary match: timestamp (HH:MM + date parts from receivedAt).
- * Fallback: from + subject substring. Walks up to maxPages (default 10).
- * Returns row index within the page it was found on, or -1.
- * (The caller stays on that page so selectAndDelete's nth-child works.)
- */
-async function findEmail(page: Page, email: EmailIdentifiers, maxPages = 10): Promise<number> {
-  for (let pg = 0; pg < maxPages; pg++) {
-    await page.waitForSelector('#messages-list', { timeout: 5000 }).catch(() => null);
-    const isEmpty = await page.locator('.dataTables_empty').isVisible({ timeout: 1500 }).catch(() => false);
-    if (isEmpty) return -1;
-
-    const rowIndex = await page.evaluate(({ from, subject, receivedAt }) => {
-      const tsParts = receivedAt.match(/(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2})/);
-      const [, year, month, day, hh, mm] = tsParts ?? [];
-      const hm = hh && mm ? `${hh}:${mm}` : "";
-
-      const rows = document.querySelectorAll('#messages-list tbody tr');
-      for (let i = 0; i < rows.length; i++) {
-        const text = rows[i].textContent || "";
-        if (text.includes("No data available")) continue;
-
-        const timeMatch = hm !== "" && text.includes(hm);
-        const dateMatch =
-          tsParts !== null && (
-            text.includes(`${year}-${month}-${day}`) ||
-            text.includes(`${day}-${month}-${year}`) ||
-            text.includes(`${day}/${month}/${year}`) ||
-            text.includes(`${day}.${month}.${year}`)
-          );
-
-        if (timeMatch && dateMatch) return i;
-
-        const fromMatch = from && text.toLowerCase().includes(from.toLowerCase());
-        const subjectMatch =
-          subject && text.toLowerCase().includes(subject.substring(0, 30).toLowerCase());
-        if (fromMatch && subjectMatch) return i;
-      }
-      return -1;
-    }, email);
-
-    if (rowIndex !== -1) return rowIndex;
-
-    const advanced = await page.evaluate(() => {
-      const btn = document.querySelector<HTMLElement>(
-        '#messages-list_paginate .paginate_button.next:not(.disabled), .dataTables_paginate .paginate_button.next:not(.disabled)',
-      );
-      if (!btn) return false;
-      btn.click();
-      return true;
-    });
-    if (!advanced) return -1;
-    await page.waitForTimeout(1500);
-  }
-  return -1;
 }
 
 /**
@@ -478,16 +329,10 @@ export async function findAndPreviewEmail(
   email: EmailIdentifiers,
   env?: IControllerEnv,
 ): Promise<PreviewResult> {
-  const cfg = resolveEnv(env);
-  const { browser, context, page } = await connectWithSession(cfg.sessionKey);
+  const session = await openIControllerSession(env);
+  const { page } = session;
 
   try {
-    await login(page, cfg);
-    await navigateToMessages(page, cfg);
-
-    // Stay on the all-accounts view — sidebar filtering is the wrong
-    // mental model (same mailbox, many Account labels).
-
     const rowIndex = await findEmailViaSearch(page, email);
     if (rowIndex === -2) {
       const shot = await captureScreenshot(page, {
@@ -527,8 +372,6 @@ export async function findAndPreviewEmail(
       label: `preview-before-delete-${email.company}`,
     });
 
-    await saveSession(context, cfg.sessionKey);
-
     return {
       success: true,
       emailFound: true,
@@ -550,49 +393,7 @@ export async function findAndPreviewEmail(
       error: String(error),
     };
   } finally {
-    await browser.close();
-  }
-}
-
-export interface IControllerSession {
-  browser: Awaited<ReturnType<typeof connectWithSession>>["browser"];
-  context: Awaited<ReturnType<typeof connectWithSession>>["context"];
-  page: Page;
-  cfg: EnvConfig;
-}
-
-/**
- * Open an iController session once per batch. Login + navigate-to-messages
- * run a single time here — callers then call `deleteEmailOnPage` N times
- * against the same `page` to amortize the ~8-12s of connect + login cost.
- */
-export async function openIControllerSession(
-  env?: IControllerEnv,
-): Promise<IControllerSession> {
-  const cfg = resolveEnv(env);
-  const { browser, context, page } = await connectWithSession(cfg.sessionKey);
-  await login(page, cfg);
-  await navigateToMessages(page, cfg);
-  return { browser, context, page, cfg };
-}
-
-/**
- * Persist session cookies + close the browser. Safe to call in a finally
- * block — swallows errors from either half so an earlier failure in the
- * batch still cleans up the Browserless session.
- */
-export async function closeIControllerSession(
-  session: IControllerSession,
-): Promise<void> {
-  try {
-    await saveSession(session.context, session.cfg.sessionKey);
-  } catch {
-    // non-fatal — next run will re-login if cookies are stale
-  }
-  try {
-    await session.browser.close();
-  } catch {
-    // ignore — Browserless will GC the session on its end
+    await closeIControllerSession(session);
   }
 }
 
