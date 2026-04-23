@@ -1,6 +1,5 @@
 import { inngest } from "@/lib/inngest/client";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { warmupICSessions } from "@/lib/automations/icontroller/warmup";
 
 /**
  * iController-cleanup DISPATCHER. Fires on cron, fetches up to
@@ -72,16 +71,13 @@ export const cleanupIControllerDispatch = inngest.createFunction(
       return true;
     });
 
-    // Warm up parallel session-keys so shard workers can skip the
-    // login dance. Single-worker mode skips this — the one worker
-    // logs in itself just like the old cron did.
-    if (PARALLELISM > 1) {
-      await step.run("warmup-sessions", async () => {
-        await warmupICSessions("production", PARALLELISM);
-      });
-    }
-
     // Round-robin partition — each shard gets roughly todo.length/N items.
+    // No pre-warmup: each worker logs in independently against its own
+    // session-key (openIControllerSession reads `_N` from Supabase and
+    // runs loginIfNeeded if cookies are stale). An earlier warmup step
+    // that opened a session in the dispatcher caused 5-min timeouts when
+    // Browserless connects hung. 3 parallel logins are acceptable — it's
+    // the same load as the old cron already made per item.
     const shards: PendingRow[][] = Array.from({ length: PARALLELISM }, () => []);
     todo.forEach((row, idx) => shards[idx % PARALLELISM].push(row));
 
