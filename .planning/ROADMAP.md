@@ -112,6 +112,37 @@ Plans:
 - [ ] 43-02-PLAN.md -- Upstream sync detection (Vercel Cron, GitHub Trees API, tier classification, issue/PR creation), health dashboard Pipeline Sync UI
 - [ ] 43-03-PLAN.md -- Systems context passthrough (serialize DB systems to markdown, inject into architect stage)
 
+### Phase 55: Debtor-email pipeline hardening
+
+**Goal:** Production-harden de debtor-email pipeline zodat het intent + copy-document swarm veilig alle 6 debtor-mailboxen kan bedienen. Scope: (a) vervang hardcoded `ICONTROLLER_COMPANY` in cleanup-worker / catchup / review-actions door per-row `mailbox_id` uit `debtor.labeling_settings`; (b) createIcontrollerDraft idempotency + HTML-comment operator marker + cleanup (swarm launch blocker); (c) review-lane provenance chips + Zapier whitelist intra-company forwards + `skipped_not_whitelisted → status=skipped` hygiene + generieke verdict-route `/automations/review/[runId]`; (d) `public.agent_runs` schema met `swarm_type` discriminator + `body_version`/`intent_version` + minimale 👍/👎 verdict-UI (self-training Phase 1 hooks).
+**Requirements**: See `.planning/phases/55-debtor-email-pipeline-hardening/55-CONTEXT.md` and source todos: `2026-04-23-cleanup-worker-multi-mailbox.md`, `2026-04-23-create-draft-idempotency-and-cleanup.md`, `2026-04-23-debtor-review-pipeline-provenance-and-scoping.md`, `2026-04-23-self-training-loop-debtor-email-swarm.md` §Phase 1
+**Depends on:** Phase 54
+**Blocker for:** copy-document swarm production launch (alle mailboxen behalve Smeba)
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /gsd:plan-phase 55 to break down)
+
+### Phase 56: iController auto-labeling van accounts aan emails
+
+**Goal:** Inbound debtor-emails in iController automatisch labelen aan het juiste debiteur-account na de cleanup-stap. Per mailbox aan/uit via Zapier; onbekende mails blijven onaangeroerd. Scope: Supabase migratie uitvoeren, NXT invoice→debtor lookup via Zapier (whitelisted IP), sender→debtor fallback, LLM tiebreaker voor ambigue matches, iController label-DOM probe, Browserless label-module, Zapier Zaps per mailbox (6 entities: smeba=4, smeba-fire=5, firecontrol=12, sicli-noord=15, sicli-sud=16, berki=171), dry-run review + flip naar live.
+**Requirements**: See todo `2026-04-23-debtor-email-auto-labeling-in-icontroller.md`
+**Depends on:** Phase 54 (independent van 55 — eigen code-pad)
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /gsd:plan-phase 56 to break down)
+
+### Phase 57: v7 review dashboard polish
+
+**Goal:** Job-detail drawer bouwen voor v7 kanban cards en screenshot-rendering fixen. Scope: (a) `kanban-job-card.tsx` click → `JobDrawerContext` drawer (header, timeline van log-entries, linked automation_runs, screenshots); (b) `extractScreenshots` in `web/lib/automations/types.ts` fixen — data is `{url, path}`-shape, niet `string`; public-bucket OR on-demand signed-URL refresh. Wacht op Phase 55 (backend stabiel) voordat UI-polish zin heeft.
+**Requirements**: See todos `2026-04-23-v7-review-dashboard-card-popout-missing.md`, `2026-04-23-v7-review-screenshots-not-rendering.md`
+**Depends on:** Phase 55
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /gsd:plan-phase 57 to break down)
+
 ---
 
 ## Phases
