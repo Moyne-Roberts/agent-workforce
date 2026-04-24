@@ -43,11 +43,11 @@ updated: 2026-04-24
 | 55-01-T2 | 01 | 0 | test scaffolding | unit | `cd web && npx vitest run` | ⬜ (created in task) | ⬜ pending |
 | 55-02-T1 | 02 | 1 | REQ-55-a (cleanup-worker + EmailIdentifiers) | unit | `cd web && npx vitest run web/lib/inngest/__tests__/cleanup-worker-multi-mailbox.test.ts` | ✅ (stub in Plan 01) | ⬜ pending |
 | 55-02-T2 | 02 | 1 | REQ-55-a (catchup + review-actions + ingest) | unit | `cd web && npx vitest run web/lib/debtor-email/__tests__/catchup-multi-mailbox.test.ts` | ✅ (stub in Plan 01) | ⬜ pending |
-| 55-03-T1 | 03 | 1 | REQ-55-b-idempotency + marker | unit | `cd web && npx vitest run web/lib/automations/icontroller/__tests__/drafts-idempotency.test.ts web/lib/automations/icontroller/__tests__/draft-marker.test.ts` | ✅ (stub in Plan 01) | ⬜ pending |
-| 55-03-T2 | 03 | 1 | REQ-55-b-reconcile | unit | `cd web && npx vitest run web/lib/automations/icontroller/__tests__/drafts-reconcile.test.ts` | ✅ (stub in Plan 01) | ⬜ pending |
+| 55-03-T1 | 03 | 2 | REQ-55-b-idempotency + marker | unit | `cd web && npx vitest run web/lib/automations/icontroller/__tests__/drafts-idempotency.test.ts web/lib/automations/icontroller/__tests__/draft-marker.test.ts` | ✅ (stub in Plan 01) | ⬜ pending |
+| 55-03-T2 | 03 | 2 | REQ-55-b-reconcile | unit | `cd web && npx vitest run web/lib/automations/icontroller/__tests__/drafts-reconcile.test.ts` | ✅ (stub in Plan 01) | ⬜ pending |
 | 55-04-T1 | 04 | 1 | REQ-55-c-provenance + hygiene | unit+component | `cd web && npx vitest run web/lib/automations/swarm-bridge/__tests__/provenance-chips.test.ts web/components/v7/kanban/__tests__/kanban-job-card.test.tsx` | ✅ (stub in Plan 01) | ⬜ pending |
 | 55-04-T2 | 04 | 1 | REQ-55-c-verdict-route + REQ-55-d-verdict-UI | integration | `cd web && npx vitest run "web/app/(dashboard)/automations/review/[runId]/__tests__/review-page.test.tsx" web/app/api/automations/debtor/verdict/__tests__/route.test.ts` | ✅ (stub in Plan 01) | ⬜ pending |
-| 55-05-T1 | 05 | 1 | REQ-55-d-swarm-type + git-sha | unit | `cd web && npx vitest run web/lib/inngest/functions/__tests__/debtor-agent-run-write.test.ts` | ✅ (stub in Plan 01) | ⬜ pending |
+| 55-05-T1 | 05 | 2 | REQ-55-d-swarm-type + git-sha | unit | `cd web && npx vitest run web/lib/inngest/functions/__tests__/debtor-agent-run-write.test.ts` | ✅ (stub in Plan 01) | ⬜ pending |
 
 *Status: ⬜ pending · ✅ green · ❌ red · ⚠️ flaky*
 
