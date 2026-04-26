@@ -764,6 +764,27 @@ export async function syncSwarmBridge(
       .eq("agent_name", agentName);
   }
 
+  // Phase 59 D-01: emit a single batched broadcast at end-of-tick instead
+  // of relying on per-row postgres_changes fan-out. The client provider
+  // listens for `events-stale` on `swarm:{swarmId}` and triggers a
+  // refetch; the 15s safety-net poll covers dropped messages. Wrapped in
+  // try/catch — broadcast failure must never break the bridge tick.
+  try {
+    const broadcastChannel = admin.channel(`swarm:${swarmId}`);
+    await broadcastChannel.send({
+      type: "broadcast",
+      event: "events-stale",
+      payload: { reason: "bridge-sync", at: new Date().toISOString() },
+    });
+    admin.removeChannel(broadcastChannel);
+  } catch (err) {
+    console.warn(
+      `[swarm-bridge] events-stale broadcast failed for swarm ${swarmId}: ${
+        err instanceof Error ? err.message : String(err)
+      }`,
+    );
+  }
+
   return {
     swarm_id: swarmId,
     runs_seen: runRows.length,

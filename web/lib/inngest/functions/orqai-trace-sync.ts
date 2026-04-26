@@ -275,5 +275,30 @@ async function syncSwarm(
     { onConflict: "swarm_id" }
   );
 
+  // Phase 59 D-01: emit one batched broadcast per swarm if we wrote any
+  // agent_events this tick. The client provider on `swarm:{swarmId}`
+  // listens for `events-stale` and refetches. Try/catch — never fail the
+  // sync because realtime emission failed (15s poll is the safety net).
+  // Currently this function is event-triggered (cron paused per Phase 58);
+  // wiring this in now means the broadcast Just Works the moment the cron
+  // is re-enabled for Executive Dashboard.
+  if (insertedThisSwarm > 0) {
+    try {
+      const broadcastChannel = admin.channel(`swarm:${swarm.id}`);
+      await broadcastChannel.send({
+        type: "broadcast",
+        event: "events-stale",
+        payload: { reason: "orqai-trace-sync", at: new Date().toISOString() },
+      });
+      admin.removeChannel(broadcastChannel);
+    } catch (err) {
+      console.warn(
+        `[orqai-trace-sync] events-stale broadcast failed for swarm ${swarm.id}: ${
+          err instanceof Error ? err.message : String(err)
+        }`
+      );
+    }
+  }
+
   return insertedThisSwarm;
 }

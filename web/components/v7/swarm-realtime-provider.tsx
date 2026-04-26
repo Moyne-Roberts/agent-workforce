@@ -122,26 +122,27 @@ export function SwarmRealtimeProvider({
     fetchSnapshot();
     const pollId = setInterval(fetchSnapshot, POLL_INTERVAL_MS);
 
-    // 2. Single channel carrying 4 postgres_changes subscriptions.
+    // 2. Single channel carrying 1 broadcast listener (agent_events) + 3
+    //    postgres_changes subscriptions (jobs, agents, briefings).
+    //
+    //    Phase 59 D-01: agent_events used to be a postgres_changes
+    //    subscription, but bridge ticks delete+reinsert hundreds of span
+    //    rows per tick — each row fanned out to every connected dashboard
+    //    tab and burned through the Supabase Realtime monthly cap. Server
+    //    now emits a single `events-stale` broadcast at end-of-tick
+    //    (web/lib/automations/swarm-bridge/sync.ts and
+    //    web/lib/inngest/functions/orqai-trace-sync.ts); we refetch the
+    //    snapshot in response. The 15s poll above is the dropped-message
+    //    safety net.
     const channel: RealtimeChannel = supabase
       .channel(`swarm:${swarmId}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "agent_events",
-          filter: `swarm_id=eq.${swarmId}`,
-        },
-        (payload) =>
-          setBundle((prev) => ({
-            ...prev,
-            events: applyMutation(
-              prev.events,
-              payload as RealtimePostgresChangesPayload<AgentEvent>,
-            ),
-          })),
-      )
+      .on("broadcast", { event: "events-stale" }, () => {
+        // We piggyback on the existing fetchSnapshot which SELECTs all 4
+        // tables. Bridge ticks are rare enough (1/2min business hours)
+        // that re-fetching jobs/agents/briefings on the same tick costs
+        // nothing and keeps the data path simple.
+        fetchSnapshot();
+      })
       .on(
         "postgres_changes",
         {
