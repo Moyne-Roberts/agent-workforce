@@ -20,7 +20,14 @@
  */
 
 export interface AutomationBackedSwarm {
+  /**
+   * @deprecated Phase 59 D-02 — kept for the legacy SELECT/LIKE path used
+   * inside `swarm-bridge/sync.ts` and for `getEntityConfigForPrefix()`.
+   * New realtime code uses the explicit `automations` list.
+   */
   prefix: string;
+  /** Explicit list of full automation names belonging to this swarm. */
+  automations: string[];
   /** Optional helper copy rendered under the swarm header. */
   hint?: string;
   /**
@@ -42,6 +49,16 @@ export interface AutomationBackedSwarm {
 export const AUTOMATION_BACKED_SWARMS: Record<string, AutomationBackedSwarm> = {
   "60c730a3-be04-4b59-87e8-d9698b468fc9": {
     prefix: "debtor-email",
+    // Cross-checked 2026-04-26 against `rg "automation:\s*['\"]debtor-email"
+    // web/ -t ts` — these are every full automation name written into
+    // automation_runs.automation by a debtor-email-* writer. Add new
+    // debtor-email-* automations here when introduced (Phase 59 D-02).
+    automations: [
+      "debtor-email-cleanup",
+      "debtor-email-drafter",
+      "debtor-email-fetch-document",
+      "debtor-email-review",
+    ],
     hint: "Live overzicht van alle mails die door de Classifier Orchestrator stromen. Elke kaart = één mail, met alle regels + acties als log.",
     entity: {
       key: "message_id",

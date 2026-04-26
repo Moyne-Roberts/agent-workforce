@@ -5,6 +5,7 @@ import {
   type CreateDraftInput,
   type IControllerEnv,
 } from "@/lib/automations/debtor-email/drafter";
+import { emitAutomationRunStale } from "@/lib/automations/runs/emit";
 
 const WEBHOOK_SECRET = process.env.AUTOMATION_WEBHOOK_SECRET;
 
@@ -145,6 +146,7 @@ export async function POST(request: NextRequest) {
       () => null,
       (err) => console.warn(`[create-draft] automation_runs log failed (non-fatal): ${err}`),
     );
+  await emitAutomationRunStale(admin, "debtor-email-drafter");
 
   if (result.success) {
     return NextResponse.json(

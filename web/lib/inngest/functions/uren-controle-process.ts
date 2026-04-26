@@ -3,6 +3,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { parseHourCalculationExcel } from "@/lib/automations/uren-controle/excel-parser";
 import { runAllRules, isSuppressed } from "@/lib/automations/uren-controle/rules";
 import { loadKnownExceptions } from "@/lib/automations/uren-controle/known-exceptions";
+import { emitAutomationRunStale } from "@/lib/automations/runs/emit";
 
 const AUTOMATION_NAME = "uren-controle";
 const STORAGE_BUCKET = "automation-files";
@@ -27,6 +28,7 @@ export const processUrenControle = inngest.createFunction(
         triggered_by: event.data.event.data.triggeredBy,
         completed_at: new Date().toISOString(),
       });
+      await emitAutomationRunStale(admin, AUTOMATION_NAME);
     },
   },
   { event: "automation/uren-controle.triggered" },
@@ -183,6 +185,7 @@ export const processUrenControle = inngest.createFunction(
         triggered_by: event.data.triggeredBy,
         completed_at: new Date().toISOString(),
       });
+      await emitAutomationRunStale(admin, AUTOMATION_NAME);
     });
 
     return { success: true, filename: fileRef.filename, flaggedCount };

@@ -158,7 +158,7 @@ export default async function ProjectDetailPage({ params }: PageProps) {
           <TabsContent value="live" className="mt-4">
             <AgentRunBoard
               title={project.name}
-              prefix={automationBacking.prefix}
+              automations={automationBacking.automations}
               description={automationBacking.hint}
               embedded
             />

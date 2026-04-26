@@ -3,6 +3,7 @@ import { classify } from "@/lib/debtor-email/classify";
 import { categorizeEmail, archiveEmail, fetchMessageBody, getMessageMeta } from "@/lib/outlook";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { inngest } from "@/lib/inngest/client";
+import { emitAutomationRunStale } from "@/lib/automations/runs/emit";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 30;
@@ -239,6 +240,7 @@ export async function POST(req: NextRequest): Promise<NextResponse<IngestRespons
       triggered_by: "zapier:ingest",
       completed_at: isoNow,
     });
+    await emitAutomationRunStale(admin, "debtor-email-review");
     return NextResponse.json({
       action: is404 ? "skipped_not_found" : "failed",
       messageId,
@@ -285,6 +287,7 @@ export async function POST(req: NextRequest): Promise<NextResponse<IngestRespons
       triggered_by: "zapier:ingest",
       completed_at: isoNow,
     });
+    await emitAutomationRunStale(admin, "debtor-email-review");
 
     // Triage hook — fire-and-forget for unknown emails when shadow mode is on.
     let triageFired = false;
@@ -346,6 +349,7 @@ export async function POST(req: NextRequest): Promise<NextResponse<IngestRespons
       triggered_by: "zapier:ingest",
       completed_at: isoNow,
     });
+    await emitAutomationRunStale(admin, "debtor-email-review");
     return NextResponse.json({
       action: "failed",
       messageId,
@@ -371,6 +375,7 @@ export async function POST(req: NextRequest): Promise<NextResponse<IngestRespons
       triggered_by: "zapier:ingest",
       completed_at: isoNow,
     });
+    await emitAutomationRunStale(admin, "debtor-email-review");
     return NextResponse.json({
       action: "failed",
       messageId,
@@ -397,6 +402,7 @@ export async function POST(req: NextRequest): Promise<NextResponse<IngestRespons
     triggered_by: "zapier:ingest",
     completed_at: isoNow,
   });
+  await emitAutomationRunStale(admin, "debtor-email-review");
 
   // Queue iController-delete als pending. De Inngest cleanup-cron pakt
   // 'm binnen 5 min op. Cleanup-worker leest `company` nog niet uit de
@@ -421,6 +427,7 @@ export async function POST(req: NextRequest): Promise<NextResponse<IngestRespons
     triggered_by: "zapier:ingest",
     completed_at: isoNow,
   });
+  await emitAutomationRunStale(admin, "debtor-email-review");
 
   return NextResponse.json({
     action: "labeled",

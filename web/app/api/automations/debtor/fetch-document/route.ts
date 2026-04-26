@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { randomUUID } from "node:crypto";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { waitForFetchRequest } from "@/lib/automations/debtor-email/fetch-document";
+import { emitAutomationRunStale } from "@/lib/automations/runs/emit";
 
 const WEBHOOK_SECRET = process.env.AUTOMATION_WEBHOOK_SECRET;
 const ZAP_URL = process.env.DEBTOR_FETCH_WEBHOOK_URL_INVOICE;
@@ -277,4 +278,5 @@ async function logRun(
       () => null,
       (err: unknown) => console.warn(`[fetch-document] automation_runs log failed (non-fatal): ${err}`),
     );
+  await emitAutomationRunStale(admin, "debtor-email-fetch-document");
 }

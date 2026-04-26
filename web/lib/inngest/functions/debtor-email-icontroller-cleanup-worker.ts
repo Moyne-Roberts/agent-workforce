@@ -5,6 +5,7 @@ import {
   closeIControllerSession,
 } from "@/lib/automations/icontroller/session";
 import { deleteEmailOnPage } from "@/lib/automations/debtor-email-cleanup/browser";
+import { emitAutomationRunStale } from "@/lib/automations/runs/emit";
 
 /**
  * iController-cleanup SHARD WORKER. Triggered by
@@ -95,6 +96,7 @@ export const cleanupIControllerShardWorker = inngest.createFunction(
               result: { ...r, processed_by: processorName },
             })
             .eq("id", row.id);
+          await emitAutomationRunStale(admin, "debtor-email-cleanup");
 
           try {
             const icRes = await deleteEmailOnPage(session.page, session.cfg, {
@@ -127,6 +129,7 @@ export const cleanupIControllerShardWorker = inngest.createFunction(
                 completed_at: new Date().toISOString(),
               })
               .eq("id", row.id);
+            await emitAutomationRunStale(admin, "debtor-email-cleanup");
 
             out.push({
               message_id: r.message_id,
@@ -149,6 +152,7 @@ export const cleanupIControllerShardWorker = inngest.createFunction(
                 completed_at: new Date().toISOString(),
               })
               .eq("id", row.id);
+            await emitAutomationRunStale(admin, "debtor-email-cleanup");
             out.push({ message_id: r.message_id, outcome: "failed", error: msg });
           }
         }

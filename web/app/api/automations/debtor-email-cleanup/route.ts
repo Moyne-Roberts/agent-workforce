@@ -6,6 +6,7 @@ import {
   type EmailIdentifiers,
   type IControllerEnv,
 } from "@/lib/automations/debtor-email-cleanup/browser";
+import { emitAutomationRunStale } from "@/lib/automations/runs/emit";
 
 const WEBHOOK_SECRET = process.env.AUTOMATION_WEBHOOK_SECRET!;
 
@@ -56,6 +57,7 @@ export async function POST(request: NextRequest) {
       triggered_by: `preview:${body?.category ?? "manual"}`,
       completed_at: new Date().toISOString(),
     });
+    await emitAutomationRunStale(admin, "debtor-email-cleanup");
     return NextResponse.json(result, { status: result.success ? 200 : 422 });
   }
 
@@ -77,5 +79,6 @@ export async function POST(request: NextRequest) {
     triggered_by: `zapier-webhook:${body?.category ?? "unknown"}`,
     completed_at: new Date().toISOString(),
   });
+  await emitAutomationRunStale(admin, "debtor-email-cleanup");
   return NextResponse.json(result, { status: result.success ? 200 : 422 });
 }
