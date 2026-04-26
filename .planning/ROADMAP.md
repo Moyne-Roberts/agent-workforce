@@ -147,6 +147,18 @@ Plans:
 Plans:
 - [ ] TBD (run /gsd:plan-phase 57 to break down)
 
+### Phase 59: Supabase realtime fan-out reduction
+
+**Goal:** Get Supabase realtime messages back under cap (currently 6.5M / 5.5M; grace until 2026-05-26). Phase 58 attacked the upstream writes; Phase 59 attacks the subscription architecture so we don't grow back into the cap as automation volume scales.
+
+**Scope (to be refined in /gsd:plan-phase 59):**
+- Add server-side filter to `automation-realtime-provider.tsx` (currently subscribes to ALL `automation_runs` rows; filters client-side).
+- Replace `agent_events` postgres_changes with batched broadcast on `swarm:${swarmId}` channel (bridge tick emits 1 msg instead of 50–200 row-level msgs).
+- Coalesce `pipeline.ts` `broadcastStepUpdate` calls (22 call sites; rapid status flips emit one msg per flip with no debouncing).
+
+**Depends on:** Phase 58 (cron windowing — completed).
+**Status:** Context drafted (`59-CONTEXT.md`); awaiting `/gsd:plan-phase 59`.
+
 ### Phase 58: Inngest cron cost optimization (Shipped 2026-04-26)
 
 **Goal:** Bring Inngest free-tier usage back under 50k runs/mo after dual billing alerts (Inngest 42k/50k mid-month, Supabase 6.5M/5.5M realtime messages). Window high-frequency crons to business hours (06:00–19:58 Europe/Amsterdam, Mon–Fri) and pause `orqai-trace-sync` entirely while Executive Dashboard work is on hold.
