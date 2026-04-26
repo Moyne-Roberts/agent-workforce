@@ -6,9 +6,11 @@
  * - Live tab   — kanban with 4 columns (Analyseert / Review / Afgerond / Fout)
  * - Archief tab — grid of completed runs that have screenshots
  *
- * Filters by automation-name prefix so a single board can render every
- * sub-agent in a swarm (e.g. prefix="debtor-email" matches
- * "debtor-email-review" + "debtor-email-cleanup" + future siblings).
+ * Phase 59 D-02: subscribes to an explicit list of full automation names
+ * (`automations: string[]`) instead of a LIKE prefix — one Supabase channel
+ * per name, no fanout. The display-only sub-agent label inside each card is
+ * derived from the longest common prefix of the list (so card/drawer code
+ * stays unchanged).
  */
 
 import { useMemo, useState } from "react";
@@ -48,8 +50,11 @@ const COLUMN_ACCENT: Record<AgentRunStage, string> = {
 interface AgentRunBoardProps {
   /** Title shown in the header, e.g. "Debiteuren Email Swarm". */
   title: string;
-  /** Automation-name prefix match, e.g. "debtor-email". */
-  prefix: string;
+  /**
+   * Explicit list of full automation names this board owns. Each name gets
+   * its own broadcast channel subscription (Phase 59 D-02).
+   */
+  automations: string[];
   /** Optional subtitle / description below the title. */
   description?: string;
   /**
@@ -60,9 +65,32 @@ interface AgentRunBoardProps {
   embedded?: boolean;
 }
 
+/**
+ * Longest common dash-separated prefix across the automation names. Used
+ * only as a display heuristic to give card/drawer a short sub-agent label
+ * (e.g. ["debtor-email-review","debtor-email-cleanup"] → "debtor-email").
+ * Falls back to the single name if the list has one entry.
+ */
+function commonPrefix(automations: string[]): string {
+  if (automations.length === 0) return "";
+  if (automations.length === 1) return automations[0];
+  const parts = automations.map((a) => a.split("-"));
+  const minLen = Math.min(...parts.map((p) => p.length));
+  const common: string[] = [];
+  for (let i = 0; i < minLen; i++) {
+    const seg = parts[0][i];
+    if (parts.every((p) => p[i] === seg)) {
+      common.push(seg);
+    } else {
+      break;
+    }
+  }
+  return common.join("-");
+}
+
 export function AgentRunBoard(props: AgentRunBoardProps) {
   return (
-    <AutomationRealtimeProvider prefix={props.prefix}>
+    <AutomationRealtimeProvider automations={props.automations}>
       <AgentRunBoardInner {...props} />
     </AutomationRealtimeProvider>
   );
@@ -70,10 +98,11 @@ export function AgentRunBoard(props: AgentRunBoardProps) {
 
 function AgentRunBoardInner({
   title,
-  prefix,
+  automations,
   description,
   embedded = false,
 }: AgentRunBoardProps) {
+  const prefix = useMemo(() => commonPrefix(automations), [automations]);
   const { runs, status, loading } = useAutomationRuns();
   const [selected, setSelected] = useState<AutomationRun | null>(null);
 

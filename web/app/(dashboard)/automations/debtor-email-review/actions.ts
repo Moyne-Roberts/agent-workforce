@@ -3,6 +3,7 @@
 import { categorizeEmail, archiveEmail, fetchMessageBody } from "@/lib/outlook";
 import { classify } from "@/lib/debtor-email/classify";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { emitAutomationRunStale } from "@/lib/automations/runs/emit";
 // iController delete is no longer called inline — see comment in the
 // execute loop. The import stays available for the catchup script via
 // `@/lib/automations/debtor-email-cleanup/browser`.
@@ -125,6 +126,7 @@ export async function executeReviewDecisions(
       completed_at: isoNow,
     };
     await admin.from("automation_runs").insert(feedbackRow);
+    await emitAutomationRunStale(admin, "debtor-email-review");
 
     if (d.decision === "exclude") {
       result.excluded++;
@@ -151,6 +153,7 @@ export async function executeReviewDecisions(
         triggered_by: "bulk-review:ui",
         completed_at: isoNow,
       });
+      await emitAutomationRunStale(admin, "debtor-email-review");
       continue;
     }
 
@@ -181,6 +184,7 @@ export async function executeReviewDecisions(
           triggered_by: "bulk-review:ui",
           completed_at: isoNow,
         });
+        await emitAutomationRunStale(admin, "debtor-email-review");
         continue;
       }
     }
@@ -201,6 +205,7 @@ export async function executeReviewDecisions(
         triggered_by: "bulk-review:ui",
         completed_at: isoNow,
       });
+      await emitAutomationRunStale(admin, "debtor-email-review");
       continue;
     }
 
@@ -228,6 +233,7 @@ export async function executeReviewDecisions(
         triggered_by: "bulk-review:ui",
         completed_at: isoNow,
       });
+      await emitAutomationRunStale(admin, "debtor-email-review");
       continue;
     }
 
@@ -247,6 +253,7 @@ export async function executeReviewDecisions(
         triggered_by: "bulk-review:ui",
         completed_at: isoNow,
       });
+      await emitAutomationRunStale(admin, "debtor-email-review");
       continue;
     }
 
@@ -266,6 +273,7 @@ export async function executeReviewDecisions(
       triggered_by: "bulk-review:ui",
       completed_at: isoNow,
     });
+    await emitAutomationRunStale(admin, "debtor-email-review");
 
     // iController delete wordt NIET inline uitgevoerd. Een enkele browser-
     // session duurt 15-25s; een chunk van 10 items tikt daardoor tegen
@@ -296,6 +304,7 @@ export async function executeReviewDecisions(
       triggered_by: "bulk-review:ui",
       completed_at: isoNow,
     });
+    await emitAutomationRunStale(admin, "debtor-email-review");
   }
 
   return result;

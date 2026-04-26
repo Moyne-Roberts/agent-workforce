@@ -1,6 +1,7 @@
 import { inngest } from "../client";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { deleteOrderLines } from "@/lib/automations/heeren-oefeningen/delete-order-line";
+import { emitAutomationRunStale } from "@/lib/automations/runs/emit";
 import {
   createInvoiceDraft,
   type DraftOrderLine,
@@ -45,6 +46,7 @@ export const processHeerenOefening = inngest.createFunction(
         triggered_by: event.data.event.data.triggeredBy,
         completed_at: new Date().toISOString(),
       });
+      await emitAutomationRunStale(admin, AUTOMATION_NAME);
     },
   },
   { event: "automation/heeren-oefeningen.triggered" },
@@ -189,6 +191,7 @@ export const processHeerenOefening = inngest.createFunction(
         triggered_by: event.data.triggeredBy,
         completed_at: new Date().toISOString(),
       });
+      await emitAutomationRunStale(admin, AUTOMATION_NAME);
     });
 
     return {
@@ -379,13 +382,15 @@ export const createMonthlyInvoiceDrafts = inngest.createFunction(
       const admin = createAdminClient();
       const successCount = results.filter(r => r.success).length;
       const failCount = results.length - successCount;
+      const fase2Name = `${AUTOMATION_NAME}-fase2`;
       await admin.from("automation_runs").insert({
-        automation: `${AUTOMATION_NAME}-fase2`,
+        automation: fase2Name,
         status: failCount === 0 ? "completed" : "partial",
         result: { groups: results.length, success: successCount, failed: failCount, details: results },
         triggered_by: triggeredBy,
         completed_at: new Date().toISOString(),
       });
+      await emitAutomationRunStale(admin, fase2Name);
     });
 
     return {

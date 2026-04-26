@@ -2,6 +2,7 @@ import { inngest } from "../client";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { downloadProliusReport } from "@/lib/automations/prolius-report/browser";
 import { uploadToCouchDrop } from "@/lib/automations/prolius-report/sftp";
+import { emitAutomationRunStale } from "@/lib/automations/runs/emit";
 
 const AUTOMATION_NAME = "prolius-report";
 const STORAGE_BUCKET = "automation-files";
@@ -23,6 +24,7 @@ export const processProliusReport = inngest.createFunction(
         triggered_by: event.data.event.data.triggeredBy,
         completed_at: new Date().toISOString(),
       });
+      await emitAutomationRunStale(admin, AUTOMATION_NAME);
     },
   },
   { event: "automation/prolius-report.triggered" },
@@ -79,6 +81,7 @@ export const processProliusReport = inngest.createFunction(
         triggered_by: event.data.triggeredBy,
         completed_at: new Date().toISOString(),
       });
+      await emitAutomationRunStale(admin, AUTOMATION_NAME);
     });
 
     return { success: true, filename: fileRef.filename };
