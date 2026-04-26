@@ -165,11 +165,17 @@ Which phases cover which requirements. Updated during roadmap creation.
 | POL-01 | Phase 54 | Complete (code) |
 | POL-02 | Phase 54 | Complete (code) |
 | POL-03 | Phase 54 | Complete (code) |
+| ADV-01 | V8+ | Deferred |
+| ADV-02 | V8+ | Deferred |
+| ADV-03 | V8+ | Deferred |
+| AUTO-01 | V8+ | Deferred |
+| AUTO-02 | V8+ | Deferred |
 
 **Coverage:**
 - V7.0 requirements: 45 total (12 categories)
 - Mapped to phases: 45/45
 - Unmapped: 0
+- V8+ deferred: 5 (ADV-01..03, AUTO-01..02)
 
 ---
 *Requirements defined: 2026-04-15*
